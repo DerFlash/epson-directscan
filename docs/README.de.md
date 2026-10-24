@@ -1,0 +1,144 @@
+# ScanSmart AutoSave — 0.1.0-beta.1
+
+**Quellcode-Beta: Die Hardware-Abnahme dieser neuen App steht noch aus.** Nur der
+Vorgänger wurde mit deutschem Epson ScanSmart 3.7.22, macOS 27.0.1 und ES-C320W
+über USB getestet. Das bestätigt diese Beta nicht. Andere Sprachen, Modelle,
+Ansichten, Dateiformate und macOS-Versionen sind ungeprüft. Unbekannte Ansichten
+führen zur Pause. Das unabhängige Projekt enthält keine Epson-Software und
+benötigt kein Codex.
+
+Die App übernimmt die zwei Speicherschritte für JPG nach einem Scan über die
+Scannertaste. Auflösung, Seiten und Dateinamen-Präfix stellst du weiterhin in
+ScanSmart ein. Die App holt ScanSmart niemals nach vorn.
+
+## Bauen und installieren
+
+Du brauchst macOS mit den Systemwerkzeugen `osacompile` und `codesign`. Die App
+benötigt keine zusätzlichen Laufzeitpakete. Entwicklungstests brauchen Node.js
+und Python 3. Im heruntergeladenen Quellcode-Verzeichnis:
+
+```sh
+./scripts/test.sh
+./scripts/build.sh
+./scripts/install.sh
+```
+
+Der Build erstellt `build/ScanSmart AutoSave Beta.app`, packt die benötigten
+JavaScript-Dateien hinein und signiert sie lokal mit einer Ad-hoc-Signatur.
+Er startet und installiert nichts und ändert weder Rechte noch Autostart.
+Ein vorhandener Build wird nur mit `./scripts/build.sh --replace` ersetzt.
+Optional: `./scripts/build.sh --sign 'DEINE SIGNATURIDENTITÄT'`; das führt keine
+Notarisierung durch. Kennung: `org.scansmart.autosave.beta`, Version `0.1.0`,
+Build `1`, Beta-Version `0.1.0-beta.1`.
+
+Die Installation kopiert nach `~/Applications`. Vorhandene Apps werden abgelehnt.
+Zum bewussten Ersetzen zuerst alle Helfer beenden, dann
+`./scripts/install.sh --replace` verwenden. Ein anderes Zielverzeichnis muss
+absolut sein, etwa `./scripts/install.sh --destination '/absoluter/Pfad/Applications'`.
+Pfade mit Leerzeichen sind unterstützt. Es wird kein Anmeldeobjekt angelegt.
+**Niemals zwei Helfer gleichzeitig starten**, auch keinen älteren Helfer oder
+separates Vorgängerskript.
+
+Dies ist eine Quellcode-Veröffentlichung. Der lokale Build ist nicht notarisiert.
+Eine allgemein herunterladbare Binärdatei bräuchte eine stabile Developer-ID-
+Signatur und Notarisierung. Erfolgreiche Tests ersetzen keine Hardware-Abnahme.
+
+## Start, Berechtigungen und erster Scan
+
+1. Starte die installierte App manuell. Sie ist zunächst deaktiviert. Über ihr
+   Dock-Symbol öffnest du Zielordner, Aktivieren/Pause, Status, Probelauf und Reset.
+2. Wähle einen beschreibbaren Zielordner. Erlaube **dieser App** unter
+   Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen den Zugriff.
+   Erlaube bei Nachfrage außerdem die Steuerung von System Events unter
+   Automation. Rechte für Terminal oder Codex reichen für die eigenständige App
+   nicht aus.
+3. Schließe bereits wartende Exporte in ScanSmart manuell ab oder brich sie ab.
+   Aktiviere zuerst den Probelauf und anschließend den Helfer. Er muss ScanSmart
+   einmal außerhalb einer wartenden Auswahl-/Speicherseite sehen, bevor er
+   scharfgeschaltet ist: Verwende den normalen ScanSmart-Startbildschirm vor einem
+   Scan. „Aktion wählen“ ist die wartende Auswahlseite und keine freie Ansicht.
+   Lass ScanSmart beim neuen Scan im Vordergrund.
+4. Prüfe die geplanten Aktionen und den Zielordner. Schließe den Probelauf-Export
+   manuell ab oder brich ihn ab. Schalte dann den Probelauf aus; dadurch muss der
+   Helfer erneut eine freie Startansicht sehen. Derselbe wartende Probescan kann
+   nicht sofort automatisch gespeichert werden. Starte einen neuen unkritischen
+   Testscan und prüfe die erzeugten Dateien.
+
+Nach einem Ad-hoc-Neubau kann macOS trotz gleicher App-Kennung eine neue
+Berechtigungsidentität sehen. Falls Rechte nicht mehr greifen: App beenden,
+alten Eintrag bei Bedienungshilfen entfernen und die neu installierte App erneut
+hinzufügen. Automation-Eintrag prüfen und eine neue Nachfrage beantworten.
+Die Skripte ändern diese Rechte nicht. Erteile sie nur deiner bekannten App-Kopie.
+
+## Einstellungen und sichere Wiederaufnahme
+
+Einstellungen, Transaktionsstatus und begrenzte Protokolle liegen außerhalb der
+signierten App unter `~/Library/Application Support/ScanSmart AutoSave/`.
+Voreinstellung: kein Zielordner, deaktiviert, Probelauf aus. Ändere Einstellungen
+über die App. Der Probelauf zeigt geplante Aktionen, ohne Felder zu verändern oder
+zu klicken. Nach Aktivieren, Neustart, Reset oder Zielwechsel muss die App erneut
+eine freie ScanSmart-Ansicht sehen.
+
+Ein abgesendeter Klick bestätigt keinen gespeicherten Scan. Erfolg verlangt alle
+erwarteten, nicht leeren JPEG-Dateien, unveränderte Größen in zwei Prüfungen und
+eine geschlossene Speicherseite. Bereits vorhandene Zieldateien, Fehler, unklare
+Metadaten, fremde Ansichten und Zeitüberschreitungen führen zur Pause. Werden
+Dateien sofort von einem anderen Programm verschoben, kann die Prüfung ebenfalls
+pausieren. Übergänge haben 30 Sekunden, die Exportprüfung 120 Sekunden Zeit.
+
+Bei Pause zuerst Ausgabeordner und ScanSmart prüfen. Einen wartenden Export
+manuell abschließen oder abbrechen; Dateien eines unklaren Speichervorgangs
+erhalten. Danach Reset wählen und ScanSmart zur freien Ansicht zurückbringen.
+Ein unklarer Speichervorgang wird niemals automatisch erneut versucht. Lösche
+keine vorhandenen Dateien, nur um eine Kollision zu umgehen.
+
+Epsons eigene Bedienelemente benötigen native Mausklicks. Direkt davor wird der
+Vordergrundprozess erneut geprüft. Zwischen Prüfung und Klick bleibt ein kleines,
+nicht atomar lösbares Zeitfenster. Wechsle während des Exports möglichst nicht
+die App. Es gibt keine Tastenkürzel und kein pauschales Wegklicken von Fehlern.
+
+## Fehler finden, Prüfstand und Entfernen
+
+- Keine Aktion: Aktivierung, Zielordner, freie Ansicht zum Scharfschalten,
+  Vordergrund, deutsche JPG-Ansicht und Rechte der eigenen App prüfen.
+- Rechte nach Neubau fehlen: Berechtigungseinträge wie oben erneuern und die App
+  manuell neu starten.
+- Pause nach dem Export: Dateien prüfen, erst danach Reset. Ein Klick ist kein
+  Erfolgsnachweis. Unbekannte Dialoge manuell behandeln.
+- Doppelte Aktionen: alle Kopien und den Vorgänger beenden.
+
+Statuscodes und Abhilfe:
+
+| Code | Bedeutung und nächster Schritt |
+| --- | --- |
+| `invalid_metadata`, `counter_overflow` | JPG-Name, Endung oder Seitenzahl ist unklar oder außerhalb des erlaubten Bereichs. Export manuell klären; ScanSmart-Namen und JPG-Einstellungen prüfen. |
+| `target_exists` | Eine erwartete Datei existiert schon. Erhalten; für einen neuen Scan anderen Namen oder Zielordner wählen. |
+| `destination_readback`, `destination_rejected` | Zielwechsel wurde nicht bestätigt. Ordner prüfen und Export manuell abschließen/abbrechen. |
+| `unsupported_view` | Unbekannte oder blockierte Ansicht. Dialog manuell behandeln; unterstützte deutsche Ansicht verwenden. |
+| `transition_timeout`, `export_timeout` | Ansicht oder Dateiprüfung dauerte zu lange. Vor Wiederaufnahme tatsächliche Dateien und wartenden Export prüfen. |
+| `permission_denied` | Bedienungshilfen-/Automation-Rechte dieser App prüfen. |
+| `ui_changed`, `dispatch_failed` | Fenster hat sich geändert oder Aktion ist unbestätigt. ScanSmart und Dateien prüfen; nicht blind erneut versuchen. |
+| `adapter_error`, `bridge_error`, `unknown_action` | Interner Zustand ist unklar. Pausieren, Dateien und wartenden Export klären; erst danach Neustart/Reset. |
+| `storage_error` | Private Einstellungen/Status konnten nicht gelesen oder gespeichert werden. App beenden, Ordnerzugriff prüfen und Diagnosen vor Datenreset sichern. |
+| `invalid_destination` | Vorhandenen beschreibbaren Zielordner über die App wählen. |
+| `invalid_settings`, `unknown_request` | Ungültige interne Anfrage/Einstellung. Aktuellen Build neu starten; wiederholte Fehler mit bereinigten Diagnosen melden. |
+
+Nach Behebung einer Pause Reset wählen und vor einem neuen Scan den normalen
+Startbildschirm erkennen lassen. Reset beweist nicht, dass ein früherer Export
+fehlgeschlagen ist.
+
+`./scripts/test.sh` führt Node- und Python-Tests ohne GUI-Rechte aus. CI prüft den
+Kern unter Linux sowie Tests, App-Build und Signatur unter macOS. Echte Rechte,
+Epson-Ansichten, Scannertaste und vollständige Exporte dieser Beta müssen noch
+manuell mit Hardware abgenommen werden.
+
+Zum Entfernen App beenden und die installierte `.app` löschen. Rechte kannst du
+in den Systemeinstellungen entfernen. Für einen vollständigen lokalen Reset
+zusätzlich `~/Library/Application Support/ScanSmart AutoSave/` löschen – erst nach
+Klärung wartender Exporte und Sicherung benötigter Diagnosen. Deine Scans im
+Zielordner bleiben erhalten. Die App legt keinen Autostart an.
+
+Keine Netzwerkverbindung, Telemetrie oder Bildübertragung. Statusdateien können
+Ordner- und Dateipfade enthalten; vor Weitergabe von Diagnosen private Angaben
+entfernen. Siehe [Datenschutz und Sicherheit](../SECURITY.md),
+[technischen Entwurf](design.md) und [MIT-Lizenz](../LICENSE).
