@@ -143,3 +143,6 @@ Keine Netzwerkverbindung, Telemetrie oder Bildübertragung. Statusdateien könne
 Ordner- und Dateipfade enthalten; vor Weitergabe von Diagnosen private Angaben
 entfernen. Siehe [Datenschutz und Sicherheit](../SECURITY.md),
 [technischen Entwurf](design.md) und [MIT-Lizenz](../LICENSE).
+
+Prüfergebnisse und ein Ablauf für die noch offene Hardware-Abnahme stehen in
+[VALIDATION.md](VALIDATION.md).

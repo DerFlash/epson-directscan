@@ -11,7 +11,7 @@ scanner-button scan. Resolution, sides and filename prefix remain ScanSmart
 settings. It never activates ScanSmart; ScanSmart must already be foreground.
 
 [Deutsche Anleitung](docs/README.de.md) · [Design](docs/design.md) ·
-[Security and privacy](SECURITY.md) · [Changes](CHANGELOG.md)
+[Security and privacy](SECURITY.md) · [Validation](docs/VALIDATION.md) · [Changes](CHANGELOG.md)
 
 ## Build and install
 
