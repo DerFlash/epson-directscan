@@ -1,5 +1,7 @@
-/* Foundation-only local storage bridge; never sends input to applications. */
+/* Native Foundation storage and ImageIO verification; never sends UI input. */
 ObjC.import('Foundation');
+ObjC.import('ImageIO');
+ObjC.import('CoreGraphics');
 function handleRequest(request) {
     var settings={destination:null,enabled:false,dryRun:false}, state=AutoSaveCore.initialState(), storageReady=false;
     try {
@@ -37,7 +39,48 @@ function handleRequest(request) {
             if(JSON.stringify(next)!==JSON.stringify(settings)){state=AutoSaveCore.initialState();write('state.json',state);settings=next;write('settings.json',settings);}
         }
         if(settings.enabled&&!validDestination(settings.destination))throw Error('invalid_destination');
-        function inspect(path){var a=attrs(path);if(!a)return {exists:false};if(a.NSFileType!=='NSFileTypeRegular')return {exists:true,regular:false,jpeg:false,size:0};var h=$.NSFileHandle.fileHandleForReadingAtPath($(path)), jpeg=false;if(h){try{var bytes=h.readDataOfLength(2);jpeg=ObjC.unwrap(bytes.base64EncodedStringWithOptions(0))==='/9g=';}finally{h.closeFile;}}return {exists:true,regular:true,jpeg:jpeg,size:Number(a.NSFileSize)};}
+        function inspect(path) {
+            var attributes = attrs(path);
+            if (!attributes) return {exists:false};
+            if (attributes.NSFileType !== 'NSFileTypeRegular') {
+                return {exists:true, regular:false, jpeg:false, size:0};
+            }
+            var size = Number(attributes.NSFileSize);
+            var jpeg = false;
+            var handle = $.NSFileHandle.fileHandleForReadingAtPath($(path));
+            if (handle && size >= 4) {
+                try {
+                    var start = handle.readDataOfLength(2);
+                    handle.seekToFileOffset(size - 2);
+                    var end = handle.readDataOfLength(2);
+                    var hasMarkers = ObjC.unwrap(start.base64EncodedStringWithOptions(0)) === '/9g=' &&
+                        ObjC.unwrap(end.base64EncodedStringWithOptions(0)) === '/9k=';
+                    if (hasMarkers) {
+                        var source = $.CGImageSourceCreateWithURL($.NSURL.fileURLWithPath($(path)), $());
+                        if (source && Number($.CGImageSourceGetCount(source)) === 1 &&
+                            ObjC.unwrap(ObjC.castRefToObject($.CGImageSourceGetType(source))) === 'public.jpeg' &&
+                            Number($.CGImageSourceGetStatus(source)) === 0 &&
+                            Number($.CGImageSourceGetStatusAtIndex(source, 0)) === 0) {
+                            var options = {};
+                            options[ObjC.unwrap(ObjC.castRefToObject($.kCGImageSourceShouldCacheImmediately))] = true;
+                            var image = $.CGImageSourceCreateImageAtIndex(source, 0, $(options));
+                            jpeg = !!image && Number($.CGImageGetWidth(image)) > 0 &&
+                                Number($.CGImageGetHeight(image)) > 0 &&
+                                Number($.CGImageSourceGetStatus(source)) === 0 &&
+                                Number($.CGImageSourceGetStatusAtIndex(source, 0)) === 0;
+                        }
+                        // JXA owns bridged source/image references; do not CFRelease them.
+                    }
+                } catch (decodeError) {
+                    jpeg = false;
+                } finally {
+                    handle.closeFile;
+                }
+            } else if (handle) {
+                handle.closeFile;
+            }
+            return {exists:true, regular:true, jpeg:jpeg, size:size};
+        }
         var result=AutoSaveCore.step(state,settings,r,{now:r.now===undefined?Number($.NSProcessInfo.processInfo.systemUptime):Number(r.now),inspect:inspect});
         write('settings.json',settings);write('state.json',result.state);
         if(state.status!==result.state.status || state.errorCode!==result.state.errorCode){

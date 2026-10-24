@@ -78,7 +78,8 @@ Enabling, restarting, resetting or changing destination requires a fresh idle
 observation before actions can occur.
 
 A click means dispatched, not saved. Completion requires the expected nonempty
-JPEGs, stable file sizes across two observations and a closed Save page. Existing
+JPEGs to pass local ImageIO decoding as complete single-frame images with positive
+dimensions, stable file sizes across two observations and a closed Save page. Existing
 target files, errors, ambiguous metadata, unsupported screens and timeouts pause
 it. A downstream app moving files immediately may prevent verification and pause.
 

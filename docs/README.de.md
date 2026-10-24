@@ -80,8 +80,9 @@ zu klicken. Nach Aktivieren, Neustart, Reset oder Zielwechsel muss die App erneu
 eine freie ScanSmart-Ansicht sehen.
 
 Ein abgesendeter Klick bestätigt keinen gespeicherten Scan. Erfolg verlangt alle
-erwarteten, nicht leeren JPEG-Dateien, unveränderte Größen in zwei Prüfungen und
-eine geschlossene Speicherseite. Bereits vorhandene Zieldateien, Fehler, unklare
+erwarteten, vollständig von macOS lesbaren JPEG-Bilder, unveränderte Größen in
+zwei Prüfungen und eine geschlossene Speicherseite. Die Bilder werden dafür nur
+lokal im Arbeitsspeicher geprüft. Bereits vorhandene Zieldateien, Fehler, unklare
 Metadaten, fremde Ansichten und Zeitüberschreitungen führen zur Pause. Werden
 Dateien sofort von einem anderen Programm verschoben, kann die Prüfung ebenfalls
 pausieren. Übergänge haben 30 Sekunden, die Exportprüfung 120 Sekunden Zeit.

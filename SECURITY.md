@@ -3,7 +3,9 @@
 This source beta operates locally. It makes no network requests and includes no
 telemetry, credentials, scan samples or Epson software. It reads ScanSmart window
 metadata, stores a selected destination and transaction state, and checks expected
-JPEG file headers and sizes. It does not upload scan contents.
+JPEG files using local ImageIO decoding, complete source/frame status, positive
+dimensions and stable sizes. Image pixels are decoded in local memory for this
+check. It does not upload scan contents.
 
 Settings, state and bounded logs are stored under
 `~/Library/Application Support/ScanSmart AutoSave/` with private permissions.
