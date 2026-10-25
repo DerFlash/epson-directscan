@@ -17,6 +17,17 @@ def apple(probe):
 
 
 class AdapterTests(unittest.TestCase):
+    def test_only_exact_sharing_indicator_is_ignored(self):
+        self.assertEqual(apple('return isSharingWindowData("Window", "AXDialog", {{"AXButton", "WindowSharingSessionButton"}})'), 'true')
+        for data in [
+            '"Fehler", "AXDialog", {{"AXButton", "WindowSharingSessionButton"}}',
+            '"Window", "AXSystemDialog", {{"AXButton", "WindowSharingSessionButton"}}',
+            '"Window", "AXDialog", {{"AXButton", "OK"}}',
+            '"Window", "AXDialog", {{"AXButton", "WindowSharingSessionButton"}, {"AXStaticText", "Fehler"}}',
+            '"Window", "AXDialog", {{"AXButton", "WindowSharingSessionButton"}, {"AXButton", "Speichern"}}',
+        ]:
+            self.assertEqual(apple('return isSharingWindowData(' + data + ')'), 'false')
+
     def test_null_and_missing_json_keys_are_missing_values(self):
         self.assertEqual(apple('set r to decodeJSON("{\\"errorCode\\":null}")\nreturn getKey(r, "errorCode") is missing value'), 'true')
         self.assertEqual(apple('set r to decodeJSON("{}")\nreturn getKey(r, "action") is missing value'), 'true')

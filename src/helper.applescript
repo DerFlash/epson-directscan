@@ -33,6 +33,21 @@ on readResource(sourcePath)
 	return read (sourcePath as alias) as «class utf8»
 end readResource
 
+on isSharingWindowData(titleText, subroleText, controlData)
+	if titleText is not "Window" or subroleText is not "AXDialog" then return false
+	set sharingButtons to 0
+	repeat with controlValue in controlData
+		set roleText to item 1 of controlValue
+		set labelText to item 2 of controlValue
+		if roleText is "AXButton" and labelText is "WindowSharingSessionButton" then
+			set sharingButtons to sharingButtons + 1
+		else if roleText is not "AXGroup" then
+			return false
+		end if
+	end repeat
+	return sharingButtons is 1
+end isSharingWindowData
+
 on resourceBridge(resourcePath, requestValue)
 	set coreSource to my readResource(resourcePath & "core.js")
 	set runtimeSource to my readResource(resourcePath & "runtime.js")
@@ -206,6 +221,39 @@ on emptyCapture(isBlocked)
 	return {snapshotData:{foreground:false, blocked:isBlocked, processId:0, windowTitle:"", captions:{}, fields:{}, suffixLabels:{}, saveTargetCount:0, saveEnabled:false, noJob:(not isBlocked)}, processIDValue:0, windowIdentity:0, rootIdentity:0, sheetNumber:0, targetRefs:{}, folderRefs:{}}
 end emptyCapture
 
+on firstContentWindow(p)
+	tell application "System Events" to set windowValues to windows of p
+	repeat with windowValue in windowValues
+		set candidate to contents of windowValue
+		tell application "System Events"
+			set titleText to name of candidate as text
+			set subroleText to subrole of candidate
+		end tell
+		set ignoredProxy to false
+		if titleText is "Window" and subroleText is "AXDialog" then
+			tell application "System Events" to set proxyElements to entire contents of candidate
+			set controlData to {}
+			repeat with e in proxyElements
+				tell application "System Events"
+					set roleText to role of e
+					set labelText to ""
+					try
+						set labelText to name of e as text
+					end try
+					try
+						set identifierText to value of attribute "AXIdentifier" of e as text
+						if identifierText is "WindowSharingSessionButton" then set labelText to identifierText
+					end try
+				end tell
+				set end of controlData to {roleText, labelText}
+			end repeat
+			set ignoredProxy to my isSharingWindowData(titleText, subroleText, controlData)
+		end if
+		if not ignoredProxy then return candidate
+	end repeat
+	return missing value
+end firstContentWindow
+
 on readCapture()
 	tell application "System Events"
 		if not UI elements enabled then error "Permission required" number -25211
@@ -213,8 +261,8 @@ on readCapture()
 		if (count matches) is 0 then return my emptyCapture(false)
 		if (count matches) is not 1 then return my emptyCapture(true)
 		set p to item 1 of matches
-		if (count windows of p) is 0 then return my emptyCapture(false)
-		set w to window 1 of p
+		set w to my firstContentWindow(p)
+		if w is missing value then return my emptyCapture(false)
 		set subroleText to subrole of w
 		if subroleText is "AXDialog" or subroleText is "AXSystemDialog" then return my emptyCapture(true)
 		try
@@ -287,8 +335,8 @@ on performAction(actionValue, oldCapture)
 		set p to processRef of fresh
 		tell application "System Events"
 			if not frontmost of p then error "Background" number 1103
-			if window 1 of p is not windowIdentity of fresh then error "Changed window" number 1104
-			if (count sheets of window 1 of p) is not sheetNumber of fresh then error "Changed sheet" number 1105
+			if (my firstContentWindow(p)) is not windowIdentity of fresh then error "Changed window" number 1104
+			if (count sheets of (windowIdentity of fresh)) is not sheetNumber of fresh then error "Changed sheet" number 1105
 		end tell
 		if actionType is "setDestination" then
 			if (count folderRefs of fresh) is not 1 then error "Ambiguous folder" number 1106
@@ -315,11 +363,11 @@ on performAction(actionValue, oldCapture)
 				if role of t is "AXButton" then
 					if not enabled of t then error "Disabled Save" number 1110
 				end if
-				set pointValue to my safePoint(position of t, size of t, position of window 1 of p, size of window 1 of p)
+				set pointValue to my safePoint(position of t, size of t, position of (windowIdentity of fresh), size of (windowIdentity of fresh))
 				if pointValue is missing value then error "Invalid geometry" number 1111
 				if not frontmost of p then error "Background" number 1103
-				if window 1 of p is not windowIdentity of fresh then error "Changed window" number 1104
-				if (count sheets of window 1 of p) is not sheetNumber of fresh then error "Changed sheet" number 1105
+				if (my firstContentWindow(p)) is not windowIdentity of fresh then error "Changed window" number 1104
+				if (count sheets of (windowIdentity of fresh)) is not sheetNumber of fresh then error "Changed sheet" number 1105
 			end tell
 			my nativeClick(item 1 of pointValue, item 2 of pointValue, processIDValue of fresh)
 		else
