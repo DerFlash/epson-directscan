@@ -2,6 +2,7 @@
 import json
 import pathlib
 import subprocess
+import tempfile
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -16,6 +17,24 @@ def apple(probe):
 
 
 class AdapterTests(unittest.TestCase):
+    def test_null_and_missing_json_keys_are_missing_values(self):
+        self.assertEqual(apple('set r to decodeJSON("{\\"errorCode\\":null}")\nreturn getKey(r, "errorCode") is missing value'), 'true')
+        self.assertEqual(apple('set r to decodeJSON("{}")\nreturn getKey(r, "action") is missing value'), 'true')
+        self.assertEqual(apple('set r to decodeJSON("{\\"status\\":\\"ready\\"}")\nreturn getKey(r, "status") as text'), 'ready')
+
+    def test_resource_bridge_loads_real_runtime_and_private_settings(self):
+        def literal(value):
+            return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
+        with tempfile.TemporaryDirectory(prefix='scansmart bridge ') as folder:
+            source_path = literal(str(ROOT / 'src'))
+            storage = literal(folder + '/private settings')
+            value = json.loads(apple('set folderAlias to (POSIX file ' + source_path + ') as alias\n'
+                + 'set r to resourceBridge(folderAlias as text, {op:"startup", storageRoot:' + storage + '})\nreturn jsonText(r)'))
+            self.assertIs(value['ok'], True)
+            self.assertEqual(value['phase'], 'arming')
+            self.assertIs(value['settings']['enabled'], False)
+            self.assertTrue((pathlib.Path(folder) / 'private settings/settings.json').is_file())
+
     def test_json_bridge_preserves_untrusted_folder_characters(self):
         value = json.loads(apple('return jsonText({op:"tick", snapshot:{foreground:true, fields:{"/Users/example/é \\\"$()\\\"", "Karte"}}})'))
         self.assertEqual(value['snapshot']['fields'], ['/Users/example/é "$()"', 'Karte'])

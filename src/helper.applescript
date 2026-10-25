@@ -18,7 +18,7 @@ end decodeJSON
 on getKey(v, k)
 	set x to v's objectForKey:k
 	if x is missing value then return missing value
-	if (x's isEqual:(current application's NSNull's null())) as boolean then return missing value
+	if (x's isKindOfClass:(current application's NSNull's |class|())) as boolean then return missing value
 	return x
 end getKey
 
@@ -27,6 +27,17 @@ on evaluateBridge(sourceText, requestValue)
 	set outputText to run script (sourceText & linefeed & "handleRequest(" & payload & ");") in "JavaScript"
 	return my decodeJSON(outputText as text)
 end evaluateBridge
+
+on readResource(sourcePath)
+	-- An explicit alias avoids ASObjC resolving the file specifier against the app.
+	return read (sourcePath as alias) as «class utf8»
+end readResource
+
+on resourceBridge(resourcePath, requestValue)
+	set coreSource to my readResource(resourcePath & "core.js")
+	set runtimeSource to my readResource(resourcePath & "runtime.js")
+	return my evaluateBridge(coreSource & linefeed & runtimeSource, requestValue)
+end resourceBridge
 
 on safePoint(targetPosition, targetSize, windowPosition, windowSize)
 	if (count targetPosition) is not 2 or (count targetSize) is not 2 then return missing value
@@ -138,9 +149,7 @@ end idle
 
 on bridge(requestValue)
 	set resourcePath to (path to me as text) & "Contents:Resources:"
-	set coreSource to read file (resourcePath & "core.js") as «class utf8»
-	set runtimeSource to read file (resourcePath & "runtime.js") as «class utf8»
-	return my evaluateBridge(coreSource & linefeed & runtimeSource, requestValue)
+	return my resourceBridge(resourcePath, requestValue)
 end bridge
 
 on settingsMenu()
@@ -327,6 +336,6 @@ end performAction
 
 on nativeClick(x, y, targetPID)
 	set sourcePath to (path to me as text) & "Contents:Resources:native-click.js"
-	set jsSource to read file sourcePath as «class utf8»
+	set jsSource to my readResource(sourcePath)
 	return my runNativeScript(jsSource, x, y, targetPID)
 end nativeClick
