@@ -39,6 +39,10 @@ on isExportField(roleText)
 	return roleText is "AXComboBox"
 end isExportField
 
+on isSinglePageView(captionValues, hasPreviewNavigation)
+	return (captionValues contains "In Computereinstellungen speichern") and not hasPreviewNavigation
+end isSinglePageView
+
 on isIdleCaption(captionValues)
 	repeat with captionValue in captionValues
 		if (contents of captionValue as text) contains "Klicken Sie zum Starten eines Scans" then return true
@@ -309,6 +313,7 @@ on readCapture()
 	set textTargetsValue to {}
 	set foldersValue to {}
 	set enabledValue to true
+	set hasPreviewNavigation to false
 	repeat with e in allElements
 		tell application "System Events"
 			set roleText to role of e
@@ -329,6 +334,7 @@ on readCapture()
 				if valueText is "Speichern" or nameText is "Speichern" then set end of textTargetsValue to contents of e
 			else if roleText is "AXButton" then
 				if nameText is not "" then set end of captionsValue to nameText
+				if nameText is "Weiter" then set hasPreviewNavigation to true
 				if nameText is "Speichern" then set end of buttonsValue to contents of e
 			else if my isExportField(roleText) then
 				set end of fieldsValue to valueText
@@ -343,15 +349,15 @@ on readCapture()
 	end if
 	set knownJob to captionsValue contains "Aktion wählen" or captionsValue contains "In Computereinstellungen speichern"
 	set blockedValue to ((count attachedSheets) > 0 and not knownJob)
-	return {snapshotData:{foreground:foregroundValue, blocked:blockedValue, processId:pidValue, windowTitle:titleValue, captions:captionsValue, fields:fieldsValue, suffixLabels:suffixesValue, saveTargetCount:(count targetsValue), saveEnabled:enabledValue, noJob:(my isIdleCaption(captionsValue) and not knownJob and not blockedValue)}, processIDValue:pidValue, windowIdentity:w, rootIdentity:rootValue, sheetNumber:(count attachedSheets), processRef:p, targetRefs:targetsValue, folderRefs:foldersValue}
+	return {snapshotData:{foreground:foregroundValue, blocked:blockedValue, processId:pidValue, windowTitle:titleValue, captions:captionsValue, fields:fieldsValue, suffixLabels:suffixesValue, saveTargetCount:(count targetsValue), saveEnabled:enabledValue, singlePage:(my isSinglePageView(captionsValue, hasPreviewNavigation)), noJob:(my isIdleCaption(captionsValue) and not knownJob and not blockedValue)}, processIDValue:pidValue, windowIdentity:w, rootIdentity:rootValue, sheetNumber:(count attachedSheets), processRef:p, targetRefs:targetsValue, folderRefs:foldersValue}
 end readCapture
 
 on performAction(actionValue, oldCapture)
-	set actionID to my getKey(actionValue, "id") as text
+	set actionIdentifier to my getKey(actionValue, "id") as text
 	try
 		set fresh to my readCapture()
 		if not my sameIdentity(oldCapture, fresh) then error "Changed window" number 1101
-		set permissionResult to my bridge({op:"canDispatch", actionId:actionID, snapshot:snapshotData of fresh})
+		set permissionResult to my bridge({op:"canDispatch", actionId:actionIdentifier, snapshot:snapshotData of fresh})
 		if not (my getKey(permissionResult, "allowed") as boolean) then error "Guard refused" number 1102
 		set actionType to my getKey(actionValue, "type") as text
 		set p to processRef of fresh
@@ -366,7 +372,7 @@ on performAction(actionValue, oldCapture)
 			set destinationValue to my getKey(actionValue, "destination") as text
 			tell application "System Events"
 				if not frontmost of p then error "Background" number 1103
-				set value of folderTarget to destinationValue
+				if (value of folderTarget as text) is not destinationValue then set value of folderTarget to destinationValue
 				if (value of folderTarget as text) is not destinationValue then error "Folder readback failed" number 1107
 			end tell
 		else if actionType is "openSave" or actionType is "save" then
@@ -395,12 +401,12 @@ on performAction(actionValue, oldCapture)
 		else
 			error "Unknown action" number 1112
 		end if
-		return my bridge({op:"reportAction", actionId:actionID, success:true})
+		return my bridge({op:"reportAction", actionId:actionIdentifier, success:true})
 	on error number n
 		set errorValue to "ui_changed"
 		if n is 1107 then set errorValue to "destination_rejected"
 		if n is -1743 or n is -25211 then set errorValue to "permission_denied"
-		return my bridge({op:"reportAction", actionId:actionID, success:false, errorCode:errorValue, errorNumber:n})
+		return my bridge({op:"reportAction", actionId:actionIdentifier, success:false, errorCode:errorValue, errorNumber:n})
 	end try
 end performAction
 

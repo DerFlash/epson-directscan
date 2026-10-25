@@ -45,3 +45,8 @@ test('new save view may finish loading but invalid formats never receive a save'
     h.run('tick',loading);h.advance(11);r=h.run('tick',loading);
     a.equal(r.errorCode,'invalid_metadata');a.equal(r.action,undefined);
 });
+test('one-page view requires the native single-page marker when the counter is hidden',()=>{
+    const single={...save,captions:['In Computereinstellungen speichern'],singlePage:true};
+    a.equal(C.metadata(single,'/out').count,1);
+    a.throws(()=>C.metadata({...single,singlePage:false},'/out'),/invalid_metadata/);
+});

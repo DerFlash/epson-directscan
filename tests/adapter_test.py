@@ -17,6 +17,43 @@ def apple(probe):
 
 
 class AdapterTests(unittest.TestCase):
+    def test_single_page_marker_excludes_navigation_and_other_views(self):
+        self.assertEqual(apple('return isSinglePageView({"In Computereinstellungen speichern"}, false)'), 'true')
+        self.assertEqual(apple('return isSinglePageView({"In Computereinstellungen speichern"}, true)'), 'false')
+        self.assertEqual(apple('return isSinglePageView({"Aktion wählen"}, false)'), 'false')
+
+    def test_compiled_app_preserves_action_id_json_key(self):
+        source = (ROOT / 'src/helper.applescript').read_text()
+        command = ('script controller\n' + source + '\nend script\n'
+                   + 'return controller\'s jsonText({op:"canDispatch", actionId:"job-1"})')
+        result = subprocess.run(['osascript', '-e', command], text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), {'op': 'canDispatch', 'actionId': 'job-1'})
+
+    def test_compiled_app_action_handshake_uses_real_runtime_without_ui_input(self):
+        def literal(value):
+            return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
+        with tempfile.TemporaryDirectory(prefix='scansmart handshake ') as folder:
+            source = (ROOT / 'src/helper.applescript').read_text()
+            command = ('script controller\n' + source + '\non exerciseContract()\n'
+                + 'set resourceFolder to (POSIX file ' + literal(str(ROOT / 'src')) + ') as alias\n'
+                + 'set isolatedStorage to ' + literal(folder + '/settings') + '\n'
+                + 'set targetFolder to ' + literal(folder) + '\n'
+                + 'controller\'s resourceBridge(resourceFolder as text, {op:"startup", storageRoot:isolatedStorage})\n'
+                + 'controller\'s resourceBridge(resourceFolder as text, {op:"setSettings", storageRoot:isolatedStorage, patch:{destination:targetFolder, enabled:true}})\n'
+                + 'controller\'s resourceBridge(resourceFolder as text, {op:"tick", storageRoot:isolatedStorage, snapshot:{noJob:true, blocked:false}})\n'
+                + 'set chooseFrame to {foreground:true, blocked:false, processId:17, windowTitle:"ScanSmart", captions:{"Aktion wählen"}, fields:{}, suffixLabels:{}, saveTargetCount:1, saveEnabled:true, noJob:false}\n'
+                + 'set planned to controller\'s resourceBridge(resourceFolder as text, {op:"tick", storageRoot:isolatedStorage, snapshot:chooseFrame})\n'
+                + 'set plannedAction to controller\'s getKey(planned, "action")\n'
+                + 'set identifierValue to controller\'s getKey(plannedAction, "id") as text\n'
+                + 'set permitted to controller\'s resourceBridge(resourceFolder as text, {op:"canDispatch", actionId:identifierValue, storageRoot:isolatedStorage, snapshot:chooseFrame})\n'
+                + 'set acknowledged to controller\'s resourceBridge(resourceFolder as text, {op:"reportAction", actionId:identifierValue, storageRoot:isolatedStorage, success:true})\n'
+                + 'return controller\'s jsonText({allowed:(controller\'s getKey(permitted, "allowed") as boolean), status:(controller\'s getKey(acknowledged, "status") as text)})\n'
+                + 'end exerciseContract\nend script\nreturn controller\'s exerciseContract()')
+            result = subprocess.run(['osascript', '-e', command], text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout), {'allowed': True, 'status': 'awaiting_transition'})
+
     def test_page_navigation_fields_do_not_become_filename_prefixes(self):
         self.assertEqual(apple('return isExportField("AXComboBox")'), 'true')
         self.assertEqual(apple('return isExportField("AXTextField")'), 'false')
