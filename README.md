@@ -1,4 +1,6 @@
-# ScanSmart AutoSave — 0.1.0-beta.1
+# Epson ScanSmart AutoSave — 0.1.0-beta.1
+
+GitHub project: [DerFlash/epson-scansmart-autosave](https://github.com/DerFlash/epson-scansmart-autosave).
 
 **Source beta; new hardware acceptance is pending.** The predecessor was tested
 only with German Epson ScanSmart 3.7.22, macOS 27.0.1 and ES-C320W over USB.
