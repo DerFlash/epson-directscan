@@ -19,3 +19,29 @@ test('counter overflow and malformed JPEG never verify',()=>{let h=harness();h.r
 test('simultaneous views reject; failure reports preserve only known codes',()=>{a.equal(C.classify({...save,captions:save.captions.concat('Aktion wählen')}),'blocked');for(let code of ['destination_rejected','ui_changed','permission_denied','private /path']){let h=harness();h.run('tick',idle);let x=h.run('tick',choose);a.equal(h.run('reportAction',null,{actionId:x.action.id,success:false,errorCode:code}).errorCode,code==='private /path'?'dispatch_failed':code)}});
 test('closed Save with next Choose permits verification without action',()=>{let h=harness();h.run('tick',idle);let x=h.run('tick',save);h.run('reportAction',null,{actionId:x.action.id,success:true});x=h.run('tick',{...save,fields:['/out','scan']});h.run('reportAction',null,{actionId:x.action.id,success:true});for(let n of ['001','002'])h.files['/out/scan_'+n+'.jpg']={exists:true,regular:true,jpeg:true,size:10};h.run('tick',choose);let r=h.run('tick',choose);a.equal(r.phase,'ready');a.equal(r.action,undefined)});
 test('blocked background snapshots pause visibly even while arming',()=>{let h=harness();a.equal(h.run('tick',{...idle,foreground:false,blocked:true,processId:0}).errorCode,'unsupported_view')});
+test('transient observation failure waits without input and recovers on a fresh view',()=>{
+    let h=harness();h.run('tick',idle);
+    let r=h.run('observationError',null,{errorNumber:-1719});
+    a.equal(r.phase,'ready');a.equal(r.status,'waiting_for_view');a.equal(r.action,undefined);
+    a.equal(h.run('tick',choose).action.type,'openSave');
+});
+test('repeated observation errors time out and genuine permission errors retain the number',()=>{
+    let h=harness();h.run('tick',idle);h.run('observationError',null,{errorNumber:-1728});h.advance(11);
+    a.equal(h.run('observationError',null,{errorNumber:-1728}).errorCode,'ui_changed');
+    h=harness();let r=h.run('observationError',null,{errorNumber:-1743});
+    a.equal(r.errorCode,'permission_denied');a.equal(r.errorNumber,-1743);a.equal(r.action,undefined);
+});
+test('observation errors never retry a reserved or uncertain action',()=>{
+    let h=harness();h.run('tick',idle);h.run('tick',choose);
+    let r=h.run('observationError',null,{errorNumber:-1719});
+    a.equal(r.phase,'paused');a.equal(r.errorCode,'ui_changed');a.equal(r.action,undefined);
+});
+test('new save view may finish loading but invalid formats never receive a save',()=>{
+    let h=harness();h.run('tick',idle);let r=h.run('tick',choose);h.run('reportAction',null,{actionId:r.action.id,success:true});
+    let loading={...save,fields:[],suffixLabels:['.pdf']};
+    a.equal(h.run('tick',loading).status,'waiting_for_view');
+    a.equal(h.run('tick',save).action.type,'setDestination');
+    h=harness();h.run('tick',idle);r=h.run('tick',choose);h.run('reportAction',null,{actionId:r.action.id,success:true});
+    h.run('tick',loading);h.advance(11);r=h.run('tick',loading);
+    a.equal(r.errorCode,'invalid_metadata');a.equal(r.action,undefined);
+});

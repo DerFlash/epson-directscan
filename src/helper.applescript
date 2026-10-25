@@ -33,6 +33,19 @@ on readResource(sourcePath)
 	return read (sourcePath as alias) as «class utf8»
 end readResource
 
+on isExportField(roleText)
+	-- Supported ScanSmart uses combo boxes for prefix and destination.
+	-- Its page-navigation text field must never become a second prefix.
+	return roleText is "AXComboBox"
+end isExportField
+
+on isIdleCaption(captionValues)
+	repeat with captionValue in captionValues
+		if (contents of captionValue as text) contains "Klicken Sie zum Starten eines Scans" then return true
+	end repeat
+	return false
+end isIdleCaption
+
 on isSharingWindowData(titleText, subroleText, controlData)
 	if titleText is not "Window" or subroleText is not "AXDialog" then return false
 	set sharingButtons to 0
@@ -95,6 +108,7 @@ on friendlyStatus(codeValue)
 	if codeValue is "disabled" then return "Automatik ist ausgeschaltet."
 	if codeValue is "waiting_for_idle" then return "Wartet auf die freie ScanSmart-Startansicht. Einen offenen Scan bitte selbst abschließen oder abbrechen."
 	if codeValue is "ready" then return "Bereit für den nächsten Scan über die Scannertaste."
+	if codeValue is "waiting_for_view" then return "Wartet kurz, bis ScanSmart den Fensterwechsel abgeschlossen hat. Es wird nichts angeklickt."
 	if codeValue is "saved" then return "Die erwarteten JPGs wurden gespeichert und geprüft."
 	if codeValue is "opening_save" or codeValue is "awaiting_transition" then return "Wartet auf den nächsten ScanSmart-Speicherschritt."
 	if codeValue is "setting_destination" then return "Setzt den gewählten Ablageordner und prüft die Rückmeldung."
@@ -142,7 +156,13 @@ on idle
 		if cfg is missing value then return 2
 		if not (my getKey(cfg, "enabled") as boolean) then return 2
 		if (my getKey(beforeState, "phase") as text) is "paused" then return 2
-		set captureValue to my readCapture()
+		try
+			set captureValue to my readCapture()
+		on error number n
+			set r to my bridge({op:"observationError", errorNumber:n})
+			if (my getKey(r, "phase") as text) is "paused" then display notification "Automatik pausiert. Öffne das App-Symbol für Status und Hilfe." with title "ScanSmart AutoSave Beta"
+			return 1
+		end try
 		set r to my bridge({op:"tick", snapshot:snapshotData of captureValue})
 		set actionValue to my getKey(r, "action")
 		if actionValue is not missing value then
@@ -154,8 +174,8 @@ on idle
 	on error number n
 		try
 			set codeValue to "adapter_error"
-			if n is -1743 or n is -1719 or n is -25211 then set codeValue to "permission_denied"
-			my bridge({op:"pause", errorCode:codeValue})
+			if n is -1743 or n is -25211 then set codeValue to "permission_denied"
+			my bridge({op:"pause", errorCode:codeValue, errorNumber:n})
 			display notification "Automatik pausiert. Öffne das App-Symbol und prüfe Status und Freigaben." with title "ScanSmart AutoSave Beta"
 		end try
 	end try
@@ -214,6 +234,8 @@ on showStatus(r)
 	set statusText to my friendlyStatus(my getKey(r, "status") as text)
 	set codeValue to my getKey(r, "errorCode")
 	if codeValue is not missing value then set statusText to statusText & linefeed & "Fehlercode: " & (codeValue as text) & linefeed & "Prüfe den Scan und schließe offene Speicher-/Fehlerdialoge selbst. Wähle danach ‚Fehler zurücksetzen‘. Ein unklarer Scan wird nicht erneut gespeichert."
+	set numberValue to my getKey(r, "errorNumber")
+	if codeValue is not missing value and numberValue is not missing value then set statusText to statusText & linefeed & "Technische Fehlernummer: " & (numberValue as text)
 	display dialog "Automatik: " & modeText & linefeed & "Trockenlauf: " & dryText & linefeed & "Ordner: " & folderText & linefeed & linefeed & statusText & linefeed & linefeed & "Nach Aktivieren, Ordnerwechsel oder Zurücksetzen erst einen offenen Scan selbst abschließen oder abbrechen. Danach die nächste Karte am Scanner starten." with title "ScanSmart AutoSave Beta" buttons {"OK"} default button "OK"
 end showStatus
 
@@ -308,7 +330,7 @@ on readCapture()
 			else if roleText is "AXButton" then
 				if nameText is not "" then set end of captionsValue to nameText
 				if nameText is "Speichern" then set end of buttonsValue to contents of e
-			else if roleText is "AXComboBox" or roleText is "AXTextField" then
+			else if my isExportField(roleText) then
 				set end of fieldsValue to valueText
 				if valueText starts with "/" then set end of foldersValue to contents of e
 			end if
@@ -321,7 +343,7 @@ on readCapture()
 	end if
 	set knownJob to captionsValue contains "Aktion wählen" or captionsValue contains "In Computereinstellungen speichern"
 	set blockedValue to ((count attachedSheets) > 0 and not knownJob)
-	return {snapshotData:{foreground:foregroundValue, blocked:blockedValue, processId:pidValue, windowTitle:titleValue, captions:captionsValue, fields:fieldsValue, suffixLabels:suffixesValue, saveTargetCount:(count targetsValue), saveEnabled:enabledValue, noJob:(not knownJob and not blockedValue)}, processIDValue:pidValue, windowIdentity:w, rootIdentity:rootValue, sheetNumber:(count attachedSheets), processRef:p, targetRefs:targetsValue, folderRefs:foldersValue}
+	return {snapshotData:{foreground:foregroundValue, blocked:blockedValue, processId:pidValue, windowTitle:titleValue, captions:captionsValue, fields:fieldsValue, suffixLabels:suffixesValue, saveTargetCount:(count targetsValue), saveEnabled:enabledValue, noJob:(my isIdleCaption(captionsValue) and not knownJob and not blockedValue)}, processIDValue:pidValue, windowIdentity:w, rootIdentity:rootValue, sheetNumber:(count attachedSheets), processRef:p, targetRefs:targetsValue, folderRefs:foldersValue}
 end readCapture
 
 on performAction(actionValue, oldCapture)
@@ -378,7 +400,7 @@ on performAction(actionValue, oldCapture)
 		set errorValue to "ui_changed"
 		if n is 1107 then set errorValue to "destination_rejected"
 		if n is -1743 or n is -25211 then set errorValue to "permission_denied"
-		return my bridge({op:"reportAction", actionId:actionID, success:false, errorCode:errorValue})
+		return my bridge({op:"reportAction", actionId:actionID, success:false, errorCode:errorValue, errorNumber:n})
 	end try
 end performAction
 

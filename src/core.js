@@ -27,11 +27,23 @@ var AutoSaveCore = (function () {
     function step(previous,settings,request,env) {
         var st=JSON.parse(JSON.stringify(previous||initialState())), r=request||{}, op=r.op||r.type, s=r.snapshot, now=env.now, action;
         function pause(code){st.phase='paused';st.status=code;st.errorCode=code;delete st.pending;}
-        function result(extra){var out={ok:!st.errorCode,settings:settings,phase:st.phase,status:st.status,errorCode:st.errorCode||null};if(action)out.action=action;Object.keys(extra||{}).forEach(function(k){out[k]=extra[k];});return {state:st,response:out};}
+        function result(extra){var out={ok:!st.errorCode,settings:settings,phase:st.phase,status:st.status,errorCode:st.errorCode||null,errorNumber:Number.isInteger(st.lastErrorNumber)?st.lastErrorNumber:null};if(action)out.action=action;Object.keys(extra||{}).forEach(function(k){out[k]=extra[k];});return {state:st,response:out};}
         function reserve(type,plan){st.sequence=(st.sequence||0)+1;action={id:String(st.sequence)+'-'+String(now),type:type};if(type==='setDestination')action.destination=settings.destination;st.pending={action:action,pid:s.processId,plan:plan||null};st.since=now;}
         function safe(){return settings.enabled && !settings.dryRun && settings.destination && s && s.foreground===true && !s.blocked && s.saveTargetCount===1 && s.saveEnabled===true;}
         function samePlan(p){try{return JSON.stringify(metadata(s,settings.destination))===JSON.stringify(p);}catch(e){return false;}}
-        if(op==='pause'){pause(['adapter_error','permission_denied','bridge_error'].indexOf(r.errorCode)>=0?r.errorCode:'adapter_error');return result();}
+        if(op==='pause'){if(Number.isInteger(r.errorNumber))st.lastErrorNumber=r.errorNumber;pause(['adapter_error','permission_denied','bridge_error'].indexOf(r.errorCode)>=0?r.errorCode:'adapter_error');return result();}
+        if(op==='observationError'){
+            if(st.phase==='paused')return result();
+            if(Number.isInteger(r.errorNumber))st.lastErrorNumber=r.errorNumber;
+            if(r.errorNumber===-1743||r.errorNumber===-25211){pause('permission_denied');return result();}
+            if(r.errorNumber!==-1719&&r.errorNumber!==-1728){pause('adapter_error');return result();}
+            // A read-only snapshot may disappear during Epson's screen transitions.
+            // A reserved action is uncertain and must never be retried this way.
+            if(st.pending){pause('ui_changed');return result();}
+            if(st.readFailureSince===undefined)st.readFailureSince=now;
+            if(now-st.readFailureSince>10){pause('ui_changed');return result();}
+            st.status='waiting_for_view';return result();
+        }
         if(op==='startup'||op==='reset'){var seq=st.sequence;st=initialState();st.sequence=seq||0;return result();}
         if(op==='canDispatch'){
             var p=st.pending, allowed=!!(p && p.action.id===r.actionId && safe() && p.pid===s.processId);
@@ -41,7 +53,7 @@ var AutoSaveCore = (function () {
         }
         if(op==='reportAction'){
             if(!st.pending || st.pending.action.id!==r.actionId)return result({ok:false,errorCode:'unknown_action'});
-            if(r.success!==true){pause(['destination_rejected','ui_changed','permission_denied'].indexOf(r.errorCode)>=0?r.errorCode:'dispatch_failed');return result();}
+            if(r.success!==true){if(Number.isInteger(r.errorNumber))st.lastErrorNumber=r.errorNumber;pause(['destination_rejected','ui_changed','permission_denied'].indexOf(r.errorCode)>=0?r.errorCode:'dispatch_failed');return result();}
             var type=st.pending.action.type;delete st.pending;
             if(type==='save'){st.phase='verifying';st.status='verifying_files';st.since=now;}
             else st.status='awaiting_transition';
@@ -50,6 +62,8 @@ var AutoSaveCore = (function () {
         if(op!=='tick')return result();
         if(st.phase==='paused')return result();
         if(!settings.enabled){st=initialState();st.status='disabled';return result();}
+        delete st.readFailureSince;delete st.lastErrorNumber;
+        if(st.status==='waiting_for_view')st.status=st.phase==='arming'?'waiting_for_idle':st.phase==='ready'?'ready':st.phase==='verifying'?'verifying_files':'awaiting_transition';
         if(s && s.blocked){pause('unsupported_view');return result();}
         if(st.phase==='verifying'){
             if(now-st.since>120){pause('export_timeout');return result();}
@@ -64,7 +78,7 @@ var AutoSaveCore = (function () {
         if(st.since!==undefined && (st.phase==='opening'||st.phase==='setting_destination') && now-st.since>30){pause('transition_timeout');return result();}
         if(s && s.foreground && s.blocked){pause('unsupported_view');return result();}
         if(settings.dryRun && s && s.foreground && !s.blocked && (v==='choose'||v==='save')){try{if(v==='save')metadata(s,settings.destination);st.status=v==='choose'?'dry_run_open_save':'dry_run_set_destination';}catch(e){pause(e.message);}return result();}
-        if(s && s.foreground && !s.blocked && v==='save' && s.saveTargetCount!==1){pause('invalid_metadata');return result();}
+        if(s && s.foreground && !s.blocked && v==='save' && s.saveTargetCount!==1){if((st.phase==='opening'||st.phase==='setting_destination')&&now-st.since<=10){st.status='waiting_for_view';return result();}pause('invalid_metadata');return result();}
         if(!safe())return result();
         if(st.pending)return result();
         if(v==='choose'){
@@ -72,7 +86,7 @@ var AutoSaveCore = (function () {
             st.phase='opening';st.status='opening_save';reserve('openSave');return result();
         }
         if(v!=='save'){pause('unsupported_view');return result();}
-        var plan;try{plan=metadata(s,settings.destination);}catch(e){pause(e.message);return result();}
+        var plan;try{plan=metadata(s,settings.destination);}catch(e){if((st.phase==='opening'||st.phase==='setting_destination')&&now-st.since<=10){st.status='waiting_for_view';return result();}pause(e.message);return result();}
         if(plan.paths.some(function(p){return env.inspect(p).exists;})){pause('target_exists');return result();}
         if(st.phase==='setting_destination'){
             if(plan.folder!==settings.destination || !st.plan || plan.prefix!==st.plan.prefix || plan.suffix!==st.plan.suffix || plan.count!==st.plan.count){pause('destination_readback');return result();}

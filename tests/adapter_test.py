@@ -17,6 +17,15 @@ def apple(probe):
 
 
 class AdapterTests(unittest.TestCase):
+    def test_page_navigation_fields_do_not_become_filename_prefixes(self):
+        self.assertEqual(apple('return isExportField("AXComboBox")'), 'true')
+        self.assertEqual(apple('return isExportField("AXTextField")'), 'false')
+
+    def test_only_known_home_caption_is_idle(self):
+        self.assertEqual(apple('return isIdleCaption({"Epson ScanSmart Klicken Sie zum Starten eines Scans auf [SCANNEN]."})'), 'true')
+        self.assertEqual(apple('return isIdleCaption({"Scans prüfen", "In Computereinstellungen speichern"})'), 'false')
+        self.assertEqual(apple('return isIdleCaption({"Unbekannte Ansicht"})'), 'false')
+
     def test_only_exact_sharing_indicator_is_ignored(self):
         self.assertEqual(apple('return isSharingWindowData("Window", "AXDialog", {{"AXButton", "WindowSharingSessionButton"}})'), 'true')
         for data in [

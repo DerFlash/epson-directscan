@@ -2,6 +2,18 @@ import unittest, subprocess, tempfile, pathlib, json, os
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 class Runtime(unittest.TestCase):
+    def test_observation_retry_status_and_error_number_persist_safely(self):
+        self.call('startup')
+        self.call('setSettings', patch={'destination': self.dest, 'enabled': True})
+        self.call('tick', snapshot={'noJob': True, 'blocked': False})
+        response = self.call('observationError', errorNumber=-1719)
+        self.assertEqual(response['status'], 'waiting_for_view')
+        self.assertEqual(self.call('getSettings')['errorNumber'], -1719)
+        self.assertEqual(self.call('tick', snapshot={'noJob': True, 'blocked': False})['status'], 'ready')
+        response = self.call('observationError', errorNumber=-1700)
+        self.assertEqual(response['errorCode'], 'adapter_error')
+        self.assertEqual(self.call('getSettings')['errorNumber'], -1700)
+
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
