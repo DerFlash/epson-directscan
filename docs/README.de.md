@@ -89,8 +89,9 @@ Fensterlesen, Aktion und gesamte Bearbeitung. Die Aktion enthält auch die erneu
 Fensterprüfung und Bestätigung. Die Zeit für das Prüfintervall kommt hinzu.
 Maximal 128 Messungen liegen lokal in `timings.json`: Zeitstempel, Statuscodes und
 Zahlen, keine Fenstertitel, Pfade oder Bildinhalte. Warten ohne aktiven Scan
-überschreibt die letzten Messungen nicht. Ein direkter Einzelkartenvergleich
-ergab nach der Optimierung 14,5 → 11,9 Sekunden für den Speicherablauf, jeweils
+überschreibt die letzten Messungen nicht. Lokale Einzelkartenvergleiche
+ergaben 14,5 → 11,9 Sekunden nach Optimierung der Fenstererfassung und danach
+11,9 → 9,0 Sekunden durch Weglassen des bereits korrekten Ordnerschritts, jeweils
 mit 250 ms Prüfintervall. Die Zeit des eigentlichen Karteneinzugs ist nicht
 enthalten; das ist keine Zusage für längere Serien. Siehe [VALIDATION.md](VALIDATION.md).
 

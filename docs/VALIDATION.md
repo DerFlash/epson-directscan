@@ -34,7 +34,13 @@ native capture, complete metadata/identity guard and target collision check stil
 precede Save. Changed folders retain setter/readback handling. Pure and actual
 runtime tests cover direct reservation, persisted plan, changed/blocked views,
 existing targets, uncertain actions, restart arming and complete JPEG confirmation.
-Its physical timing result remains pending until the next installed scan check.
+The installed direct-Save path passed a fresh same-card USB scan: recorded
+actions were only openSave and save, with no setDestination. One new complete
+readable JPG was verified and all17 existing files retained their size/mtime.
+First action poll through saved measured9.025s versus11.891s previously (24.1%
+shorter in this comparison). Opening acknowledged through Save acknowledged
+measured4.368s versus7.415s, about3.046s less. Hardware feed time is excluded;
+these single-card observations are not a long-series throughput guarantee.
 
 The preceding Beta 2 acceptance record follows for context.
 
