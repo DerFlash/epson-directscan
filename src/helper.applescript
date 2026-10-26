@@ -104,6 +104,27 @@ on isExportField(roleText)
 	return roleText is "AXComboBox"
 end isExportField
 
+on elementTextData(elementValue, roleText)
+	-- Every remote attribute read costs time. Read only fields used below.
+	set valueText to ""
+	set nameText to ""
+	if roleText is "AXStaticText" or my isExportField(roleText) then
+		tell application "System Events"
+			try
+				set valueText to value of elementValue as text
+			end try
+		end tell
+	end if
+	if roleText is "AXStaticText" or roleText is "AXButton" then
+		tell application "System Events"
+			try
+				set nameText to name of elementValue as text
+			end try
+		end tell
+	end if
+	return {valueText:valueText, nameText:nameText}
+end elementTextData
+
 on isSinglePageView(captionValues, hasPreviewNavigation)
 	return (captionValues contains "In Computereinstellungen speichern") and not hasPreviewNavigation
 end isSinglePageView
@@ -422,14 +443,9 @@ on readCapture()
 	repeat with e in allElements
 		tell application "System Events"
 			set roleText to role of e
-			set valueText to ""
-			set nameText to ""
-			try
-				set valueText to value of e as text
-			end try
-			try
-				set nameText to name of e as text
-			end try
+			set textData to my elementTextData(contents of e, roleText)
+			set valueText to valueText of textData
+			set nameText to nameText of textData
 			if roleText is "AXStaticText" then
 				if valueText is not "" then set end of captionsValue to valueText
 				if nameText is not "" and nameText is not valueText then set end of captionsValue to nameText

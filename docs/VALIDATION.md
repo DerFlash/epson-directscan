@@ -1,7 +1,7 @@
 # Timing-controls development validation
 
 This branch adds interval controls and local measurements after Beta 2. Current
-input-free tests: 24 Node + 36 Python pass. The full compiled poll orchestration
+input-free tests: 24 Node + 37 Python pass. The full compiled poll orchestration
 is exercised with substituted GUI/runtime I/O. Real physical timing acceptance
 for this development build is pending; no throughput improvement is claimed.
 
@@ -10,6 +10,14 @@ An input-free stay-open macOS applet requested 250 ms and observed 262.0,
 1051.3 and 1050.4 ms. This verifies subsecond scheduling on this Mac; it does not
 measure ScanSmart or prove a full scan's speed. The internal resource bridge
 averaged 19.2 ms over eight getSettings requests with isolated test storage.
+
+The first physical timing-controls test exported exactly one readable JPG without
+Mac clicks, preserved the existing 15 JPGs and returned to ready. From the first
+action poll through saved it took 14.465 seconds. Measurements identified about
+2.0 seconds per Save-view capture, plus the fresh capture inside an action.
+The next optimization avoids value/name AX reads for roles whose text is never
+consumed; it keeps both snapshots and all dispatch guards. Its physical timing
+comparison is recorded separately after local installation.
 
 The preceding Beta 2 acceptance record follows for context.
 

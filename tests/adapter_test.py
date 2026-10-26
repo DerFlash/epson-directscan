@@ -17,6 +17,27 @@ def apple(probe):
 
 
 class AdapterTests(unittest.TestCase):
+    def test_capture_reads_only_text_attributes_consumed_by_each_role(self):
+        # Local script properties use System Events' vocabulary; no app UI is read.
+        element = '''using terms from application "System Events"
+        script fakeElement
+            property value : "/target"
+            property name : "Speichern"
+        end script
+        end using terms from
+        '''
+        for role, expected in [
+            ('AXStaticText', {'valueText': '/target', 'nameText': 'Speichern'}),
+            ('AXButton', {'valueText': '', 'nameText': 'Speichern'}),
+            ('AXComboBox', {'valueText': '/target', 'nameText': ''}),
+            ('AXGroup', {'valueText': '', 'nameText': ''}),
+            ('AXImage', {'valueText': '', 'nameText': ''}),
+            ('AXTextField', {'valueText': '', 'nameText': ''}),
+        ]:
+            with self.subTest(role=role):
+                result = json.loads(apple(element + 'return jsonText(elementTextData(fakeElement, "' + role + '"))'))
+                self.assertEqual(result, expected)
+
     def test_interval_labels_resolve_to_validated_milliseconds(self):
         self.assertEqual(apple('return intervalForLabel("0,25 Sekunden (empfohlen)")'), '250')
         self.assertEqual(apple('return intervalForLabel("1 Sekunde (bisher)")'), '1000')
