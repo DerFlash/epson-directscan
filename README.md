@@ -1,5 +1,8 @@
 # Epson ScanSmart AutoSave — 0.1.0-beta.3-dev
 
+> Native menu-bar app candidate: [German DirectScan guide](docs/NATIVE.de.md).
+> Local development only; physical button acceptance is still pending.
+
 GitHub project: [DerFlash/epson-scansmart-autosave](https://github.com/DerFlash/epson-scansmart-autosave).
 
 **Source beta; one complete scanner-button export has passed.** The corrected

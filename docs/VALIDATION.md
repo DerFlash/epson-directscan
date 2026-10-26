@@ -118,3 +118,26 @@ Before marking a device/version combination as fully tested:
 
 Record the exact macOS, ScanSmart, scanner and connection versions with results.
 Do not publish real scans, private paths or unredacted state files as evidence.
+
+
+## Native DirectScan candidate (0.2, local branch)
+
+Direct ICA USB scans were verified on the same Mac and ES-C320W. With
+VF_AUTOCROP=1, VF_DESKEW=true and VF_AUTOROTATE=true, the second sample produced
+a readable 745x1040 JPEG at 300 dpi, 340519 bytes; requestScan to file callback
+was 3.994 seconds. Input rotation/skew was not measured, so their individual
+correction amounts are not established. These were prototype scans, not the new
+menu-bar app's hardware acceptance.
+
+Native software tests cover button/busy/error policy, settings, correction
+readback validation, real JPEG validation and non-overwriting file handoff,
+recovery preservation, and bounded system commands. A local native build and
+ad-hoc signature have passed. The unchanged legacy suite still passes.
+
+Confirmed button presses did not arrive on the tested ICA delegate/status paths,
+including a full AppKit event-loop probe without Epson background helpers. A later
+Mac-target probe timed out before its human confirmation; it is inconclusive.
+The persistent app adds guarded observation of the existing legacy buttonPressed
+property; this route still needs a confirmed press and repeated real scans.
+Do not claim the native app's button workflow is accepted, and do not publish it
+as a working replacement until that gate passes.
