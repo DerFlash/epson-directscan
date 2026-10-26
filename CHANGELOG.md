@@ -7,6 +7,8 @@
   in-flight action reservations intact.
 - Add local per-poll timing and a human-readable summary, with a bounded private
   log and no paths/window text. Diagnostic failures cannot reset a scan.
+- Skip the separate destination-setting action when the current folder is already
+  exactly correct; keep the fresh Save guard and collision checks.
 - Avoid unused remote value/name reads on structural, image and preview elements;
   keep all data consumed by the supported roles and both guarded snapshots.
 - Preserve all existing dispatch, collision, file verification and timeout guards.

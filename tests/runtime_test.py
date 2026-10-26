@@ -2,6 +2,24 @@ import unittest, subprocess, tempfile, pathlib, json, os
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 class Runtime(unittest.TestCase):
+    def test_correct_destination_direct_save_survives_persistence_and_verifies(self):
+        self.call('startup')
+        self.call('setSettings', patch={'destination': self.dest, 'enabled': True})
+        idle = dict(foreground=True, blocked=False, processId=7, noJob=True)
+        self.call('tick', snapshot=idle)
+        view = dict(foreground=True, blocked=False, processId=7, noJob=False,
+                    captions=['In Computereinstellungen speichern', '/ 1'],
+                    fields=[self.dest, 'scan'], suffixLabels=['.jpg'],
+                    saveTargetCount=1, saveEnabled=True)
+        response = self.call('tick', snapshot=view)
+        self.assertEqual(response['action']['type'], 'save')
+        action_id = response['action']['id']
+        self.assertTrue(self.call('canDispatch', snapshot=view, actionId=action_id)['allowed'])
+        self.assertEqual(self.call('reportAction', actionId=action_id, success=True)['phase'], 'verifying')
+        pathlib.Path(self.dest + '/scan.jpg').write_bytes((ROOT / 'tests/fixtures/tiny-white.jpg').read_bytes())
+        self.assertEqual(self.call('tick', snapshot=idle)['phase'], 'verifying')
+        self.assertEqual(self.call('tick', snapshot=idle)['status'], 'saved')
+
     def test_poll_interval_defaults_and_old_settings_migrate(self):
         self.assertEqual(self.call('startup')['settings']['pollIntervalMs'], 250)
         path = pathlib.Path(self.root + '/settings.json')

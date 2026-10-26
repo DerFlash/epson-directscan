@@ -75,3 +75,29 @@ test('counterless single-image export verifies its complete filename and rearms'
     a.equal(h.run('tick',idle).status,'saved');
     a.equal(h.run('tick',choose).action.type,'openSave');
 });
+test('correct destination skips the setter while retaining fresh guards and file confirmation',()=>{
+    const correct={...save,fields:['/out','scan']};
+    let h=harness();h.run('tick',idle);
+    let r=h.run('tick',correct);a.equal(r.action.type,'save');
+    a.equal(h.run('canDispatch',correct,{actionId:r.action.id}).allowed,true);
+    for(const change of [{fields:['/other','scan']},{fields:['/out','changed']},{blocked:true},{foreground:false},{processId:8}]){
+        a.equal(h.run('canDispatch',{...correct,...change},{actionId:r.action.id}).allowed,false);
+    }
+    h.files['/out/scan_002.jpg']={exists:true};
+    a.equal(h.run('canDispatch',correct,{actionId:r.action.id}).allowed,false);
+    delete h.files['/out/scan_002.jpg'];
+    a.equal(h.run('tick',correct).action,undefined);
+    h.run('reportAction',null,{actionId:r.action.id,success:true});
+    for(const n of ['001','002'])h.files['/out/scan_'+n+'.jpg']={exists:true,regular:true,jpeg:true,size:10};
+    a.equal(h.run('tick',idle).phase,'verifying');
+    a.equal(h.run('tick',idle).status,'saved');
+});
+test('direct save still refuses existing targets and never retries an uncertain action',()=>{
+    const correct={...save,fields:['/out','scan']};
+    let h=harness();h.run('tick',idle);h.files['/out/scan_002.jpg']={exists:true};
+    a.equal(h.run('tick',correct).errorCode,'target_exists');
+    h=harness();h.run('tick',idle);let r=h.run('tick',correct);a.equal(r.action.type,'save');
+    h.run('reportAction',null,{actionId:r.action.id,success:false});
+    a.equal(h.run('tick',correct).phase,'paused');a.equal(h.run('tick',correct).action,undefined);
+    h.run('startup');a.equal(h.run('tick',correct).phase,'arming');a.equal(h.run('tick',correct).action,undefined);
+});

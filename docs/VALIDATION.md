@@ -1,7 +1,7 @@
 # Timing-controls development validation
 
 This branch adds interval controls and local measurements after Beta 2. Current
-input-free tests: 24 Node + 37 Python pass. The full compiled poll orchestration
+input-free tests: 26 Node + 38 Python pass. The full compiled poll orchestration
 is exercised with substituted GUI/runtime I/O. One paired physical single-card timing check has passed; this is not a series
 throughput guarantee. The installed interval selector and timing display were
 verified with real measurements.
@@ -27,6 +27,14 @@ not included. These two runs are not a statistical benchmark or a long-series
 acceptance. The separate read-only observer for run two expired before the user
 scanned; native timestamped app records and post-scan file checks provide its
 evidence.
+
+A further targeted optimization omits the separate setDestination action when
+its observed folder already exactly matches the configured folder. A fresh full
+native capture, complete metadata/identity guard and target collision check still
+precede Save. Changed folders retain setter/readback handling. Pure and actual
+runtime tests cover direct reservation, persisted plan, changed/blocked views,
+existing targets, uncertain actions, restart arming and complete JPEG confirmation.
+Its physical timing result remains pending until the next installed scan check.
 
 The preceding Beta 2 acceptance record follows for context.
 
