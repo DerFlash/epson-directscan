@@ -10,7 +10,8 @@
 - Avoid unused remote value/name reads on structural, image and preview elements;
   keep all data consumed by the supported roles and both guarded snapshots.
 - Preserve all existing dispatch, collision, file verification and timeout guards.
-  Physical end-to-end speed acceptance remains pending.
+  A paired single-card check measured 14.5 → 11.9 s for the save workflow;
+  longer series and hardware scan/feed time are outside that comparison.
 
 ## 0.1.0-beta.2 — 2026-10-26
 

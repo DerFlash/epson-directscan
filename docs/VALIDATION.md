@@ -2,8 +2,9 @@
 
 This branch adds interval controls and local measurements after Beta 2. Current
 input-free tests: 24 Node + 37 Python pass. The full compiled poll orchestration
-is exercised with substituted GUI/runtime I/O. Real physical timing acceptance
-for this development build is pending; no throughput improvement is claimed.
+is exercised with substituted GUI/runtime I/O. One paired physical single-card timing check has passed; this is not a series
+throughput guarantee. The installed interval selector and timing display were
+verified with real measurements.
 
 An input-free stay-open macOS applet requested 250 ms and observed 262.0,
 262.3 and 258.0 ms between idle callbacks. The 1000 ms control observed 1050.8,
@@ -15,9 +16,17 @@ The first physical timing-controls test exported exactly one readable JPG withou
 Mac clicks, preserved the existing 15 JPGs and returned to ready. From the first
 action poll through saved it took 14.465 seconds. Measurements identified about
 2.0 seconds per Save-view capture, plus the fresh capture inside an action.
-The next optimization avoids value/name AX reads for roles whose text is never
-consumed; it keeps both snapshots and all dispatch guards. Its physical timing
-comparison is recorded separately after local installation.
+The role-specific capture optimization avoids value/name AX reads for roles
+whose text is never consumed; both snapshots and all dispatch guards remain.
+A second scan of the same card with that optimization took 11.891 seconds from
+the first action poll through saved, 17.8% less in this paired comparison. Mean
+Save-view capture time fell from 2025.673 to 1325.843 ms. Both runs used 250 ms
+polling. Exactly one new complete readable JPG was verified; existing files were
+unchanged by size/mtime. Hardware scan/feed time before the first action poll is
+not included. These two runs are not a statistical benchmark or a long-series
+acceptance. The separate read-only observer for run two expired before the user
+scanned; native timestamped app records and post-scan file checks provide its
+evidence.
 
 The preceding Beta 2 acceptance record follows for context.
 

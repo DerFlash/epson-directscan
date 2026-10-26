@@ -88,8 +88,10 @@ action measurement includes its fresh UI recheck and dispatch acknowledgment.
 The app keeps at most 128 sanitized records in private `timings.json`, with
 timestamps, codes and numeric durations. Idle polling does not overwrite the
 last scan's measurements. No window text, paths or image content are recorded.
-This development build needs a fresh physical timed scan before claiming an
-end-to-end speed improvement.
+A paired local single-card check measured 14.5 → 11.9 seconds for the save
+workflow after optimizing capture reads; both runs used 250 ms polling. This
+excludes hardware scan time and is not a series benchmark. See
+[VALIDATION.md](docs/VALIDATION.md).
 
 ## Configuration and recovery
 

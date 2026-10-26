@@ -33,12 +33,12 @@ Interfaces: settings.pollIntervalMs; setSettings patch.pollIntervalMs;
 recordTiming(sample with settingsMs/captureMs/policyMs/actionMs/totalMs, actionType)
 and getTimings returning timings list.
 
-- [ ] Write failing tests for old-settings migration, persistence/range validation,
+- [x] Write failing tests for old-settings migration, persistence/range validation,
   interval update during reserved action, sanitized bounded timing data and schema errors.
-- [ ] Run native runtime suite; verify expected failures.
-- [ ] Implement validated settings and separate sanitized timing storage without
+- [x] Run native runtime suite; verify expected failures.
+- [x] Implement validated settings and separate sanitized timing storage without
   changes to core state transitions; preserve state on interval-only updates.
-- [ ] Run complete suite; require zero failures; commit.
+- [x] Run complete suite; require zero failures; commit.
 
 ### Task 2: native measurement and interval controls
 
@@ -47,10 +47,10 @@ CHANGELOG.md, docs/design.md, scripts/build.sh.
 Interfaces: idle returns configured seconds; settings menu chooses interval and
 shows local timing summary; recordTiming only after active/error polls.
 
-- [ ] Write failing native adapter tests for interval selection, timing display,
+- [x] Write failing native adapter tests for interval selection, timing display,
   timing sample bounds and compiled idle orchestration with I/O substituted.
-- [ ] Run tests and verify RED; implement native controls and measurement.
-- [ ] Preserve current capture/action/permission guards; use monotonic durations.
-- [ ] Run full tests and build/sign; document measured vs unverified speedup.
-- [ ] Fresh whole-branch review, address material findings with RED/GREEN,
+- [x] Run tests and verify RED; implement native controls and measurement.
+- [x] Preserve current capture/action/permission guards; use monotonic durations.
+- [x] Run full tests and build/sign; document measured vs unverified speedup.
+- [x] Fresh whole-branch review, address material findings with RED/GREEN,
   commit and prepare concrete local update; publication remains separate.
