@@ -9,7 +9,7 @@ hardware-independent policy gates button-triggered jobs; private staging and a
 non-overwriting exporter preserve uncertain output. No ScanSmart UI automation.
 
 **Tech Stack:** Swift 5 language mode, macOS 13+, AppKit, ImageCaptureCore, ImageIO,
-Foundation, Swift Package Manager/XCTest, system signing tools; no dependencies.
+Foundation, Swift Package Manager/Swift Testing, system signing tools; no dependencies.
 
 **Spec:** ../specs/2026-10-26-native-cardscan-design.md (user approved).
 

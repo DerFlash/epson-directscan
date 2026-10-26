@@ -1,0 +1,6 @@
+// swift-tools-version: 5.9
+import PackageDescription
+let package = Package(
+    name: "EpsonDirectScan", platforms: [.macOS(.v13)],
+    products: [.library(name: "DirectScanCore", targets: ["DirectScanCore"])],
+    targets: [.target(name: "DirectScanCore"), .testTarget(name: "DirectScanCoreTests", dependencies: ["DirectScanCore"])])
