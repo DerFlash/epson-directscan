@@ -36,8 +36,8 @@ set_key CFBundleIdentifier org.scansmart.autosave.beta
 set_key CFBundleDisplayName 'ScanSmart AutoSave Beta'
 set_key CFBundleName 'ScanSmart AutoSave Beta'
 set_key CFBundleShortVersionString 0.1.0
-set_key CFBundleVersion 1
-set_key AutoSaveVersion 0.1.0-beta.1
+set_key CFBundleVersion 2
+set_key AutoSaveVersion 0.1.0-beta.2
 set_key NSAppleEventsUsageDescription 'Read the German Epson ScanSmart save window through System Events and complete explicitly enabled JPG exports.'
 /usr/bin/plutil -lint "$PLIST"
 /usr/bin/codesign --force --sign "$IDENTITY" "$BUNDLE"

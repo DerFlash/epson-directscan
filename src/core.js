@@ -14,7 +14,10 @@ var AutoSaveCore = (function () {
     function metadata(s,destination) {
         var suffix=s.suffixLabels||[], fields=s.fields||[], counts=[];
         (s.captions||[]).forEach(function(c){var m=String(c).match(/\/\s*(\d+)\s*$/);if(m && counts.indexOf(Number(m[1]))<0)counts.push(Number(m[1]));});
-        if(counts.length===0&&s.singlePage===true)counts.push(1);
+        // In the supported single-image layout the full filename is in the
+        // prefix and only the extension remains. A numbered suffix without a
+        // readable page count may be an incomplete multi-image observation.
+        if(counts.length===0&&s.singlePage===true&&suffix.length===1&&/^\.jpe?g$/i.test(suffix[0]))counts.push(1);
         if(suffix.length!==1 || counts.length!==1 || counts[0]<1 || counts[0]>10000) throw Error('invalid_metadata');
         var m=String(suffix[0]).match(/^(?:_(\d+))?(\.jpe?g)$/i);
         var folders=fields.filter(function(x){return typeof x==='string' && x[0]==='/';});

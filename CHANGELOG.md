@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.0-beta.2 — 2026-10-26
+
+- Fix resource loading and JSON null handling in the compiled AppleScriptObjC app.
+- Preserve the exact `actionId` key across the native bridge so reserved actions
+  can be dispatched and acknowledged.
+- Ignore only the exact macOS window-sharing indicator; real dialogs still block
+  automation. Retry transient read-only UI observations for at most 10 seconds,
+  without repeating a reserved or uncertain action. Keep actual permission errors
+  distinct and show their native error number.
+- Wait for export fields to finish loading, read the two export combo boxes
+  without preview-field interference, and support the single-image Save view
+  whose page counter is hidden. Confirm an already-correct destination without
+  rewriting it.
+- Require an unnumbered .jpg/.jpeg suffix before treating a counterless view as
+  one image. A partial multi-image view cannot bypass collision checks by hiding
+  its page count. Add regression coverage for this case, the compiled native
+  bridge and a complete single-image export cycle.
+- Record one successful physical single-card button scan on ES-C320W USB,
+  German ScanSmart 3.7.22 and macOS 27.0.1. Longer sequences and the remaining
+  hardware acceptance cases are still unverified.
+
 ## 0.1.0-beta.1
 
 Initial source beta: standalone stay-open helper, destination picker, enable/pause,

@@ -1,11 +1,13 @@
-# Epson ScanSmart AutoSave — 0.1.0-beta.1
+# Epson ScanSmart AutoSave — 0.1.0-beta.2
 
 GitHub project: [DerFlash/epson-scansmart-autosave](https://github.com/DerFlash/epson-scansmart-autosave).
 
-**Source beta; new hardware acceptance is pending.** The predecessor was tested
-only with German Epson ScanSmart 3.7.22, macOS 27.0.1 and ES-C320W over USB.
-This does not certify this new beta. Other languages, scanner models, layouts,
-formats and macOS versions are unverified. Unsupported views pause automation.
+**Source beta; one complete scanner-button export has passed.** The corrected
+implementation saved one card as a readable JPG without Mac clicks on 2026-10-25,
+using German Epson ScanSmart 3.7.22, macOS 27.0.1 and ES-C320W over USB.
+Longer scan sequences, repeated cycles, destination changes during real scans and
+restart behavior still need hardware acceptance. Other languages, scanner models,
+layouts, formats and macOS versions are unverified. Unsupported views pause automation.
 This independent project includes no Epson software and does not require Codex.
 
 It completes the two German ScanSmart save steps for JPG exports after a
@@ -33,7 +35,7 @@ launch, install, change permissions or configure autostart. Existing build outpu
 requires `./scripts/build.sh --replace`. An explicit signing identity can be used
 with `./scripts/build.sh --sign 'YOUR SIGNING IDENTITY'`; this does not notarize it.
 The bundle ID is `org.scansmart.autosave.beta`; marketing version is `0.1.0`,
-build `1`, beta version `0.1.0-beta.1`.
+build `2`, beta version `0.1.0-beta.2`.
 
 Install defaults to `~/Applications`. It refuses an existing app unless you pass
 `./scripts/install.sh --replace`; quit the installed helper and any predecessor
@@ -51,7 +53,8 @@ Do not treat a build command or passing tests as hardware acceptance.
 1. Open the installed app manually. It starts disabled. Click its Dock icon to
    open the controls: destination folder, enable/pause, status, dry run and reset.
 2. Choose a writable destination. Grant **this app** access in macOS System
-   Settings → Privacy & Security → Accessibility. When asked, also allow this app
+   Settings → Privacy & Security → Accessibility (on newer German macOS versions:
+   “Gerätesteuerung und Datenzugriff”). When asked, also allow this app
    to control System Events under Automation. Granting permission to Terminal or
    Codex does not grant it to the standalone app.
 3. Finish or cancel existing pending ScanSmart exports manually. Enable dry run
@@ -127,8 +130,9 @@ start screen before a new scan. Reset does not prove that an earlier save failed
 `./scripts/test.sh` runs Node core tests and Python tests without GUI permissions.
 CI runs core tests on Linux and tests plus app compilation/signature verification
 on macOS. Automated checks cannot prove Epson GUI behavior, real permissions,
-scanner-button operation or hardware save completion. Those acceptance checks
-remain pending for this new beta.
+scanner-button operation or hardware save completion. One physical single-card
+cycle has passed; the remaining hardware acceptance checks are listed in
+[VALIDATION.md](docs/VALIDATION.md).
 
 To remove: quit the app, delete its installed `.app`, and remove its permission
 entries in System Settings if desired. To reset all local state, separately remove

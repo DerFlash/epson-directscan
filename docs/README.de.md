@@ -1,13 +1,15 @@
-# Epson ScanSmart AutoSave — 0.1.0-beta.1
+# Epson ScanSmart AutoSave — 0.1.0-beta.2
 
 GitHub-Projekt: [DerFlash/epson-scansmart-autosave](https://github.com/DerFlash/epson-scansmart-autosave).
 
-**Quellcode-Beta: Die Hardware-Abnahme dieser neuen App steht noch aus.** Nur der
-Vorgänger wurde mit deutschem Epson ScanSmart 3.7.22, macOS 27.0.1 und ES-C320W
-über USB getestet. Das bestätigt diese Beta nicht. Andere Sprachen, Modelle,
-Ansichten, Dateiformate und macOS-Versionen sind ungeprüft. Unbekannte Ansichten
-führen zur Pause. Das unabhängige Projekt enthält keine Epson-Software und
-benötigt kein Codex.
+**Quellcode-Beta: Ein vollständiger Scan über die Gerätetaste war erfolgreich.**
+Die korrigierte App hat am 25.10.2026 eine Karte ohne Mac-Klicks als lesbares JPG
+gespeichert: ES-C320W über USB, deutsches Epson ScanSmart 3.7.22 und macOS 27.0.1.
+Längere Serien, mehrere aufeinanderfolgende Scans, Zielwechsel mit echten Scans
+und das Verhalten nach Neustart sind noch nicht mit Hardware abgenommen.
+Andere Sprachen, Modelle, Ansichten, Dateiformate und macOS-Versionen sind
+ungeprüft. Unbekannte Ansichten führen zur Pause. Das unabhängige Projekt enthält
+keine Epson-Software und benötigt kein Codex.
 
 Die App übernimmt die zwei Speicherschritte für JPG nach einem Scan über die
 Scannertaste. Auflösung, Seiten und Dateinamen-Präfix stellst du weiterhin in
@@ -31,7 +33,7 @@ Er startet und installiert nichts und ändert weder Rechte noch Autostart.
 Ein vorhandener Build wird nur mit `./scripts/build.sh --replace` ersetzt.
 Optional: `./scripts/build.sh --sign 'DEINE SIGNATURIDENTITÄT'`; das führt keine
 Notarisierung durch. Kennung: `org.scansmart.autosave.beta`, Version `0.1.0`,
-Build `1`, Beta-Version `0.1.0-beta.1`.
+Build `2`, Beta-Version `0.1.0-beta.2`.
 
 Die Installation kopiert nach `~/Applications`. Vorhandene Apps werden abgelehnt.
 Zum bewussten Ersetzen zuerst alle Helfer beenden, dann
@@ -50,7 +52,8 @@ Signatur und Notarisierung. Erfolgreiche Tests ersetzen keine Hardware-Abnahme.
 1. Starte die installierte App manuell. Sie ist zunächst deaktiviert. Über ihr
    Dock-Symbol öffnest du Zielordner, Aktivieren/Pause, Status, Probelauf und Reset.
 2. Wähle einen beschreibbaren Zielordner. Erlaube **dieser App** unter
-   Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen den Zugriff.
+   Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen den Zugriff
+   (auf neueren macOS-Versionen: „Gerätesteuerung und Datenzugriff“).
    Erlaube bei Nachfrage außerdem die Steuerung von System Events unter
    Automation. Rechte für Terminal oder Codex reichen für die eigenständige App
    nicht aus.
@@ -131,9 +134,10 @@ Startbildschirm erkennen lassen. Reset beweist nicht, dass ein früherer Export
 fehlgeschlagen ist.
 
 `./scripts/test.sh` führt Node- und Python-Tests ohne GUI-Rechte aus. CI prüft den
-Kern unter Linux sowie Tests, App-Build und Signatur unter macOS. Echte Rechte,
-Epson-Ansichten, Scannertaste und vollständige Exporte dieser Beta müssen noch
-manuell mit Hardware abgenommen werden.
+Kern unter Linux sowie Tests, App-Build und Signatur unter macOS. Ein echter
+Einzelkarten-Scan ist erfolgreich abgeschlossen. Die weitergehende manuelle
+Hardware-Abnahme bleibt offen; die einzelnen Prüfpunkte stehen in
+[VALIDATION.md](VALIDATION.md).
 
 Zum Entfernen App beenden und die installierte `.app` löschen. Rechte kannst du
 in den Systemeinstellungen entfernen. Für einen vollständigen lokalen Reset
@@ -146,5 +150,5 @@ Ordner- und Dateipfade enthalten; vor Weitergabe von Diagnosen private Angaben
 entfernen. Siehe [Datenschutz und Sicherheit](../SECURITY.md),
 [technischen Entwurf](design.md) und [MIT-Lizenz](../LICENSE).
 
-Prüfergebnisse und ein Ablauf für die noch offene Hardware-Abnahme stehen in
+Prüfergebnisse und ein Ablauf für die verbleibende Hardware-Abnahme stehen in
 [VALIDATION.md](VALIDATION.md).

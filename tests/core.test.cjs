@@ -46,7 +46,32 @@ test('new save view may finish loading but invalid formats never receive a save'
     a.equal(r.errorCode,'invalid_metadata');a.equal(r.action,undefined);
 });
 test('one-page view requires the native single-page marker when the counter is hidden',()=>{
-    const single={...save,captions:['In Computereinstellungen speichern'],singlePage:true};
+    const single={...save,captions:['In Computereinstellungen speichern'],singlePage:true,suffixLabels:['.jpg'],fields:['/old','scan_001']};
     a.equal(C.metadata(single,'/out').count,1);
     a.throws(()=>C.metadata({...single,singlePage:false},'/out'),/invalid_metadata/);
+    a.equal(C.metadata({...save,captions:['In Computereinstellungen speichern','/ 1']},'/out').count,1);
+});
+test('missing multi-page counter never authorizes an undercounted export',()=>{
+    const partial={...save,captions:['In Computereinstellungen speichern'],singlePage:true};
+    a.throws(()=>C.metadata(partial,'/out'),/invalid_metadata/);
+    let h=harness();h.run('tick',idle);h.files['/out/scan_002.jpg']={exists:true};
+    let r=h.run('tick',partial);
+    a.equal(r.errorCode,'invalid_metadata');a.equal(r.action,undefined);
+    // A complete plan must also be denied if the fresh dispatch view loses its counter.
+    h=harness();h.run('tick',idle);r=h.run('tick',save);
+    a.equal(h.run('canDispatch',partial,{actionId:r.action.id}).allowed,false);
+});
+test('counterless single-image export verifies its complete filename and rearms',()=>{
+    const single={...save,captions:['In Computereinstellungen speichern'],singlePage:true,suffixLabels:['.jpg'],fields:['/old','scan_001']};
+    let h=harness();h.run('tick',idle);
+    let r=h.run('tick',single);a.equal(r.action.type,'setDestination');
+    h.run('reportAction',null,{actionId:r.action.id,success:true});
+    const destinationView={...single,fields:['/out','scan_001']};
+    r=h.run('tick',destinationView);a.equal(r.action.type,'save');
+    a.equal(h.run('canDispatch',destinationView,{actionId:r.action.id}).allowed,true);
+    h.run('reportAction',null,{actionId:r.action.id,success:true});
+    h.files['/out/scan_001.jpg']={exists:true,regular:true,jpeg:true,size:10};
+    a.equal(h.run('tick',idle).phase,'verifying');
+    a.equal(h.run('tick',idle).status,'saved');
+    a.equal(h.run('tick',choose).action.type,'openSave');
 });
