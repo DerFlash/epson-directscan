@@ -1,4 +1,4 @@
-# Epson ScanSmart AutoSave — 0.1.0-beta.2
+# Epson ScanSmart AutoSave — 0.1.0-beta.3-dev
 
 GitHub-Projekt: [DerFlash/epson-scansmart-autosave](https://github.com/DerFlash/epson-scansmart-autosave).
 
@@ -33,7 +33,7 @@ Er startet und installiert nichts und ändert weder Rechte noch Autostart.
 Ein vorhandener Build wird nur mit `./scripts/build.sh --replace` ersetzt.
 Optional: `./scripts/build.sh --sign 'DEINE SIGNATURIDENTITÄT'`; das führt keine
 Notarisierung durch. Kennung: `org.scansmart.autosave.beta`, Version `0.1.0`,
-Build `2`, Beta-Version `0.1.0-beta.2`.
+Build `3`, Beta-Version `0.1.0-beta.3-dev`.
 
 Die Installation kopiert nach `~/Applications`. Vorhandene Apps werden abgelehnt.
 Zum bewussten Ersetzen zuerst alle Helfer beenden, dann
@@ -74,6 +74,23 @@ Berechtigungsidentität sehen. Falls Rechte nicht mehr greifen: App beenden,
 alten Eintrag bei Bedienungshilfen entfernen und die neu installierte App erneut
 hinzufügen. Automation-Eintrag prüfen und eine neue Nachfrage beantworten.
 Die Skripte ändern diese Rechte nicht. Erteile sie nur deiner bekannten App-Kopie.
+
+## Prüfintervall und Zeitmessung
+
+Öffne die App und wähle **Prüfintervall wählen**. Du kannst 0,10, 0,25
+(Voreinstellung), 0,50, 1 oder 2 Sekunden einstellen. Das ist die angeforderte Pause
+nach einer Prüfung. macOS, das Lesen der Fenster und ScanSmart benötigen
+zusätzliche Zeit. Bei ausgeschalteter oder pausierter Automatik sind es zwei
+Sekunden. Ein reiner Intervallwechsel lässt einen laufenden Speichervorgang
+unberührt. Die Sicherheitsprüfungen und Abbruchgrenzen bleiben erhalten.
+
+**Zeitmessung anzeigen** zeigt die letzten aktiven Schritte mit Zeiten für
+Fensterlesen, Aktion und gesamte Bearbeitung. Die Aktion enthält auch die erneute
+Fensterprüfung und Bestätigung. Die Zeit für das Prüfintervall kommt hinzu.
+Maximal 128 Messungen liegen lokal in `timings.json`: Zeitstempel, Statuscodes und
+Zahlen, keine Fenstertitel, Pfade oder Bildinhalte. Warten ohne aktiven Scan
+überschreibt die letzten Messungen nicht. Wie viel schneller ein vollständiger
+Scan ist, muss mit dieser Entwicklungsversion noch am Gerät gemessen werden.
 
 ## Einstellungen und sichere Wiederaufnahme
 

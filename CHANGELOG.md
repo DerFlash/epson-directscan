@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — timing controls
+
+- Add configurable polling intervals of 100–2000 ms (default 250 ms), with native
+  menu controls and migration of existing settings. Interval-only changes keep
+  in-flight action reservations intact.
+- Add local per-poll timing and a human-readable summary, with a bounded private
+  log and no paths/window text. Diagnostic failures cannot reset a scan.
+- Preserve all existing dispatch, collision, file verification and timeout guards.
+  Physical end-to-end speed acceptance remains pending.
+
 ## 0.1.0-beta.2 — 2026-10-26
 
 - Fix resource loading and JSON null handling in the compiled AppleScriptObjC app.

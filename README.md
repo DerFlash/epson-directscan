@@ -1,4 +1,4 @@
-# Epson ScanSmart AutoSave — 0.1.0-beta.2
+# Epson ScanSmart AutoSave — 0.1.0-beta.3-dev
 
 GitHub project: [DerFlash/epson-scansmart-autosave](https://github.com/DerFlash/epson-scansmart-autosave).
 
@@ -35,7 +35,7 @@ launch, install, change permissions or configure autostart. Existing build outpu
 requires `./scripts/build.sh --replace`. An explicit signing identity can be used
 with `./scripts/build.sh --sign 'YOUR SIGNING IDENTITY'`; this does not notarize it.
 The bundle ID is `org.scansmart.autosave.beta`; marketing version is `0.1.0`,
-build `2`, beta version `0.1.0-beta.2`.
+build `3`, beta version `0.1.0-beta.3-dev`.
 
 Install defaults to `~/Applications`. It refuses an existing app unless you pass
 `./scripts/install.sh --replace`; quit the installed helper and any predecessor
@@ -72,6 +72,24 @@ After replacement, quit the app, remove its stale Accessibility entry and add th
 new installed app again if permission fails; review its Automation entry and
 respond to the new prompt. No script changes permissions for you. Do not grant
 permissions to unfamiliar copies.
+
+## Polling interval and local timing
+
+Open the app controls and choose **Prüfintervall wählen**. Available intervals are
+100, 250 (default), 500, 1000 and 2000 ms. The interval is the requested gap after
+a poll; macOS scheduling, UI reads and Epson processing add their own time.
+Disabled or paused mode uses two seconds. Changing only the interval preserves a
+pending transaction and does not require idle rearming. The 10/30/120-second
+error limits and all Save guards remain unchanged.
+
+**Zeitmessung anzeigen** shows recent active steps, including window-read,
+action and total processing time. Processing excludes the scheduling gap; the
+action measurement includes its fresh UI recheck and dispatch acknowledgment.
+The app keeps at most 128 sanitized records in private `timings.json`, with
+timestamps, codes and numeric durations. Idle polling does not overwrite the
+last scan's measurements. No window text, paths or image content are recorded.
+This development build needs a fresh physical timed scan before claiming an
+end-to-end speed improvement.
 
 ## Configuration and recovery
 

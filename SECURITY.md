@@ -9,7 +9,9 @@ check. It does not upload scan contents.
 
 Settings, state and bounded logs are stored under
 `~/Library/Application Support/ScanSmart AutoSave/` with private permissions.
-Logs use codes and counts. Treat state/configuration as private: they may contain
+Event logs use codes and counts. The separate bounded timing log contains only
+timestamps, known codes/action types and numeric durations/intervals; it never
+contains window text, destination paths or image data. Treat state/configuration as private: they may contain
 folder names or expected file paths. Inspect and redact any diagnostic material
 before sharing; never attach actual scans or private customer information.
 
