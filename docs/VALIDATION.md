@@ -405,6 +405,18 @@ The first device retest reproduced failed pickup followed by physical Stop.
 The driver again completed with no error and no pages. The app displayed
 “Bereit – Epson-Taste drücken · Keine Seite gescannt – Vorlage und Einzug prüfen”,
 rearmed its receiver and left Pending empty. No output file was created. The user
-confirmed that physical Stop halted transport. Automatic no-progress cancellation
-and a subsequent valid card are still pending; software tests alone do not
-establish those hardware behaviors.
+confirmed that physical Stop halted transport. The automatic guard subsequently requested cancellation after 15–16 seconds
+without pages; the user confirmed that transport stopped. ICA then reported
+unsolicited scanner error -9933 and the physical error light remained active.
+A later power-cycle released the native button receiver (-106); the original
+Epson agents resumed and ScanSmart handled the next attempt. The user and the
+actual ScanSmart dialog both reported paper jam. That attempt was not a native
+build13 scan and cannot validate its diagnostic instrumentation.
+
+This is a real scanner fault, not a neutral cancellation to suppress. Build14
+adds explicit paper-path/recovery and disconnected/reconnect hints while keeping
+error state and retained files. All 70 native, 26 Node and 38 Python tests pass
+(134 total); release build, compatibility, signature and installed/build hash
+checks pass. The new hints were covered by RED→GREEN controller/handoff tests. Epson documentation requires physical paper-path
+clearance; automatic USB reconnection remains outside this fix. Clearance and a
+subsequent valid card scan are still pending.

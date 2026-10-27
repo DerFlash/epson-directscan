@@ -61,6 +61,26 @@ private final class HandoffClock { var time: TimeInterval = 0 }
     deinit { try? FileManager.default.removeItem(at: root) }
 }
 @Suite @MainActor struct HandoffTests {
+    @Test func scannerFaultRemainsVisibleWithPaperPathAndRecoveryHint() throws {
+        let f = try HandoffFixture(); f.trigger()
+        _ = try f.storage.beginJob(settings: f.settings.value)
+        let worker = f.factory.helpers[1]
+        worker.emit("error", -206); worker.emit("closed", 0); worker.exit(1)
+        #expect(f.controller.policy.phase == .error && !f.controller.listening)
+        #expect(f.controller.message.contains("Papierweg"))
+        #expect(f.controller.message.contains("neu verbinden"))
+        #expect(try f.storage.hasUnfinishedJobs())
+        #expect(f.factory.roles.count == 2)
+    }
+    @Test func disconnectedReceiverExplainsExplicitReconnectAndDoesNotReplay() throws {
+        let f = try HandoffFixture(); f.button.emit("ready", 1)
+        f.button.emit("error", -106); f.button.emit("closed", 0); f.button.exit(1)
+        #expect(f.controller.policy.phase == .error && !f.controller.listening)
+        #expect(f.controller.message.contains("getrennt"))
+        #expect(f.controller.message.contains("neu verbinden"))
+        #expect(f.factory.roles.count == 1 && !f.services.paused)
+        #expect(f.controller.buttonEvents == 0)
+    }
     @Test func emptyScanNoticeSurvivesRearmAndNeedsCloseAndExit() throws {
         let f = try HandoffFixture(); f.trigger()
         let worker = f.factory.helpers[1]

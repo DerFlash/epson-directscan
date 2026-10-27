@@ -179,6 +179,12 @@ final class ScanCoordinator {
             guard files == 0, complete == nil, !empty, let value = event.value,
                   let reason = EmptyScanReason(rawValue: value) else { fail("Unerwarteter Scanabschluss.", code: "worker_empty_invalid"); return }
             empty = true; lastScanNotice = reason
+        case (.button?, "error") where event.value == -106:
+            diagnostics.record("helper_error", values: ["code": -106])
+            fail("Scanner getrennt oder ausgeschaltet. Nach dem Einschalten Epson-Scanprogramme schließen und neu verbinden.", code: "receiver_disconnected")
+        case (.scan?, "error") where event.value == -206:
+            diagnostics.record("helper_error", values: ["code": -206])
+            fail("Der Scanner meldet einen Einzugs- oder Gerätefehler. Vorlage und Papierweg prüfen, dann „Fehler zurücksetzen und neu verbinden“ wählen. Vorhandene Dateien bleiben erhalten.", code: "scanner_reported_fault")
         case (_, "error"):
             diagnostics.record("helper_error", values: ["code": event.value ?? 0])
             fail("Der Epson-Empfang oder Scan ist fehlgeschlagen. Bitte Treiber und zurückgehaltene Dateien prüfen.", code: "helper_failed")

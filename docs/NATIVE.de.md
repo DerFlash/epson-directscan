@@ -113,6 +113,20 @@ bestätigtem Abschluss als Sammlungs-PDF gesichert; unvollständige Karten bleib
 gekennzeichnet. Bitte eine nicht einziehbare Vorlage vor dem nächsten Start
 entnehmen bzw. neu einlegen.
 
+Ein **blinkendes Ausrufezeichen bzw. Papierstau** ist ein echter Gerätefehler und
+bleibt sichtbar, auch wenn die App den Einzug zuvor wegen fehlenden Fortschritts
+gestoppt hat. Die App kann den mechanischen Fehler nicht löschen. Laut
+[Epson-Handbuch, Fehleranzeigen](https://download4.epson.biz/sec_pubs/es-c320w/useg/de/manual.pdf)
+die Scannerabdeckung öffnen, gestaute Vorlagen entfernen und die Abdeckung
+schließen. Danach die zurückgehaltenen Dateien prüfen und **Fehler zurücksetzen
+und neu verbinden …** wählen. Es wird kein alter Scan wiederholt.
+
+Beim Ausschalten bzw. Trennen des Scanners beendet DirectScan den Empfang und
+stellt nach bestätigter Freigabe die Epson-Tastenhelfer wieder her. Deshalb kann
+nach dem Einschalten wieder ScanSmart auf die Scantaste reagieren. Epson-
+Scanprogramme schließen und DirectScan erneut verbinden, bevor weitergescannt
+wird. Eine automatische Wiederverbindung nach USB-Trennung ist nicht enthalten.
+
 1. Im Leerlauf **Kontinuierlicher Scan (Sammlungs-PDF)** einschalten und die
    gewünschte Wartezeit wählen (Standard 120 Sekunden). Der normale JPG/PDF-Wert
    bleibt gespeichert und gilt nach dem Ausschalten wieder.

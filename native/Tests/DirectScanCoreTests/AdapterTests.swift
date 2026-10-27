@@ -81,6 +81,18 @@ private final class TestClock { var time: TimeInterval = 0 }
     deinit { try? FileManager.default.removeItem(at: root) }
 }
 @Suite @MainActor struct AdapterTests {
+    @Test func actualScannerFaultAfterWatchdogIsNotSuppressed() throws {
+        let f = try AdapterFixture(loaded: true)
+        var completed: Int?
+        f.controller.onScanFinished = { completed = $0 }
+        f.controller.scannerDevice(f.browser.device, didSelect: f.browser.device.feeder, error: nil)
+        f.controller.scanAuthorized()
+        f.clock.time = 15; f.controller.checkDeadline()
+        f.controller.device(f.browser.device, didEncounterError: NSError(domain: ICErrorDomain, code: -9933))
+        f.controller.scannerDevice(f.browser.device, didCompleteScanWithError: nil)
+        #expect(completed == nil && f.controller.policy.phase == .error)
+        #expect(try f.storage.hasUnfinishedJobs())
+    }
     // These drive the real controller/storage; only the physical ICA device is replaced.
     @Test func emptyCompletionIsRemovedOnlyAfterConfirmedClose() throws {
         let f = try AdapterFixture(loaded: true)

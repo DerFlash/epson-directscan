@@ -73,7 +73,7 @@ enum ScanWorkerMain {
                     requested = true; controller.scanAuthorized()
                 }
                 if stopping && controller.sessionReleased {
-                    if failed { emit(HelperEvent(event: "error", value: -201)) }
+                    if failed { emit(HelperEvent(event: "error", value: controller.scannerReportedError ? -206 : -201)) }
                     else if let pages = outcome, pages > 0 { emit(HelperEvent(event: "complete", value: pages)) }
                     else if outcome == 0 { emit(HelperEvent(event: "empty", value: controller.emptyResult?.rawValue ?? 0)) }
                     else { emit(HelperEvent(event: "error", value: -202)); failed = true }

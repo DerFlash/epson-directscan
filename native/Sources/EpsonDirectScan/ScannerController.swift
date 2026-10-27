@@ -25,6 +25,7 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
     private var progressDeadline: TimeInterval?
     private var noProgressStop = false
     private var cancellationReported = false
+    private(set) var scannerReportedError = false
     private var selectedReady = false
     private var closing = false
     private var releaseFailed = false
@@ -303,6 +304,12 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
     }
     func device(_ device: ICDevice, didEncounterError error: Error?) {
         guard device === scanner, let error, !closing else { return }
+        let detail = error as NSError
+        var numbers = ["error": detail.code, "icaDomain": detail.domain == ICErrorDomain ? 1 : 0]
+        for (key, value) in detail.userInfo.sorted(by: { $0.key < $1.key }).prefix(16) {
+            if let number = value as? NSNumber { numbers[String(key.prefix(80))] = number.intValue }
+        }
+        diagnostics.record("scanner_error_detail", values: numbers)
         if policy.phase == .scanning, Self.isCancellation(error) {
             // Wait for the scan-completion callback before classifying files.
             if !cancellationReported && !noProgressStop { deadline = now() + 12 }
@@ -310,6 +317,7 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
             diagnostics.record("scan_cancellation_reported")
             return
         }
+        scannerReportedError = true
         fail("Der Scanner meldet einen Fehler. Bitte Scanner und Dateien prüfen.", code: "device_error", error: error)
     }
     private static func isCancellation(_ error: Error?) -> Bool {
