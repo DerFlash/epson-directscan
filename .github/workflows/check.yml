@@ -25,3 +25,7 @@ jobs:
           python-version: '3.x'
       - run: ./scripts/test.sh
       - run: ./scripts/build.sh
+      - name: Native core and helper contract tests
+        run: ./scripts/test-native.sh
+      - name: Compile native menu-bar app
+        run: swift build --package-path native -c release --product EpsonDirectScan

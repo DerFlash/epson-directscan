@@ -1,6 +1,6 @@
 # Epson DirectScan Beta – native Menüleisten-App
 
-Lokale Entwicklungsfassung **0.3.0-beta.1-dev** für den Epson ES-C320W über USB.
+Quellcode-Beta **0.3.0-beta.1** (Build 14) für den Epson ES-C320W über USB.
 Sie ergänzt doppelseitige JPGs, ein PDF pro Karte und den kontinuierlichen Einzug
 mit einem gemeinsamen PDF. Duplex-JPG, Karten-PDF, automatisches Nachlegen,
 Stopptaste und eine 30-Sekunden-Wartefrist wurden lokal am Gerät geprüft;
@@ -23,7 +23,7 @@ der Epson-Treiber muss separat installiert sein.
   die Verträglichkeit neu geprüft werden.
 - Geprüft: Apple-Silicon-Mac, macOS 27.0.1. Das Build-Ziel ist macOS 13+, weitere
   Systeme sind ungetestet. Es gibt keine Notarisierung und keinen öffentlichen
-  Binär-Release dieser nativen Entwicklungsfassung.
+  Binär-Release dieser nativen Quellcode-Beta.
 
 ## Bauen und installieren
 

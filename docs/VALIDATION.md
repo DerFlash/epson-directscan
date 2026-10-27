@@ -1,3 +1,26 @@
+# Release validation — v0.3.0-beta.1
+
+The native source release promotes the tested build14 logic. Only its bundle
+version label changes from `0.3.0-beta.1-dev` to `0.3.0-beta.1`; no capture,
+correction, storage or recovery behavior changes for publication. Local acceptance
+and earlier development evidence follow chronologically. Historical “local only”
+statements describe those development stages, not the release authorization.
+The release adds native core/helper tests and compilation to CI. Its ordinary
+hosted runners have no Epson hardware/driver, so the Epson orientation integration
+case is gated; the local 134-test result includes the installed-driver test.
+
+Release preflight: all70 native +26 Node +38 Python tests pass (134 total),
+the native callback harness passes, and both native and legacy signed builds pass.
+Executable bytes outside the embedded ad-hoc signing data match the installed,
+hardware-tested build14 byte for byte. The changed Info.plist version changes the
+embedded signing hash, so the full executable SHA differs as expected. Local
+document links and the release tree/history privacy audit passed; no new binary
+or private-path blobs exist in the previously unpublished commit history.
+Source-archive and remote CI verification are recorded once published. The local
+hardware record is unchanged by publication.
+
+## Earlier development evidence
+
 # Timing-controls development validation
 
 This branch adds interval controls and local measurements after Beta 2. Current

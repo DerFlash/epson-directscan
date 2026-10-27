@@ -1,5 +1,9 @@
 # Epson ScanSmart AutoSave — 0.1.0-beta.3-dev
 
+> **Ältere ScanSmart-Oberflächenautomatik.** Für die native Menüleisten-App
+> v0.3.0-beta.1 gilt die [DirectScan-Anleitung](NATIVE.de.md). Nicht gleichzeitig
+> ausführen.
+
 GitHub-Projekt: [DerFlash/epson-scansmart-autosave](https://github.com/DerFlash/epson-scansmart-autosave).
 
 **Quellcode-Beta: Ein vollständiger Scan über die Gerätetaste war erfolgreich.**

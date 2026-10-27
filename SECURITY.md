@@ -1,5 +1,12 @@
 # Security and privacy
 
+The main v0.3 release is the native DirectScan app described below. The first
+section documents the separately retained legacy ScanSmart UI helper; its
+Accessibility/Automation permissions do not apply to DirectScan. No Epson
+binaries, real scans or private settings are included in release archives.
+
+## Legacy ScanSmart helper
+
 This source beta operates locally. It makes no network requests and includes no
 telemetry, credentials, scan samples or Epson software. It reads ScanSmart window
 metadata, stores a selected destination and transaction state, and checks expected
@@ -27,9 +34,9 @@ minimal issue requesting a private channel; do not publish sensitive reproductio
 data. No guaranteed response time or security support period is offered for beta.
 
 
-## Native DirectScan candidate
+## Native DirectScan v0.3 source beta
 
-The separate native candidate uses ImageCaptureCore for scans and an isolated
+The separate native app uses ImageCaptureCore for scans and an isolated
 helper for the installed Epson Scanner.framework internal button API, without
 Accessibility or System Events. The helper refuses any driver version except
 the checked 6.7.84 and verifies method signatures before calling it. No Epson
@@ -44,7 +51,7 @@ for restoration on the next app launch (or normal agents return at next login).
 Each helper independently holds the shared scanner.lock OS lease through hardware
 open and close. Startup restoration and a new connection also check it, so a
 surviving/blocked old helper keeps recovery blocked after its parent exits. Do not
-delete the memo or lock file to suppress an error. The candidate never alters the
+delete the memo or lock file to suppress an error. The native app never alters the
 scanner's global auto-launch application assignment. The legacy ICA callback/KVO
 route did not deliver events and has been removed from the scan worker. Three real
 button scans passed through the Epson-specific helper; other driver versions,
@@ -58,7 +65,7 @@ exclude images, OCR, device serials and arbitrary window contents. Configuration
 and retained job metadata may contain the user's selected local path.
 
 
-The local duplex/PDF extension keeps the same device ownership and close/exit
+The native duplex/PDF extension keeps the same device ownership and close/exit
 barriers. Its automatic-feeding helper additionally uses Scanner.framework AFM
 and ImageProcessor/Esaod for orientation, guarded to installed version6.7.84.
 No vendor binaries, OCR output or scanned images are included in source control.

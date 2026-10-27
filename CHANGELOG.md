@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.3.0-beta.1 — 2026-10-27
+
+First public native DirectScan source beta, promoting the tested build14 logic.
+
+- Replace the ScanSmart frontend with the separate native menu-bar app: choose
+  a destination, press the physical Epson Start button and save directly.
+- Add duplex JPGs, a PDF per card and continuous automatic feeding into one PDF,
+  with physical/app Stop and configurable idle timeout. Keep 300 dpi color and
+  switchable Epson crop, deskew and text-orientation processing.
+- Correct empty Stop handling; bound active capture without a complete page to
+  15 seconds before requesting cancellation. Preserve real jam/device errors,
+  incomplete data and confirmed-close/exit barriers; never replay capture.
+- Explain scanner faults and reconnecting after USB removal. Preserve existing
+  login registration and backup an installed app before replacement.
+- Publish native-first guides, recovery/security notes and acceptance limits.
+  Keep the older UI helper separately documented. Add native checks to CI.
+- 134 local software tests plus the callback contract harness and ES-C320W USB
+  device checks passed; see `docs/VALIDATION.md`. Driver compatibility remains
+  limited to 6.7.84. Card orientation and darker AFM output remain open (#1/#2);
+  automatic USB reconnection, long series and forced mid-image hardware Stop
+  are not accepted features. Source only: no Epson binaries or private scans.
+
+The following unreleased headings are the historical development records now
+included in this native release; the legacy timing helper remains a separate
+code snapshot.
+
 ## Unreleased — native duplex/PDF beta (local only)
 
 - Add duplex JPGs with shared card numbers and front/back suffixes, or one PDF
