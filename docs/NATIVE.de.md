@@ -1,6 +1,6 @@
 # Epson DirectScan Beta – native Menüleisten-App
 
-Quellcode-Beta **0.3.0-beta.1** (Build 14) für den Epson ES-C320W über USB.
+Beta **0.3.0-beta.2** (Build 15) für den Epson ES-C320W über USB.
 Sie ergänzt doppelseitige JPGs, ein PDF pro Karte und den kontinuierlichen Einzug
 mit einem gemeinsamen PDF. Duplex-JPG, Karten-PDF, automatisches Nachlegen,
 Stopptaste und eine 30-Sekunden-Wartefrist wurden lokal am Gerät geprüft;
@@ -22,10 +22,37 @@ der Epson-Treiber muss separat installiert sein.
   garantiert diese interne Schnittstelle nicht. Nach einem Treiberupdate muss
   die Verträglichkeit neu geprüft werden.
 - Geprüft: Apple-Silicon-Mac, macOS 27.0.1. Das Build-Ziel ist macOS 13+, weitere
-  Systeme sind ungetestet. Es gibt keine Notarisierung und keinen öffentlichen
-  Binär-Release dieser nativen Quellcode-Beta.
+  Systeme sind ungetestet. Die fertigen Downloads sind für Apple Silicon (arm64).
+  Diese Beta ist lokal ad-hoc signiert, **nicht notarisiert**; andere Architekturen bleiben
+  ungetestet.
 
-## Bauen und installieren
+## Download und Installation
+
+Lade die [**DMG für Apple Silicon**](https://github.com/DerFlash/epson-directscan/releases/download/v0.3.0-beta.2/epson-directscan-0.3.0-beta.2-macos-arm64.dmg)
+aus dem [GitHub-Release](https://github.com/DerFlash/epson-directscan/releases/tag/v0.3.0-beta.2) herunter. Alternativ enthält die App-ZIP dieselbe fertige App. Entwicklerwerkzeuge
+oder Kompilieren sind dafür nicht nötig; der Epson-Treiber bleibt Voraussetzung.
+[Offizieller Epson-Support](https://www.epson.de/de_DE/support/sc/es-c320w/s/s2773).
+
+1. ScanSmart, ältere Helfer und eine bereits laufende DirectScan-App beenden.
+2. DMG öffnen und **Epson DirectScan Beta.app** nach **Applications/Programme**
+   ziehen. Bei einem Update die vorhandene App **am bisherigen Ort ersetzen**.
+   Liegt sie unter `~/Applications`, diesen Ordner im Finder über **Gehe zu →
+   Gehe zum Ordner** öffnen und dort ersetzen. Keine zweite Kopie parallel
+   betreiben. Eine gewünschte Sicherung der alten App vorher selbst anlegen.
+3. Die kopierte App starten. Falls macOS diese nicht notarisierte Beta blockiert:
+   Nur wenn du der Quelle vertraust, nach dem ersten Öffnungsversuch unter
+   **Systemeinstellungen → Datenschutz & Sicherheit → Dennoch öffnen** persönlich
+   bestätigen. [Apple erklärt diesen Ablauf](https://support.apple.com/102445).
+4. Ablageordner wählen, mit Epson verbinden, auf **Bereit** warten und zunächst
+   eine entbehrliche Karte testen.
+
+Die DMG führt keine Installationsskripte aus und ändert keine Sicherheitsrechte.
+Sie enthält weder Epson-Treiber noch private Einstellungen/Scans. Vorhandene
+App-Daten bleiben beim Ersetzen erhalten. Für bestehende Anmeldeobjekte denselben
+App-Pfad beibehalten. Autostart wird durch die DMG nicht automatisch eingerichtet.
+Ein klassischer Installer mit Administratorrechten ist für diese App nicht nötig.
+
+## Aus Quellcode bauen (optional)
 
 Apple-Kommandozeilen-Werkzeuge sind erforderlich (Swift und Clang). Die Tests
 verwenden Swift Testing und Python 3 für einen künstlichen Hilfsprozess; hier
@@ -43,6 +70,11 @@ Die App landet unter `~/Applications/Epson DirectScan Beta.app`. Zum Ersetzen
 verwenden. Der Installer prüft die App-Kennung, lehnt laufende native Kopien ab
 und sichert die vorherige Fassung als ZIP unter dem privaten App-Datenordner
 in `Build Backups/`. Die alte ScanSmart-Automatik bleibt separat erhalten.
+
+Für ein fertiges Download-Paket nach dem Build `./scripts/package-native.sh`
+verwenden. DMG, App-ZIP und Prüfsummen werden in einem neuen `dist/`-Unterordner
+angelegt; vorhandene Pakete werden nicht überschrieben. Das Verpacken verändert
+weder die Quell-App noch eine installierte Kopie.
 
 ## Starten und scannen
 

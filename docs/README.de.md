@@ -4,7 +4,7 @@
 > v0.3.0-beta.1 gilt die [DirectScan-Anleitung](NATIVE.de.md). Nicht gleichzeitig
 > ausführen.
 
-GitHub-Projekt: [DerFlash/epson-scansmart-autosave](https://github.com/DerFlash/epson-scansmart-autosave).
+GitHub-Projekt: [DerFlash/epson-directscan](https://github.com/DerFlash/epson-directscan).
 
 **Quellcode-Beta: Ein vollständiger Scan über die Gerätetaste war erfolgreich.**
 Die korrigierte App hat am 25.10.2026 eine Karte ohne Mac-Klicks als lesbares JPG

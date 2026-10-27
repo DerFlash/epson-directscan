@@ -1,10 +1,10 @@
-# Epson DirectScan — v0.3.0-beta.1
+# Epson DirectScan — v0.3.0-beta.2
 
 A native macOS menu-bar app for the **Epson ES-C320W over USB**. Press the scanner's
 Start button and save directly to a chosen folder, without the ScanSmart frontend
 or further Save clicks. This independent project includes no Epson software.
 
-[Deutsche Anleitung](docs/NATIVE.de.md) · [Releases](https://github.com/DerFlash/epson-scansmart-autosave/releases) · [Validation](docs/VALIDATION.md) · [Changes](CHANGELOG.md) · [Security](SECURITY.md)
+[Deutsche Anleitung](docs/NATIVE.de.md) · [Releases](https://github.com/DerFlash/epson-directscan/releases) · [Validation](docs/VALIDATION.md) · [Changes](CHANGELOG.md) · [Security](SECURITY.md)
 
 ## Features
 
@@ -22,18 +22,39 @@ or further Save clicks. This independent project includes no Epson software.
 
 ## Supported and tested setup
 
-**Source beta**, tested on one Apple-Silicon Mac with macOS 27.0.1, ES-C320W USB
+**Downloadable beta**, tested on one Apple-Silicon Mac with macOS 27.0.1, ES-C320W USB
 and Epson driver **6.7.84**. The internal Epson interface is version/signature
 checked; other driver versions are refused. Other scanners and Wi-Fi are not
 supported. macOS 13+ is the build target; other Macs/OS versions are unverified.
 
-The source ZIP has no prebuilt notarized app, vendor binaries, real scans or
-private settings. Install Epson's driver separately and build locally using
-Apple's command-line tools. The locally tested toolchain is Swift 6.4/CLT;
-native development tests need Swift Testing and Python 3. Legacy tests also use
-Node.js. The installed native app needs none of those test runtimes.
+## Download and install
 
-## Build and install
+[Download DMG for Apple Silicon](https://github.com/DerFlash/epson-directscan/releases/download/v0.3.0-beta.2/epson-directscan-0.3.0-beta.2-macos-arm64.dmg) · [All release files](https://github.com/DerFlash/epson-directscan/releases/tag/v0.3.0-beta.2)
+
+- **macos-arm64.dmg:** ready-built app, Applications link and installation notes.
+- **macos-arm64.zip:** the same app without the disk image.
+- **source.zip:** optional source; `SHA256SUMS` covers the three downloads.
+
+For **Apple Silicon Macs**. No developer tools or source compilation are needed
+for the app download. Install Epson driver 6.7.84 separately; it is not bundled.
+The beta is **ad-hoc signed and not notarized**. macOS may block the first launch;
+if you trust this release, use the individual Open Anyway confirmation described
+in the [German installation guide](docs/NATIVE.de.md#download-und-installation)
+and [Apple's guidance](https://support.apple.com/102445).
+
+Quit older scan apps, open the DMG and drag **Epson DirectScan Beta.app** to
+**Applications**. When updating, replace the existing app at its original path
+(including `~/Applications` if used previously), rather than keeping two copies.
+Settings/scans live outside the app; using the same path preserves an existing
+login entry. The DMG runs no installation scripts, adds no login item and changes
+no security settings. Select an output folder on first launch, wait for Bereit,
+then use the scanner's Start button. See the guide for straight-path card setup.
+
+## Build from source (optional)
+
+Apple command-line tools are required only to build locally. The tested toolchain
+is Swift 6.4/CLT. Development tests need Swift Testing/Python 3 and, for the legacy
+helper, Node.js. The installed app requires none of those test runtimes.
 
 From the extracted source directory:
 
@@ -46,9 +67,9 @@ From the extracted source directory:
 This creates and ad-hoc signs `build/Epson DirectScan Beta.app`, then installs it
 to `~/Applications/Epson DirectScan Beta.app`. Quit an installed copy before an
 update and use `--replace` on the build/install scripts. The installer preserves
-the previous app in a private ZIP backup. Bundle ID and build number remain
-`org.scansmart.directscan.beta` / `14`; this release promotes the tested build14
-logic from its development version to `0.3.0-beta.1`.
+the previous app in a private ZIP backup. The bundle ID stays
+`org.scansmart.directscan.beta`; build `15` adds downloads without changing the
+tested scanning logic.
 
 1. Quit ScanSmart, Event Manager and older AutoSave helpers. Connect the ES-C320W
    directly by USB and open **Epson DirectScan Beta**.
@@ -66,13 +87,13 @@ or change the scanner's global launch-app assignment automatically.
 ## Beta limits and recovery
 
 - Automatic rotation is not reliable for colorful cards or card backs
-  ([issue #1](https://github.com/DerFlash/epson-scansmart-autosave/issues/1)).
+  ([issue #1](https://github.com/DerFlash/epson-directscan/issues/1)).
 - Continuous scans of the test card look darker than ordinary scans
-  ([issue #2](https://github.com/DerFlash/epson-scansmart-autosave/issues/2)).
+  ([issue #2](https://github.com/DerFlash/epson-directscan/issues/2)).
 - A real paper jam requires physical clearance. After USB disconnect/power-off,
   close any Epson scan app and reconnect DirectScan explicitly. Automatic USB
   reconnection is not included. Empty Stop/pickup recovery is tracked in
-  [issue #3](https://github.com/DerFlash/epson-scansmart-autosave/issues/3).
+  [issue #3](https://github.com/DerFlash/epson-directscan/issues/3).
 - Long series, sleep/wake, actual logout/login and forced mid-image cancellation
   have not been accepted on hardware. Do not treat this beta as general device
   or production certification.
@@ -84,9 +105,17 @@ repeated by reconnecting. Settings, jobs and bounded numeric diagnostics stay
 under `~/Library/Application Support/Epson DirectScan/`; redact private paths
 before sharing diagnostics.
 
+## Creating distribution packages
+
+After the native build, maintainers can run `./scripts/package-native.sh`.
+It produces an arm64 DMG, app ZIP, checksums and signing metadata in a new
+`dist/epson-directscan-VERSION-macos-arm64/` directory. Existing output is refused.
+A `--require-notarized` gate is available for a future signed/notarized release;
+this beta deliberately does not satisfy it. No credentials are bundled.
+
 ## Verification and older helper
 
-The release has **134 local software tests** (70 Swift, 26 Node, 38 Python), plus
+The release has **138 local software tests** (70 Swift, 26 Node, 42 Python), plus
 the compiled Epson callback contract harness. Device checks covered physical
 Start, duplex JPG/PDF, continuous reinsertion, Stop and idle finish, empty Stop,
 the pickup guard, retained-page recovery and a successful card scan after

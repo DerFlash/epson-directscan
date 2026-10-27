@@ -1,7 +1,7 @@
 # Issue #3: failed pickup and empty Stop
 
 The user explicitly requested implementation, local installation and a device
-retest of [issue #3](https://github.com/DerFlash/epson-scansmart-autosave/issues/3).
+retest of [issue #3](https://github.com/DerFlash/epson-directscan/issues/3).
 This is a correction within the existing native app, on the existing branch.
 
 Observed root cause: ICA reports completion without an error or any pages after

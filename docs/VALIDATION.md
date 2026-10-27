@@ -1,3 +1,33 @@
+# Download release validation — v0.3.0-beta.2
+
+The repository was renamed in place to `DerFlash/epson-directscan` (same repository
+ID, issues, releases and history; old URL redirect verified). Beta2/build15 adds
+an arm64 app DMG/ZIP and canonical download/update guidance. It is explicitly
+ad-hoc signed and not notarized, as chosen by the owner; no signing credentials,
+security bypass or Epson binaries are included. The existing installation is not
+replaced by this packaging work. Capture/storage/helper sources are unchanged.
+
+Package regressions exercised actual DMG creation/read-only mounting and ZIP
+extraction with a synthetic signed app: bytes/signatures/executable permissions,
+Applications link, exact checksums, wrong bundle/damaged helper rejection,
+existing output preservation and refusal of an ad-hoc app when notarization is
+required. A RED case found publisher-only permissions; the package copy now
+receives public read/execute access while source permissions remain unchanged.
+Final local checks: 70 native +26 Node +42 Python tests passed (138 total),
+including 4 distribution tests. Native and legacy builds pass. The real beta2 DMG
+was mounted read-only, its Applications link/readable installation notes checked,
+and its app copied to a temporary folder. DMG/copied/ZIP app files match the
+signed build byte for byte; all signatures, executable permissions and checksums
+pass. Its 5 app files contain no private home/temp build paths or bundled vendor
+frameworks. All Mach-O __TEXT sections in all 3 executables match installed,
+hardware-tested build14; removal of debug symbol paths and signing/metadata do
+not alter executable logic. Local Gatekeeper assessment does not approve the
+ad-hoc copy (exit 3); no notarization or security exception was claimed/applied.
+No installed app was replaced or launched for the packaging check. Remote CI,
+upload/download verification and publication are recorded in the release/PR.
+
+## Prior tested native release
+
 # Release validation — v0.3.0-beta.1
 
 The native source release promotes the tested build14 logic. Only its bundle
@@ -81,7 +111,7 @@ to the exact configuration below.
 | Temporary installation, existing-target refusal and explicit replacement | Checked for Beta 1; release scripts retain the same install behavior |
 | Shell syntax and whitespace checks | Passed |
 | Independent code review | Passed after fixing counterless multi-image undercount; no open Critical/Important findings |
-| GitHub-hosted CI | [Check workflow](https://github.com/DerFlash/epson-scansmart-autosave/actions/workflows/check.yml) runs on pushes and pull requests |
+| GitHub-hosted CI | [Check workflow](https://github.com/DerFlash/epson-directscan/actions/workflows/check.yml) runs on pushes and pull requests |
 | Physical scanner-button export | One single-card JPG export passed on 2026-10-25; remaining cases below are open |
 
 The synthetic fixture is a 2 × 2 white image. Invalid-image cases include a
@@ -337,7 +367,7 @@ messages and cross-process ownership. A separate hardware-free callback harness
 compiles and invokes the exact shipped feeding receiver.26 Node and38 Python
 legacy tests also pass; their fixture-only AppleScript probes do not read or
 operate real application windows. The initial restricted legacy run could not
-use its runtime; the rerun passed all38 Python tests.
+use its runtime; the rerun passed all 38 Python tests.
 
 One independent whole-branch review found3Important issues,0Critical and0Minor.
 All three received reproducing RED→GREEN tests in one fix pass: incomplete duplex

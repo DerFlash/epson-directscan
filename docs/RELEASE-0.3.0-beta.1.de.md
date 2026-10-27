@@ -32,13 +32,13 @@ unterstützt. Lange Serien, Ab-/Anmeldung, Ruhezustand und erzwungener Stop mitt
 in einer Bildübertragung sind nicht am Gerät abgenommen.
 
 Bekannt: Die Kartendrehung ist unzuverlässig
-([#1](https://github.com/DerFlash/epson-scansmart-autosave/issues/1)); kontinuierliche
+([#1](https://github.com/DerFlash/epson-directscan/issues/1)); kontinuierliche
 Scans können dunkler ausfallen
-([#2](https://github.com/DerFlash/epson-scansmart-autosave/issues/2)). Ein echter
+([#2](https://github.com/DerFlash/epson-directscan/issues/2)). Ein echter
 Papierstau benötigt eine Prüfung des Papierwegs. Nach Aus-/Einschalten oder
 USB-Trennung DirectScan ausdrücklich neu verbinden. Details zur lokalen
 Einzugs-/Stop-Korrektur stehen in
-[#3](https://github.com/DerFlash/epson-scansmart-autosave/issues/3).
+[#3](https://github.com/DerFlash/epson-directscan/issues/3).
 
 ## Download und Installation
 
@@ -46,11 +46,11 @@ Das Release-ZIP enthält Quellcode und synthetische Testdaten, **keine echten
 Scans, privaten Einstellungen, Epson-Binärdateien oder vorgebauten, notarisierten
 Apps**. `SHA256SUMS` prüft das beigefügte Quellcode-ZIP.
 Epson-Treiber separat installieren, ZIP entpacken und die Bau-/Installationsschritte
-in der [deutschen Anleitung](https://github.com/DerFlash/epson-scansmart-autosave/blob/v0.3.0-beta.1/docs/NATIVE.de.md)
+in der [deutschen Anleitung](https://github.com/DerFlash/epson-directscan/blob/v0.3.0-beta.1/docs/NATIVE.de.md)
 befolgen. Nicht gleichzeitig mit ScanSmart oder älteren Helfern betreiben.
 Die native App benötigt weder Bedienungshilfen noch System Events und lädt keine
 Scans hoch. Vorhandene App-Versionen werden beim Ersetzen privat gesichert.
 
-[Prüfprotokoll](https://github.com/DerFlash/epson-scansmart-autosave/blob/v0.3.0-beta.1/docs/VALIDATION.md)
-· [Änderungen](https://github.com/DerFlash/epson-scansmart-autosave/blob/v0.3.0-beta.1/CHANGELOG.md)
-· [Sicherheit und Datenschutz](https://github.com/DerFlash/epson-scansmart-autosave/blob/v0.3.0-beta.1/SECURITY.md)
+[Prüfprotokoll](https://github.com/DerFlash/epson-directscan/blob/v0.3.0-beta.1/docs/VALIDATION.md)
+· [Änderungen](https://github.com/DerFlash/epson-directscan/blob/v0.3.0-beta.1/CHANGELOG.md)
+· [Sicherheit und Datenschutz](https://github.com/DerFlash/epson-directscan/blob/v0.3.0-beta.1/SECURITY.md)
