@@ -56,3 +56,16 @@ per-frame status, and atomic exclusive rename into the chosen destination.
 Failures preserve staging and never retry the physical scan. Native diagnostics
 exclude images, OCR, device serials and arbitrary window contents. Configuration
 and retained job metadata may contain the user's selected local path.
+
+
+The local duplex/PDF extension keeps the same device ownership and close/exit
+barriers. Its automatic-feeding helper additionally uses Scanner.framework AFM
+and ImageProcessor/Esaod for orientation, guarded to installed version6.7.84.
+No vendor binaries, OCR output or scanned images are included in source control.
+A user-authorized physical Start opens an insertion session; subsequent insertions
+only scan within that active session. Physical Stop or the configured idle timer
+ends it; active transfers are excluded from inactivity. Session error/parent death
+retains pages and never replays a scan. SIGUSR1 requests graceful finish separately
+from abort/termination. Original JPGs remain private until verified export; receipts
+identify the renamed inode and digest, allowing crash reconciliation without
+accepting a colliding replacement. Diagnostic logs contain no recognized text.

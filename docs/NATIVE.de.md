@@ -1,12 +1,11 @@
 # Epson DirectScan Beta – native Menüleisten-App
 
-Lokale Entwicklungsfassung 0.2.0-beta.1-dev für den Epson ES-C320W über USB.
-Drei vollständige Tastenscans wurden am 27.10.2026 geprüft: jeweils ein lesbares
-JPG ohne Mac-Klicks, danach wieder bereit. Der zweite Scan ging nach einer
-Ordneränderung ausschließlich in den neuen Ordner. Anschließend wurde der
-normale Ablageordner wieder eingestellt; der dritte Scan prüfte die abschließend
-gehärtete Fassung erneut dort. Das ist eine lokale Beta-Abnahme,
-keine allgemeine Produktionsfreigabe für andere Macs, Treiber oder Scanner.
+Lokale Entwicklungsfassung **0.3.0-beta.1-dev** für den Epson ES-C320W über USB.
+Sie ergänzt doppelseitige JPGs, ein PDF pro Karte und den kontinuierlichen Einzug
+mit einem gemeinsamen PDF. Die neue Fassung befindet sich in der lokalen
+Hardware-Abnahme; die Ergebnisse stehen in [VALIDATION.md](VALIDATION.md).
+Die frühere einseitige Fassung wurde mit drei echten Tastenscans geprüft.
+Das ist keine allgemeine Produktionsfreigabe für andere Macs, Treiber oder Scanner.
 
 Die App ersetzt die ScanSmart-Oberfläche. Sie braucht weder Bedienungshilfen
 noch System Events und lädt keine Scans hoch. Sie enthält keine Epson-Software;
@@ -56,11 +55,11 @@ in `Build Backups/`. Die alte ScanSmart-Automatik bleibt separat erhalten.
    Epson-Tastenhelfer während des Direktmodus pausieren. Nach bestätigter
    Scanner-Freigabe beim Pausieren oder Beenden werden sie wieder gestartet.
 4. Auf **Bereit – Epson-Taste drücken** warten. Eine entbehrliche Karte im geraden
-   Papierweg einlegen und die Scantaste am Epson drücken. Das JPG wird automatisch
+   Papierweg einlegen und die Scantaste am Epson drücken. Das Ergebnis wird automatisch
    abgelegt. Für eine weitere Karte warten, bis die App wieder bereit ist.
 
-Beim Öffnen, Einlegen, Neuverbinden oder Ändern von Einstellungen wird kein Scan
-angefordert. Ein unbekannter, verfrühter oder wiederholter Tastendruck wird nicht
+Außerhalb einer gestarteten Sammlung wird beim Öffnen, Einlegen, Neuverbinden
+oder Ändern von Einstellungen kein Scan angefordert. Ein unbekannter, verfrühter oder wiederholter Tastendruck wird nicht
 als weiterer Scan vorgemerkt. Die Gerätetaste wird nicht durch einen Menübefehl
 ersetzt. Nicht mehrere Scan-Apps gleichzeitig verwenden.
 
@@ -69,15 +68,48 @@ ersetzt. Nicht mehrere Scan-Apps gleichzeitig verwenden.
 Das Menü am Scannersymbol und **Einstellungen …** in der Statusansicht bieten:
 
 - Ablageordner wählen oder öffnen;
-- automatischen Zuschnitt, Schräglagenkorrektur und automatische Drehung einzeln
-  schalten (standardmäßig alle an);
-- pausieren/freigeben, letztes JPG anzeigen, Wiederherstellung und Beenden.
+- **Doppelseitig scannen**: Vorder- und Rückseite aufnehmen;
+- **Ausgabe**: getrennte JPGs oder ein PDF pro Karte (bei Duplex zwei Seiten);
+- **Kontinuierlicher Scan**: ein gemeinsames PDF für die ganze Sitzung;
+- **Wartezeit**: 30, 60, 120 oder 300 Sekunden ohne neue Karte, optional unbegrenzt;
+- Zuschnitt, Schräglagenkorrektur und automatische Drehung einzeln schalten;
+- pausieren/freigeben, letzte Datei anzeigen und zurückgehaltene Seiten sichern.
 
-JPG, 300 dpi, RGB und einseitiges Scannen sind fest eingestellt. Jede Datei
-bekommt einen Namen mit Zeitstempel und UUID; vorhandene Bilder werden nicht
-überschrieben. Der Treiber muss die drei angeforderten Korrekturen vor jedem
-Scan bestätigen. Die Wirkungsstärke von Drehung/Schrägkorrektur wurde nicht
-an gezielt unterschiedlich eingelegten Karten vermessen.
+Bestehende Einstellungen werden mit einer unveränderten privaten Sicherung
+`settings-v1-backup.json` übernommen. Duplex und kontinuierlicher Einzug sind
+anfangs aus; JPG und alle drei bisherigen Korrekturen bleiben erhalten. Die
+Auflösung bleibt bei 300 dpi/Farbe. JPG-Seiten einer doppelseitigen Karte haben
+dieselbe Kartennummer und die Endungen `_vorne.jpg` und `_hinten.jpg`. PDFs pro
+Karte enthalten zuerst die Vorder-, dann die Rückseite. Ein Stapel erzeugt je
+Karte ein PDF. Zeitstempel und UUID verhindern Namenskollisionen; eine vorhandene
+Datei wird niemals ersetzt.
+
+Die automatische Drehung verwendet Epsons Texterkennung zur Orientierung.
+Sie ist **bei farbigen Spielkarten und Kartenrückseiten nicht zuverlässig**:
+Die Testkarte wurde trotz aktivierter Erkennung teilweise auf dem Kopf belassen.
+Es gibt keine feste Ausrichtungsgarantie. Bei einem fehlenden oder nicht
+kompatiblen Modul wird keine unbemerkte Ersatzkorrektur verwendet.
+
+### Kontinuierlicher Einzug
+
+1. Im Leerlauf **Kontinuierlicher Scan (Sammlungs-PDF)** einschalten und die
+   gewünschte Wartezeit wählen (Standard 120 Sekunden). Der normale JPG/PDF-Wert
+   bleibt gespeichert und gilt nach dem Ausschalten wieder.
+2. Die erste Karte einlegen und einmal die Epson-Scantaste drücken. Die App
+   zeigt die aktive Sammlung und die Zahl übernommener Seiten an.
+3. Weitere Karten in Ruhe nachlegen: Der bereits aktive Einzug zieht sie ohne
+   erneuten Start ein. Während eines laufenden Transfers läuft keine Wartefrist.
+   Nach einer vollständig verarbeiteten Karte beginnt sie neu.
+4. Die **Stopptaste am Epson** drücken oder im Menü bzw. Statusfenster
+   **Sammlung beenden und speichern** wählen. Alternativ beendet die gewählte
+   Wartefrist die Sitzung. **Unbegrenzt** benötigt ein ausdrückliches Stop.
+5. Erst dann wird das gemeinsame PDF geprüft und in den Ablageordner übergeben.
+   Bei einer unvollständigen letzten Duplex-Karte enthält es alle fertig
+   übernommenen Seiten; die App zeigt den fehlenden Partner ausdrücklich an.
+
+Ein Schließen des Statusfensters beendet die Sammlung nicht. Beim Beenden der
+App kannst du speichern, zurückhalten oder abbrechen. Ein Absturz, Scannerfehler
+oder USB-Abbruch startet keine neue Sitzung und wiederholt keinen Scan.
 
 Die Einstellungen werden beim akzeptierten Tastendruck für diesen Scan
 festgehalten. Während der Übergabe und des Scannens sind Änderungen gesperrt.
@@ -89,13 +121,21 @@ für erste Tests immer genau eine entbehrliche Karte verwenden.
 
 Der Epson-eigene Tastenempfänger läuft als kleiner isolierter Hilfsprozess.
 Nach einer physischen Taste 1 schließt er seine Verbindung und endet. Erst wenn
-beides bestätigt ist, startet ein eigener Scanprozess über ImageCaptureCore.
-Dieser prüft den Einzug und die Korrekturen, scannt, speichert und schließt die
-Verbindung. Erst nach bestätigtem Abschluss startet der nächste Tastenempfänger.
-So greifen beide Wege nicht gleichzeitig auf den Scanner zu. Jeder Scanprozess
-ist neu; der zuvor beobachtete Fehler beim erneuten Öffnen einer ICA-Verbindung
-innerhalb desselben Prozesses wird damit vermieden. Drei Einzelkartenscans
-und mehrere Ordnerwechsel wurden auf diesem Mac geprüft.
+beides bestätigt ist, startet der jeweilige Scanprozess. Normale JPG/PDF-Scans
+verwenden ImageCaptureCore. Der kontinuierliche Einzug verwendet den nativen
+Epson-Autoeinzug; Zuschnitt und Schräglagenkorrektur stammen aus Scanner.framework.
+Die Orientierung ermittelt Epsons ImageProcessor/Esaod an den vollständigen
+Einzelbildern. Die App wendet diese Drehentscheidung an und baut das PDF aus
+geprüften Seiten. Die störungsanfällige vollständige ScanEngine-Pipeline aus
+dem privaten Vorversuch wird nicht verwendet.
+
+Erst nach bestätigtem Abschluss, Schließen und Prozessende startet der nächste
+Tastenempfänger. Jeder Helfer hält unabhängig von der Haupt-App dieselbe
+Betriebssystem-Sperre. Während der laufenden Sammlung bleibt die Verbindung
+auch beim Warten auf neue Karten geöffnet. Es gibt keine pauschale Frist für
+eine Sitzung mit unbegrenzter Wartezeit; ein nicht antwortender Transfer wird
+weiterhin angehalten. Der Nachrichtenkanal ist begrenzt und stoppt bei ungültigen
+oder zu vielen Meldungen mit zurückgehaltenen Daten.
 
 Die Zähler in der Statusansicht gelten seit dem jeweiligen App-Start.
 
@@ -109,22 +149,28 @@ Andere Epson-Geräte können während des Direktmodus ebenfalls von deren Pause
 betroffen sein. Die Freigabe wird erst nach Bestätigung und Ende des betreffenden
 Hilfsprozesses gemeldet.
 
-Ein Start bei Anmeldung wird nicht automatisch eingerichtet. Nach der lokalen
-Abnahme kannst du die App in den macOS-Anmeldeobjekten hinzufügen und die alte
-Automatik dort deaktivieren. Ab-/Anmeldung und längere Serien sind ungetestet.
+Ein Start bei Anmeldung wird nicht automatisch eingerichtet. Eine bereits
+vorhandene Registrierung bleibt beim Update über denselben App-Pfad erhalten.
+Für eine neue Einrichtung kannst du die App in den macOS-Anmeldeobjekten
+hinzufügen und die alte Automatik dort deaktivieren. Ab-/Anmeldung und längere Serien sind ungetestet.
 
 ## Fehler und Wiederherstellung
 
 Die App scannt zuerst unter
 `~/Library/Application Support/Epson DirectScan/Pending/`. Nur vollständig
-lesbare JPGs werden über eine temporäre Datei atomar ohne Ersetzen in den
-Ablageordner übergeben. Nachgelagerte Programme dürfen das fertige JPG sofort
-weiternehmen. Erst nach einem bestätigten vollständigen Job werden seine
-privaten Originale entfernt.
+lesbare Seiten werden übernommen. PDFs werden seitenweise geschrieben und
+auf Seitenzahl und Größe geprüft. Die fertige Ausgabe gelangt über eine
+temporäre Datei atomar ohne Ersetzen in den Ablageordner. Ein Exportnachweis
+ermöglicht die eindeutige Zuordnung auch bei einem Abbruch direkt nach der
+Dateiübergabe. Erst nach bestätigtem Abschluss werden private Originale entfernt.
 
 Bei fehlendem Zielordner, Fehler, Abbruch, Trennung oder Neustart bleiben
 unbestätigte Dateien erhalten. Im Menü **Zurückgehaltene Scans und Protokoll öffnen**
-wählen, Dateien prüfen und nötigenfalls manuell sichern. Danach **Fehler zurücksetzen
+wählen und Dateien prüfen. **Zurückgehaltene Seiten als PDF sichern** exportiert
+explizit die bestätigten Seiten im ursprünglichen Ablageordner, ohne einen Scan
+zu starten. Bei bereits angefangenen Ausgaben, unbestätigten Zusatzdateien oder
+einem fehlenden ursprünglichen Ordner bleibt die manuelle Prüfung nötig.
+Danach **Fehler zurücksetzen
 und neu verbinden**. Zurückgehaltene Jobs werden in `Recovery/` aufbewahrt und
 nicht erneut gescannt oder automatisch exportiert.
 

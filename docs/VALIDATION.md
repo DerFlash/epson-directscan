@@ -280,3 +280,40 @@ absent. Existing takeover acknowledgement=true and paused=false were verified;
 the running native app remained Ready/listening with the normal destination.
 This verifies the saved login configuration, not an actual logout/login cycle.
 No source behavior or installed app binary changed for this setup.
+
+### Native duplex/PDF/automatic feeding — 2026-10-27 (acceptance in progress)
+
+Local feature branch `feat/native-duplex-pdf`; no push, public release or merge.
+The installed build8 is0.3.0-beta.1-dev at the existing app path/bundle ID. The
+previous builds are retained privately. Existing login registration is preserved;
+logout/login remains untested. A schema1 settings backup was verified private0600
+before schema2 migration. Destination remains the normal Documents/Scans folder.
+
+- **Duplex JPG passed:** one physical Start, two RGB/300dpi files with a shared
+  card number and front/back suffixes;745×1037 and744×1034 pixels. Both visually
+  inspected, no incomplete job, receiver automatically Ready again.
+- **Per-card PDF passed:** one physical Start, one2-page PDF, front then back;
+ 745×1033 and744×1030 source pixels at300dpi. Both PDF pages rendered with Poppler
+  and visually inspected. Pending empty and receiver Ready.
+- **Installed continuous feeding/Stop and30s idle acceptance remain pending.**
+  A private raw-driver diagnostic already verified two automatic insertions
+  without another Start, four complete RGB sides with sheet/side metadata, and
+  a physical Stop followed by clean close0/exit0. This does not replace the
+  installed application acceptance.
+
+Software checks:50 native tests (including real JPEG/PDF parsing/rendering,
+exclusive publication receipts, crash reconciliation, incomplete pairing,
+coordinator timing/stop/late-event ownership and Epson orientation on neutral
+inverted text) plus26 Node and38 Python legacy tests passed. Native release build,
+plist, deep signature verification and no-device-open helper ABI checks passed.
+The legacy fixture-only AppleScript tests require an execution context with access
+to their runtime; the first restricted run failed8 fixture calls and its rerun
+passed all38. They do not read or operate application windows.
+
+The full Epson ScanEngine prototype produced striped image data and is not
+shipped. Native Scanner.framework supplies clean JPEG/crop/deskew; the installed
+ImageProcessor/Esaod supplies orientation detection on decoded RGB. A neutral
+inverted-text test returned180° and the corrected output returned upright. The
+colorful test card sometimes returned upright despite being inverted, so this is
+explicitly documented as an Epson detection limitation, not guaranteed card
+orientation. Private card images/paths/log evidence remain outside the repository.

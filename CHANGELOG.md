@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased — native duplex/PDF beta (local only)
+
+- Add duplex JPGs with shared card numbers and front/back suffixes, or one PDF
+  per card. Keep existing 300 dpi and driver-correction controls.
+- Add true Epson automatic feeding after one physical Start: collect pages until
+  physical/app Stop or 30/60/120/300 seconds of inactivity; optional unlimited.
+- Preserve complete pages across interruptions, flag incomplete final duplex
+  cards, verify PDF geometry and journal exclusive exports without overwriting.
+- Migrate settings with an exact private backup. Preserve the app path, bundle
+  identifier and existing login registration. No public release is part of this work.
+- Epson orientation detection needs readable text; colorful cards may remain
+  inverted. New local hardware acceptance is recorded in docs/VALIDATION.md.
+
 ## Unreleased — native DirectScan beta (local only)
 
 - Add a separate Swift menu-bar app with destination selection, three driver
