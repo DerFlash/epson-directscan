@@ -1,6 +1,13 @@
 # Security and privacy
 
-The main v0.3 release is the native DirectScan app described below. The first
+The main v0.3 release is the native DirectScan app described below.
+Version 0.3.0-beta.2 also ships an arm64 app ZIP and a read-only drag-copy DMG.
+They contain no Epson driver or private user data. The current app is ad-hoc
+signed and not notarized: its local signature checks do not establish a verified
+Developer ID publisher. The user must make any first-open trust decision in macOS;
+no package or app script bypasses Gatekeeper or changes system security settings.
+The distribution build removes compiler/AST debug symbols that contain local
+build paths before signing; packaging refuses remaining private home/temp paths. The first
 section documents the separately retained legacy ScanSmart UI helper; its
 Accessibility/Automation permissions do not apply to DirectScan. No Epson
 binaries, real scans or private settings are included in release archives.

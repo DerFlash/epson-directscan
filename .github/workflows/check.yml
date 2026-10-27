@@ -23,7 +23,8 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.x'
-      - run: ./scripts/test.sh
+      - name: Legacy and distribution tests
+        run: ./scripts/test.sh
       - run: ./scripts/build.sh
       - name: Native core and helper contract tests
         run: ./scripts/test-native.sh

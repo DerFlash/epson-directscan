@@ -4,7 +4,7 @@
 > For the native v0.3.0-beta.1 menu-bar app, use the [main README](../README.md)
 > and [German native guide](NATIVE.de.md). Do not run both apps together.
 
-GitHub project: [DerFlash/epson-scansmart-autosave](https://github.com/DerFlash/epson-scansmart-autosave).
+GitHub project: [DerFlash/epson-directscan](https://github.com/DerFlash/epson-directscan).
 
 **Source beta; one complete scanner-button export has passed.** The corrected
 implementation saved one card as a readable JPG without Mac clicks on 2026-10-25,

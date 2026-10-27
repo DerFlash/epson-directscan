@@ -1,8 +1,24 @@
 # Changelog
 
+## 0.3.0-beta.2 — 2026-10-27
+
+- Rename the repository to `DerFlash/epson-directscan`, retaining issues,
+  releases, history and old URL redirects. Update active canonical links.
+- Provide a ready-built Apple-Silicon app as DMG and ZIP, plus source/checksums.
+  The DMG includes an Applications link and installation/upgrade notes, runs no
+  privileged installer and changes no security/login settings.
+- Clearly label this beta ad-hoc signed and not notarized, with the macOS
+  first-open confirmation described. No Epson binaries or private data bundled.
+- Validate package input identity, arm64 slices, signatures, copied bytes and
+  executable/access permissions; reject existing output. Add real DMG/ZIP tests.
+- Promote metadata to build 15; capture/storage/helper code remains the tested
+  build 14 logic. Existing installed copies and user data are left untouched.
+- 138 local software tests (70 Swift, 26 Node, 42 Python) including 4 package tests;
+  source/runtime and image-quality limits remain as documented for beta1.
+
 ## 0.3.0-beta.1 — 2026-10-27
 
-First public native DirectScan source beta, promoting the tested build14 logic.
+First public native DirectScan source beta, promoting the tested build 14 logic.
 
 - Replace the ScanSmart frontend with the separate native menu-bar app: choose
   a destination, press the physical Epson Start button and save directly.

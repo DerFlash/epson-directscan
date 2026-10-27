@@ -16,6 +16,8 @@ trap 'rm -rf -- "$TASK_BUILD"' EXIT
 BUNDLE="$TASK_BUILD/Epson DirectScan Beta.app"
 mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Helpers"
 cp "$BIN/EpsonDirectScan" "$BUNDLE/Contents/MacOS/"
+# Remove private compiler/AST debug paths before signing a distributable app.
+/usr/bin/strip -S "$BUNDLE/Contents/MacOS/EpsonDirectScan"
 clang -fobjc-arc -mmacosx-version-min=13.0 -framework AppKit -framework IOKit \
   "$ROOT/native/Helpers/EpsonButtonReceiver.m" -o "$BUNDLE/Contents/Helpers/EpsonButtonReceiver"
 codesign --force --sign - "$BUNDLE/Contents/Helpers/EpsonButtonReceiver"
