@@ -128,4 +128,13 @@ scripts. Its [English guide](docs/LEGACY.en.md) and [German guide](docs/README.d
 are retained for existing users. It has different permissions and workflow;
 never run it alongside DirectScan.
 
-MIT licensed. No affiliation with or endorsement by Epson.
+## License
+
+Source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+Noncommercial use, modification and redistribution are permitted under its terms.
+Commercial use outside the license's express permissions requires prior,
+separate written permission from **Björn Teichmann**. See [licensing and
+contact](LICENSING.md) to discuss an intended use. No commercial license or
+software purchase is currently offered for sale.
+
+No affiliation with or endorsement by Epson.

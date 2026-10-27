@@ -22,6 +22,9 @@ class NativePackageTests(unittest.TestCase):
         contents = cls.app / 'Contents'
         (contents / 'MacOS').mkdir(parents=True)
         (contents / 'Helpers').mkdir()
+        (contents / 'Resources').mkdir()
+        shutil.copy2(ROOT / 'LICENSE', contents / 'Resources/LICENSE.txt')
+        shutil.copy2(ROOT / 'LICENSING.md', contents / 'Resources/LICENSING.md')
         info = dict(CFBundleIdentifier='org.scansmart.directscan.beta', CFBundleExecutable='EpsonDirectScan',
                     CFBundleName='Epson DirectScan Beta', CFBundlePackageType='APPL',
                     CFBundleShortVersionString='0.3.0', CFBundleVersion='15', DirectScanVersion='0.3.0-beta.2')
@@ -68,6 +71,8 @@ class NativePackageTests(unittest.TestCase):
         extracted = self.temp / 'extracted'
         subprocess.run(['ditto', '-x', '-k', str(output / (stem + '.zip')), str(extracted)], check=True, capture_output=True)
         copied = extracted / self.app.name
+        self.assertEqual((copied / 'Contents/Resources/LICENSE.txt').read_bytes(), (ROOT / 'LICENSE').read_bytes())
+        self.assertEqual((copied / 'Contents/Resources/LICENSING.md').read_bytes(), (ROOT / 'LICENSING.md').read_bytes())
         self.assertEqual((copied / 'Contents/MacOS/EpsonDirectScan').read_bytes(), before)
         self.assertTrue(os.access(copied / 'Contents/MacOS/EpsonDirectScan', os.X_OK))
         self.assertEqual(copied.stat().st_mode & 0o555, 0o555)
@@ -77,6 +82,8 @@ class NativePackageTests(unittest.TestCase):
         volume = next(pathlib.Path(e['mount-point']) for e in mounted['system-entities'] if 'mount-point' in e)
         try:
             self.assertEqual(os.readlink(volume / 'Applications'), '/Applications')
+            self.assertEqual((volume / 'LICENSE.txt').read_bytes(), (ROOT / 'LICENSE').read_bytes())
+            self.assertEqual((volume / 'LICENSING.md').read_bytes(), (ROOT / 'LICENSING.md').read_bytes())
             self.assertEqual(volume.stat().st_mode & 0o555, 0o555)
             self.assertEqual((volume / 'Installation.txt').stat().st_mode & 0o444, 0o444)
             self.assertEqual((volume / self.app.name / 'Contents/MacOS/EpsonDirectScan').read_bytes(), before)
@@ -87,6 +94,25 @@ class NativePackageTests(unittest.TestCase):
         self.assertEqual((self.app / 'Contents/MacOS/EpsonDirectScan').read_bytes(), before)
         self.assertEqual(self.app.stat().st_mode & 0o777, 0o700)
         self.assertEqual((self.app / 'Contents/Info.plist').stat().st_mode & 0o777, 0o600)
+
+    def test_missing_or_stale_license_notice_produces_no_package(self):
+        for filename in ['LICENSE.txt', 'LICENSING.md']:
+            for missing in [True, False]:
+                with self.subTest(filename=filename, missing=missing):
+                    case = filename.replace('.', '-') + ('-missing' if missing else '-stale')
+                    app = self.temp / (case + '.app')
+                    shutil.copytree(self.app, app)
+                    notice = app / 'Contents/Resources' / filename
+                    if missing:
+                        notice.unlink()
+                    else:
+                        notice.write_text('Stale licensing notice\n')
+                    subprocess.run(['codesign', '--force', '--sign', '-', str(app)], check=True, capture_output=True)
+                    target = self.temp / (case + '-output')
+                    result = self.package(app, target)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertFalse(target.exists())
+                    self.assertIn('licensing notice', result.stderr.lower())
 
     def test_wrong_bundle_or_damaged_helper_produces_no_package(self):
         for wrong_id in [True, False]:
