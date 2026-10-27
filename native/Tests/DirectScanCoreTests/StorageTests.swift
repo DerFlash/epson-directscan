@@ -16,10 +16,13 @@ import UniformTypeIdentifiers
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
-    func jpeg(_ url: URL) throws {
-        let pixels = Data([255, 100, 0, 255])
+    func jpeg(_ url: URL, width: Int = 1, height: Int = 1) throws {
+        var bytes = [UInt8](repeating: 255, count: width * height * 4)
+        var seed: UInt32 = 42
+        for index in bytes.indices where index % 4 != 3 { seed = seed &* 1664525 &+ 1013904223; bytes[index] = UInt8(seed >> 24) }
+        let pixels = Data(bytes)
         let provider = CGDataProvider(data: pixels as CFData)!
-        let image = CGImage(width: 1, height: 1, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: 4,
+        let image = CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
             space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
             provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)!
         let writer = CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil)!
@@ -74,6 +77,19 @@ import UniformTypeIdentifiers
         let outside = root.appendingPathComponent("elsewhere.jpeg"); try jpeg(outside)
         #expect(throws: (any Error).self) { try s.publish(source: outside, job: job, page: 1) }
         #expect(try FileManager.default.contentsOfDirectory(atPath: output.path).isEmpty)
+    }
+    @Test func truncatedImageWithEndMarkerIsNeverPublishedOrDiscarded() throws {
+        let s = try store(), output = try destination()
+        let job = try s.beginJob(settings: ScanSettings(destination: output.path))
+        let source = job.directory.appendingPathComponent("page.jpeg")
+        try jpeg(source, width: 256, height: 256)
+        let original = try Data(contentsOf: source)
+        let damaged = Data(original.prefix(original.count / 2)) + Data([0xff, 0xd9])
+        try damaged.write(to: source)
+        #expect(throws: (any Error).self) { try s.publish(source: source, job: job, page: 1) }
+        #expect(try FileManager.default.contentsOfDirectory(atPath: output.path).isEmpty)
+        #expect(try Data(contentsOf: source) == damaged)
+        #expect(try s.hasUnfinishedJobs())
     }
     @Test func testLostDestinationAndRestartKeepRecoverableSource() throws {
         let s = try store(), output = try destination()

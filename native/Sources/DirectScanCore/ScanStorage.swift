@@ -90,7 +90,7 @@ public final class ScanStorage {
               let image = CGImageSourceCreateWithData(data as CFData, nil), CGImageSourceGetCount(image) == 1,
               CGImageSourceGetType(image) as String? == "public.jpeg", CGImageSourceGetStatus(image) == .statusComplete,
               let decoded = CGImageSourceCreateImageAtIndex(image, 0, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary),
-              decoded.width > 0, decoded.height > 0 else { throw ScanFailure.invalidJPEG }
+              decoded.width > 0, decoded.height > 0, CGImageSourceGetStatusAtIndex(image, 0) == .statusComplete else { throw ScanFailure.invalidJPEG }
         _ = try validateDestination(job.destination.path)
         let target = job.outputURL(page: page)
         let temporary = job.destination.appendingPathComponent(".directscan-" + UUID().uuidString + ".tmp")

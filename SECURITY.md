@@ -25,3 +25,23 @@ For a suspected vulnerability, contact the repository maintainer privately throu
 an available private repository contact channel. If none is available, open only a
 minimal issue requesting a private channel; do not publish sensitive reproduction
 data. No guaranteed response time or security support period is offered for beta.
+
+
+## Native DirectScan candidate
+
+The separate native candidate uses ImageCaptureCore, not Accessibility or
+System Events. Its first connection and recovery share an explicit takeover
+confirmation. It temporarily unloads the current user's two known Epson launch
+agents while listening; no vendor files or persistent disable settings change.
+The original loaded labels are recorded privately and restored after confirmed
+scanner release. On an unconfirmed close or abrupt process exit, the memo stays
+for restoration on the next app launch (or normal agents return at next login).
+Do not delete this memo to suppress an error. The candidate never alters the
+scanner's global auto-launch application assignment. Button delivery is still
+unverified; presence of the guarded legacy button property is not acceptance.
+
+JPG handoff uses private per-job staging, complete eager ImageIO decoding with
+per-frame status, and atomic exclusive rename into the chosen destination.
+Failures preserve staging and never retry the physical scan. Native diagnostics
+exclude images, OCR, device serials and arbitrary window contents. Configuration
+and retained job metadata may contain the user's selected local path.

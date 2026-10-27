@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased — native DirectScan experiment (local only)
+
+- Add a separate Swift menu-bar candidate with destination selection, three
+  driver correction switches, private staging/recovery and guarded JPG handoff.
+- Reject incomplete JPEG frames even when ImageIO tolerates a synthetic end
+  marker. Keep Epson services paused until scanner close is confirmed; share
+  takeover consent across connect and recovery. Preserve previous local builds.
+- Wait for the real feeder after Epson's intermediate selection notification.
+- Native software suite: 18 tests. Physical-button acceptance failed on ES-C320W
+  USB: loaded-card press produced no ICA/KVO event and no feed. Reconnect after
+  pause also needs a fix. This candidate is not a working ScanSmart replacement
+  and is not released; the installed native app is paused.
+
 ## Unreleased — timing controls
 
 - Add configurable polling intervals of 100–2000 ms (default 250 ms), with native

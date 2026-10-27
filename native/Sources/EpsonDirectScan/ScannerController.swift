@@ -5,7 +5,10 @@ import DirectScanCore
 final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDeviceDelegate {
     let storage: ScanStorage
     let diagnostics: Diagnostics
-    let mode: EpsonButtonMode
+    let mode: EpsonServices
+    private let makeBrowser: () -> ICDeviceBrowser
+    private let conflictingApps: () -> Bool
+    private let now: () -> TimeInterval
     var settings: () -> ScanSettings
     var onChange: (() -> Void)?
     private(set) var policy = ScanPolicy()
@@ -19,22 +22,32 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
     private var pages = 0
     private var selectedReady = false
     private var closing = false
+    private var releaseFailed = false
     private var opening = false
     private var desiredActive = false
     private var resumeAfterClose = false
     private var observingButton = false
     private var buttonSource: String?
-    private var deadline: Date?
+    private var deadline: TimeInterval?
     private var timer: Timer?
     var busy: Bool { policy.phase == .scanning || closing }
     var listening: Bool { desiredActive }
-    init(storage: ScanStorage, diagnostics: Diagnostics, settings: @escaping () -> ScanSettings) {
+    var sessionReleased: Bool { scanner == nil && !opening && !closing }
+    init(storage: ScanStorage, diagnostics: Diagnostics, settings: @escaping () -> ScanSettings,
+         services: EpsonServices? = nil, makeBrowser: @escaping () -> ICDeviceBrowser = { ICDeviceBrowser() },
+         conflictingApps: @escaping () -> Bool = {
+             ["org.scansmart.autosave.beta", "com.epson.scan.Epson-ScanSmart", "com.epson.ProjectManager"].contains {
+                 !NSRunningApplication.runningApplications(withBundleIdentifier: $0).isEmpty
+             }
+         }, now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
         self.storage = storage; self.diagnostics = diagnostics; self.settings = settings
-        mode = EpsonButtonMode(root: storage.root, diagnostics: diagnostics)
+        mode = services ?? EpsonButtonMode(root: storage.root, diagnostics: diagnostics)
+        self.makeBrowser = makeBrowser; self.conflictingApps = conflictingApps; self.now = now
         super.init()
         timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in self?.checkDeadline() }
         RunLoop.main.add(timer!, forMode: .common)
     }
+    deinit { timer?.invalidate() }
     private func update(_ text: String? = nil) {
         if let text { message = text }
         diagnostics.status(["phase": policy.phase.rawValue, "message": message,
@@ -44,31 +57,32 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
     }
     func start() {
         guard !desiredActive else { return }
-        if closing { resumeAfterClose = true; return }
+        if closing {
+            if !releaseFailed { resumeAfterClose = true }
+            return
+        }
         do {
             guard !settings().paused else { return }
             _ = try storage.validateDestination(settings().destination)
             guard try !storage.hasUnfinishedJobs() else { throw ScanFailure.unfinishedPages }
-            let incompatible = ["org.scansmart.autosave.beta", "com.epson.scan.Epson-ScanSmart", "com.epson.ProjectManager"]
-            guard !incompatible.contains(where: { !NSRunningApplication.runningApplications(withBundleIdentifier: $0).isEmpty }) else {
+            guard !conflictingApps() else {
                 update("Bitte ScanSmart, Event Manager und die alte AutoSave-App beenden.")
                 return
             }
             try mode.acquire()
             desiredActive = true; policy.resume(); policy.recover()
-            let b = ICDeviceBrowser(); browser = b; b.delegate = self
+            let b = makeBrowser(); browser = b; b.delegate = self
             b.browsedDeviceTypeMask = ICDeviceTypeMask(rawValue: ICDeviceTypeMask.scanner.rawValue | ICDeviceLocationTypeMask.local.rawValue)!
             b.start()
             update("Suche Epson ES-C320W über USB …")
         } catch { fail(error.localizedDescription, code: "start_failed", error: error) }
     }
     func pause() {
-        desiredActive = false; resumeAfterClose = false; deadline = nil; selectedReady = false
+        desiredActive = false; resumeAfterClose = false; selectedReady = false
         if job != nil { diagnostics.record("scan_interrupted_files_retained"); scanner?.cancelScan() }
-        policy.pause()
+        if releaseFailed { policy.failed() } else { policy.pause() }
         closeSession()
-        do { try mode.restore() } catch { update("Epson-Dienste konnten nicht wiederhergestellt werden. Bitte App erneut öffnen."); return }
-        update("Pausiert – Scanner für andere Programme freigegeben")
+        if closing && !releaseFailed { update("Scanner wird freigegeben …") }
     }
     func recover() {
         guard !busy else { return }
@@ -77,31 +91,49 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
         catch { fail(error.localizedDescription, code: "recovery_failed", error: error) }
     }
     private func closeSession() {
-        guard let s = scanner else { finishClose(); return }
+        guard !closing else { return }
+        closing = true; releaseFailed = false
+        guard let s = scanner else { finishCloseConfirmed(); return }
         if observingButton { s.removeObserver(self, forKeyPath: "buttonPressed"); observingButton = false }
-        if opening { closing = true; deadline = Date(timeIntervalSinceNow: 20); return }
-        if s.hasOpenSession {
-            guard !closing else { return }
-            closing = true; deadline = Date(timeIntervalSinceNow: 5); s.requestCloseSession()
-        } else { finishClose() }
+        if opening { deadline = now() + 20; return }
+        if s.hasOpenSession { deadline = now() + 5; s.requestCloseSession() }
+        else { finishCloseConfirmed() }
     }
-    private func finishClose() {
+    private func finishCloseConfirmed() {
+        let resume = resumeAfterClose && !releaseFailed
+        resumeAfterClose = false
         scanner?.delegate = nil; scanner = nil; selectedReady = false; closing = false; opening = false; deadline = nil
         browser?.stop(); browser?.delegate = nil; browser = nil; job = nil
-        if resumeAfterClose { resumeAfterClose = false; DispatchQueue.main.async { [weak self] in self?.start() } }
+        releaseFailed = false
+        do { try mode.restore() }
+        catch {
+            policy.failed(); desiredActive = false
+            diagnostics.record("service_restore_failed")
+            update("Scanner geschlossen, aber Epson-Dienste nicht wiederhergestellt. Bitte App erneut öffnen.")
+            return
+        }
+        if policy.phase == .paused { update("Pausiert – Scanner für andere Programme freigegeben") }
+        else { update() }
+        if resume { DispatchQueue.main.async { [weak self] in self?.start() } }
+    }
+    private func closeFailed(_ error: Error? = nil, code: String) {
+        releaseFailed = true; closing = true; desiredActive = false; resumeAfterClose = false; deadline = nil
+        policy.failed()
+        diagnostics.record(code, values: ["error": (error as NSError?)?.code ?? 0])
+        update("Scanner-Freigabe nicht bestätigt. Epson-Dienste bleiben pausiert. Bitte App beenden und erneut öffnen.")
     }
     private func fail(_ text: String, code: String, error: Error? = nil) {
+        let retained = job != nil
         policy.failed(); desiredActive = false; resumeAfterClose = false; deadline = nil
         diagnostics.record(code, values: ["error": (error as NSError?)?.code ?? 0, "exported": pages])
-        if job != nil { scanner?.cancelScan() }
+        if retained { scanner?.cancelScan() }
+        update(text + (retained ? " Zurückgehaltene Scans bleiben erhalten." : ""))
         closeSession()
-        do { try mode.restore() } catch { diagnostics.record("service_restore_failed") }
-        update(text + (job == nil ? "" : " Zurückgehaltene Scans bleiben erhalten."))
     }
-    private func checkDeadline() {
-        guard let deadline, Date() >= deadline else { return }
+    func checkDeadline() {
+        guard let deadline, now() >= deadline else { return }
         self.deadline = nil
-        if closing { update("Scanner-Freigabe nicht bestätigt. Bitte die App beenden und erneut öffnen."); return }
+        if closing { closeFailed(code: "session_close_timeout"); return }
         fail("Der Scanner antwortet nicht rechtzeitig. Bitte Scanner und Dateien prüfen.", code: "scanner_timeout")
     }
     func deviceBrowser(_ browser: ICDeviceBrowser, didAdd device: ICDevice, moreComing: Bool) {
@@ -116,7 +148,7 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
         }
         guard candidates.count <= 1 else { fail("Mehrere passende USB-Scanner gefunden. Bitte nur einen verbinden.", code: "ambiguous_scanner"); return }
         guard let s = candidates.first else { return }
-        scanner = s; opening = true; s.delegate = self; deadline = Date(timeIntervalSinceNow: 20)
+        scanner = s; buttonSource = nil; releaseFailed = false; opening = true; s.delegate = self; deadline = now() + 20
         diagnostics.record("session_requested"); update("Verbinde Epson über USB …"); s.requestOpenSession()
     }
     func deviceBrowser(_ browser: ICDeviceBrowser, didRemove device: ICDevice, moreGoing: Bool) {
@@ -127,11 +159,12 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
     private func removed() {
         let interrupted = job != nil
         if observingButton, let s = scanner { s.removeObserver(self, forKeyPath: "buttonPressed"); observingButton = false }
-        scanner?.delegate = nil; scanner = nil; selectedReady = false; closing = false; deadline = nil; job = nil
+        scanner?.delegate = nil; scanner = nil; selectedReady = false; closing = false; opening = false; releaseFailed = false; deadline = nil; job = nil
         policy.disconnected()
         diagnostics.record(interrupted ? "device_removed_during_scan" : "device_removed")
-        if interrupted {
+        if interrupted || !desiredActive {
             desiredActive = false; try? mode.restore()
+            browser?.stop(); browser?.delegate = nil; browser = nil
             update("Scanner getrennt. Zurückgehaltene Scans bitte prüfen und Fehler zurücksetzen.")
         } else { update("Scanner getrennt – warte auf USB-Verbindung") }
     }
@@ -139,8 +172,8 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
         guard device === scanner else { return }
         opening = false
         if closing || !desiredActive {
-            if error == nil { closing = true; deadline = Date(timeIntervalSinceNow: 5); device.requestCloseSession() }
-            else { finishClose(); update() }
+            if error == nil || device.hasOpenSession { closing = true; deadline = now() + 5; device.requestCloseSession() }
+            else { finishCloseConfirmed(); update() }
             return
         }
         if let error { fail("Scanner belegt oder nicht verfügbar. Bitte andere Scanprogramme schließen.", code: "session_open_failed", error: error) }
@@ -152,7 +185,12 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
     func scannerDevice(_ scanner: ICScannerDevice, didSelect functionalUnit: ICScannerFunctionalUnit, error: Error?) {
         guard scanner === self.scanner, desiredActive, !closing, !selectedReady else { return }
         if let error { fail("Der Papiereinzug konnte nicht gewählt werden.", code: "feeder_failed", error: error); return }
-        guard functionalUnit is ICScannerFunctionalUnitDocumentFeeder else { fail("Der erwartete Papiereinzug fehlt.", code: "feeder_missing"); return }
+        // Epson emits an intermediate selection notification before the feeder is ready.
+        // Keep the connection deadline; only a complete feeder notification can arm scans.
+        guard functionalUnit is ICScannerFunctionalUnitDocumentFeeder else {
+            diagnostics.record("intermediate_unit_ignored")
+            return
+        }
         if scanner.responds(to: NSSelectorFromString("buttonPressed")) {
             scanner.addObserver(self, forKeyPath: "buttonPressed", options: [.new], context: nil)
             observingButton = true
@@ -183,7 +221,7 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
         if let buttonSource, buttonSource != source { return }
         buttonSource = source; buttonEvents += 1
         diagnostics.record("scan_button", values: ["count": buttonEvents, "source": source == "delegate" ? 1 : source == "property" ? 2 : 3])
-        guard desiredActive, selectedReady, !closing, let s = scanner,
+        guard desiredActive, selectedReady, !closing, let s = scanner, s.hasOpenSession,
               let feeder = s.selectedFunctionalUnit as? ICScannerFunctionalUnitDocumentFeeder,
               policy.phase == .ready else { update(); return }
         guard feeder.documentLoaded else { update("Taste erkannt – bitte eine Karte einlegen und erneut drücken"); return }
@@ -194,7 +232,7 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
             let next = try storage.beginJob(settings: snapshot); job = next; pages = 0
             s.transferMode = .fileBased; s.downloadsDirectory = next.directory
             s.documentName = "scan"; s.documentUTI = "public.jpeg"
-            deadline = Date(timeIntervalSinceNow: 120)
+            deadline = now() + 120
             diagnostics.record("scan_started"); update("Karte wird gescannt …"); s.requestScan()
         } catch { fail(error.localizedDescription, code: "scan_setup_failed", error: error) }
     }
@@ -242,8 +280,12 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
     }
     func device(_ device: ICDevice, didCloseSessionWithError error: Error?) {
         guard device === scanner else { return }
-        let expected = closing; finishClose()
-        if !expected { policy.failed(); desiredActive = false; try? mode.restore(); update("Scanner-Verbindung unerwartet beendet. Bitte neu verbinden.") }
-        else { update() }
+        if let error { closeFailed(error, code: "session_close_failed"); return }
+        if !closing {
+            policy.failed(); desiredActive = false; resumeAfterClose = false
+            diagnostics.record("unexpected_session_close")
+            update("Scanner-Verbindung unerwartet beendet. Bitte Dateien prüfen und neu verbinden.")
+        }
+        finishCloseConfirmed()
     }
 }

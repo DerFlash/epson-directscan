@@ -138,6 +138,34 @@ Confirmed button presses did not arrive on the tested ICA delegate/status paths,
 including a full AppKit event-loop probe without Epson background helpers. A later
 Mac-target probe timed out before its human confirmation; it is inconclusive.
 The persistent app adds guarded observation of the existing legacy buttonPressed
-property; this route still needs a confirmed press and repeated real scans.
+property. Confirmed presses on 2026-10-27, first empty and then with a loaded card,
+still produced zero button events while the app remained ready with both Epson
+helpers absent. The loaded card did not feed; only the power LED briefly blinked.
+The physical-button acceptance gate therefore failed for the current ICA route.
 Do not claim the native app's button workflow is accepted, and do not publish it
 as a working replacement until that gate passes.
+
+The reviewed local candidate now has 18 passing native tests. A deliberately
+truncated real JPEG with a synthetic end marker is rejected using per-frame
+ImageIO status after eager decoding. Injected scanner/service adapters verify
+that delayed, failed and absent close acknowledgements do not restore Epson
+services early or silently rearm. Shared connection/recovery consent is tested.
+These adapters never actuate the real scanner or launch agents. A fresh legacy
+26 Node + 38 Python suite and signed build also passed. Hardware acceptance of
+the installed native menu-bar app has not passed. The app is installed but paused;
+both original Epson launch agents were confirmed running after session release.
+
+A pure non-scanning diagnostic found that Epson emits an intermediate selection
+notification before the actual feeder (1.908 and 2.117 seconds in that run).
+The adapter now ignores that intermediate state while retaining its deadline;
+the regression failed before the fix and passed afterward. Build 3 was installed
+with the previous local build backed up. A real pause released the session and
+restored both Epson helpers. Reconnecting within the same process failed twice
+with device removal followed by ICReturnConnectionFailedToOpen (-21345); a fresh
+app process connected successfully. This lifecycle defect remains unresolved.
+
+USB inspection found four vendor-specific interfaces and no HID button interface.
+Epson's installed Scanner.framework contains its own interrupt/button handling;
+that is a lead for a separate Epson-specific adapter, not proof of an available
+public macOS API or a tested replacement. No manufacturer file or global scanner
+autolaunch assignment was changed by the installed app.

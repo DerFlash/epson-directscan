@@ -2,8 +2,13 @@ import Foundation
 import Darwin
 import DirectScanCore
 
+protocol EpsonServices: AnyObject {
+    func acquire() throws
+    func restore() throws
+}
+
 // A per-login takeover of Epson's two background agents. No vendor files change.
-final class EpsonButtonMode {
+final class EpsonButtonMode: EpsonServices {
     private let root: URL
     private let diagnostics: Diagnostics
     private let entries = [

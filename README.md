@@ -1,7 +1,8 @@
 # Epson ScanSmart AutoSave — 0.1.0-beta.3-dev
 
 > Native menu-bar app candidate: [German DirectScan guide](docs/NATIVE.de.md).
-> Local development only; physical button acceptance is still pending.
+> Local experiment only; physical button acceptance failed on ES-C320W USB.
+> The native candidate is not a working replacement; the existing 0.1 helper is separate.
 
 GitHub project: [DerFlash/epson-scansmart-autosave](https://github.com/DerFlash/epson-scansmart-autosave).
 

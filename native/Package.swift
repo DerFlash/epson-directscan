@@ -5,4 +5,4 @@ let package = Package(
     products: [.library(name: "DirectScanCore", targets: ["DirectScanCore"]),
                .executable(name: "EpsonDirectScan", targets: ["EpsonDirectScan"])],
     targets: [.target(name: "DirectScanCore"),
-              .executableTarget(name: "EpsonDirectScan", dependencies: ["DirectScanCore"]), .testTarget(name: "DirectScanCoreTests", dependencies: ["DirectScanCore"])])
+              .executableTarget(name: "EpsonDirectScan", dependencies: ["DirectScanCore"]), .testTarget(name: "DirectScanCoreTests", dependencies: ["DirectScanCore", "EpsonDirectScan"])])
