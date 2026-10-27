@@ -1,26 +1,33 @@
 # Epson DirectScan Beta – native Menüleisten-App
 
-Lokale Entwicklungsfassung 0.2.0-beta.1-dev. Diese unabhängige App verwendet den
-installierten Epson-ICA-Treiber direkt. Sie enthält keine Epson-Software und
-benötigt keine Bedienungshilfen oder Steuerung von System Events.
+Lokale Entwicklungsfassung 0.2.0-beta.1-dev für den Epson ES-C320W über USB.
+Zwei vollständige Tastenscans wurden am 27.10.2026 geprüft: jeweils ein lesbares
+JPG ohne Mac-Klicks, danach wieder bereit. Der zweite Scan ging nach einer
+Ordneränderung ausschließlich in den neuen Ordner. Anschließend wurde der
+normale Ablageordner wieder eingestellt. Das ist eine lokale Beta-Abnahme,
+keine allgemeine Produktionsfreigabe für andere Macs, Treiber oder Scanner.
 
-**Noch nicht als vollständiger Tasten-Workflow abgenommen.** Zwei direkte
-USB-Scans mit dem ES-C320W waren erfolgreich, einschließlich der Treiberkorrekturen.
-Die Geräte-Taste wurde von den bisherigen Callback-Proben nicht erkannt. Eine
-Probe mit Mac-Zielzuordnung endete vor der Bestätigung und ist nicht auswertbar.
-Die dauerhafte App beobachtet zusätzlich die vorhandene alte buttonPressed-
-Eigenschaft, sofern der Treiber sie anbietet. Am 27.10.2026 blieb auch damit
-bei bestätigten Tastendrücken ohne und mit eingelegter Karte der Zähler auf 0;
-die Karte wurde nicht eingezogen. Beide Epson-Tastenhelfer waren dabei beendet,
-die native App durchgehend verbunden. **Der Start über die Gerätetaste ist mit
-diesem Ansatz aktuell nicht funktionsfähig.** Die lokale App wurde anschließend
-pausiert und die Epson-Dienste wurden wiederhergestellt.
+Die App ersetzt die ScanSmart-Oberfläche. Sie braucht weder Bedienungshilfen
+noch System Events und lädt keine Scans hoch. Sie enthält keine Epson-Software;
+der Epson-Treiber muss separat installiert sein.
+
+## Voraussetzungen
+
+- Epson ES-C320W, direkt per USB verbunden. Andere Modelle und WLAN sind nicht
+  unterstützt. USB-Gerätekennung: Epson 0x04b8 / Produkt 0x0190.
+- **Epson-Treiber 6.7.84.** Der separate Tastenempfänger verwendet einen internen
+  Teil dieses installierten Treibers. Genau diese Version und ihre Schnittstellen
+  werden beim Start geprüft; andere Versionen werden sicher abgewiesen. Epson
+  garantiert diese interne Schnittstelle nicht. Nach einem Treiberupdate muss
+  die Verträglichkeit neu geprüft werden.
+- Geprüft: Apple-Silicon-Mac, macOS 27.0.1. Das Build-Ziel ist macOS 13+, weitere
+  Systeme sind ungetestet. Es gibt keine Notarisierung und keinen öffentlichen
+  Binär-Release dieser nativen Entwicklungsfassung.
 
 ## Bauen und installieren
 
-macOS und Apple-Kommandozeilen-Werkzeuge sind erforderlich. Die Tests verwenden
-Swift Testing; die hier geprüften Werkzeuge sind Swift 6.4/CLT auf macOS 27.0.1.
-Die App zielt auf macOS 13+, weitere Versionen sind ungetestet. Keine externen
+Apple-Kommandozeilen-Werkzeuge sind erforderlich (Swift und Clang). Die Tests
+verwenden Swift Testing; hier geprüft mit Swift 6.4/CLT. Keine zusätzlichen
 Pakete oder Laufzeiten werden heruntergeladen.
 
 ```
@@ -29,101 +36,112 @@ Pakete oder Laufzeiten werden heruntergeladen.
 ./scripts/install-native.sh
 ```
 
-Die App landet unter `~/Applications/Epson DirectScan Beta.app`. Ein bereits
-vorhandener nativer Build braucht `build-native.sh --replace`; der Installer
-ersetzt eine vorhandene native Installation nur mit `install-native.sh --replace`,
-nachdem sie beendet wurde. Die vorherige Fassung wird als ZIP unter dem privaten
-App-Datenordner in `Build Backups/` gesichert. Die alte ScanSmart-Automatik
-bleibt getrennt erhalten. Die lokale Signatur ist ad hoc; es gibt keine
-Notarisierung und keinen neuen öffentlichen Binär-Release.
+Die App landet unter `~/Applications/Epson DirectScan Beta.app`. Zum Ersetzen
+`build-native.sh --replace` und nach Beenden der App `install-native.sh --replace`
+verwenden. Der Installer prüft die App-Kennung, lehnt laufende native Kopien ab
+und sichert die vorherige Fassung als ZIP unter dem privaten App-Datenordner
+in `Build Backups/`. Die alte ScanSmart-Automatik bleibt separat erhalten.
 
-## Erster Start
+## Starten und scannen
 
 1. Die alte AutoSave-App, ScanSmart und das Event-Manager-Einstellungsfenster
-   beenden. Den Epson per USB verbinden. Eine parallele WLAN-Verbindung wird
-   von DirectScan nicht ausgewählt.
-2. DirectScan öffnen und den vorhandenen Ablageordner wählen, hier Dokumente/Scans.
-   Der Ordnerdialog kann auch einen neuen Ordner anlegen. Das Scannersymbol
-   erscheint oben in der Menüleiste; die App hat kein Dock-Fenster. Eine kleine
-   Statusansicht zeigt Verbindung und Tastendrücke. Du kannst sie schließen;
-   die App läuft weiter. Erneutes Öffnen der App oder **Status anzeigen** im Menü
-   öffnet die Ansicht wieder.
-3. Im Menü **Mit Epson verbinden** wählen. Der erste Hinweis erklärt die
-   vorübergehende Übernahme der beiden Epson-Tastenhelfer. Die App speichert,
-   welche Dienste vorher geladen waren, und stellt sie nach bestätigtem Schließen des Scanners wieder her.
-4. Für die noch offene Tastenabnahme zunächst **ohne Karte** einmal die Taste am
-   Epson drücken. Die Zahl der Tastendrücke muss steigen und die App soll zum
-   Einlegen einer Karte auffordern. Kein kurzes Testfenster: die App hört bis zur
-   Pause oder zum Beenden weiter mit. Solange kein Tastendruck erkannt ist,
-   bedeutet „Verbunden“ nur eine offene Scanner-Verbindung.
-5. Erst danach eine entbehrliche Karte im geraden Papierweg einlegen und die
-   Epson-Taste drücken. Ein JPG muss ohne Klick am Mac im gewählten Ordner erscheinen.
-   Eine zweite frische Karte prüft das erneute Bereitwerden.
+   beenden. Den Epson per USB verbinden.
+2. DirectScan öffnen und den Ablageordner wählen, beispielsweise Dokumente/Scans.
+   Das Scannersymbol erscheint in der Menüleiste. Die kleine Statusansicht lässt
+   sich schließen; die App läuft weiter. Erneutes Öffnen oder **Status anzeigen**
+   im Menü zeigt sie wieder an.
+3. **Mit Epson verbinden** wählen. Der erste Hinweis erklärt, dass die beiden
+   Epson-Tastenhelfer während des Direktmodus pausieren. Nach bestätigter
+   Scanner-Freigabe beim Pausieren oder Beenden werden sie wieder gestartet.
+4. Auf **Bereit – Epson-Taste drücken** warten. Eine entbehrliche Karte im geraden
+   Papierweg einlegen und die Scantaste am Epson drücken. Das JPG wird automatisch
+   abgelegt. Für eine weitere Karte warten, bis die App wieder bereit ist.
 
-Der derzeitige Kandidat hat diese Abnahme nicht bestanden. Weitere Wiederholungen
-derselben Tastenprobe sind ohne einen neuen Empfangsweg nicht sinnvoll.
+Beim Öffnen, Einlegen, Neuverbinden oder Ändern von Einstellungen wird kein Scan
+angefordert. Ein unbekannter, verfrühter oder wiederholter Tastendruck wird nicht
+als weiterer Scan vorgemerkt. Die Gerätetaste wird nicht durch einen Menübefehl
+ersetzt. Nicht mehrere Scan-Apps gleichzeitig verwenden.
 
-Die App startet keinen Scan beim Öffnen, Einlegen, Neuverbinden oder Ändern der
-Einstellungen. Es gibt keinen heimlichen Ersatz der Gerätetaste durch einen
-Menübefehl. Nicht auf Tastenerkennung oder Hardwareabnahme schließen, wenn nur
-Build und Softwaretests bestanden sind.
+## Einstellungen
 
-## Einstellungen und Betrieb
+Das Menü am Scannersymbol und **Einstellungen …** in der Statusansicht bieten:
 
-- JPG, 300 dpi, RGB, einseitig sind fest eingestellt.
-- Automatischer Zuschnitt, Schräglagenkorrektur und automatische Drehung sind
-  standardmäßig an und einzeln schaltbar. Vor jedem Scan müssen die angeforderten
-  Korrekturen vom Treiber bestätigt sein.
-- Änderungen gelten für den nächsten Scan; während eines laufenden Jobs sind
-  Ordnerwahl, Korrekturen und Neuverbinden gesperrt.
-- Jeder Scanjob verwendet einen eigenen Namen mit Zeitstempel und UUID.
-  Vorhandene Dateien werden nicht überschrieben. Der komplette Einzug kann
-  mehrere eingelegte Vorlagen einziehen; für die Abnahme nur eine Karte einlegen.
-- **Pausieren und Scanner freigeben** schließt die Scanner-Verbindung und stellt
-  die Epson-Hintergrunddienste erst nach bestätigter Freigabe wieder her. Andere Epson-Geräte können während des
-  Direktmodus ebenfalls von der pausierten Tastenüberwachung betroffen sein.
-- Der Start bei Anmeldung wird nicht automatisch geändert. Nach erfolgreicher
-  Abnahme kann die App in den macOS-Anmeldeobjekten hinzugefügt werden; dabei die
-  bisherige Automatik deaktivieren. Autostart nach Ab-/Anmeldung ist ungetestet.
-- Bekannter Verbindungsfehler: Nach Pausieren und erneutem Verbinden im selben
-  App-Prozess wurde zweimal eine Gerätetrennung mit Fehler -21345 beobachtet.
-  Ein vollständiger App-Neustart stellte die Verbindung wieder her. Auch dieser
-  Fehler muss vor einer Freigabe behoben und am Gerät nachgeprüft werden.
+- Ablageordner wählen oder öffnen;
+- automatischen Zuschnitt, Schräglagenkorrektur und automatische Drehung einzeln
+  schalten (standardmäßig alle an);
+- pausieren/freigeben, letztes JPG anzeigen, Wiederherstellung und Beenden.
+
+JPG, 300 dpi, RGB und einseitiges Scannen sind fest eingestellt. Jede Datei
+bekommt einen Namen mit Zeitstempel und UUID; vorhandene Bilder werden nicht
+überschrieben. Der Treiber muss die drei angeforderten Korrekturen vor jedem
+Scan bestätigen. Die Wirkungsstärke von Drehung/Schrägkorrektur wurde nicht
+an gezielt unterschiedlich eingelegten Karten vermessen.
+
+Die Einstellungen werden beim akzeptierten Tastendruck für diesen Scan
+festgehalten. Während der Übergabe und des Scannens sind Änderungen gesperrt.
+Eine Ordnerwahl im Leerlauf gibt den Scanner zunächst frei und verbindet
+anschließend wieder. Der Einzug kann einen ganzen eingelegten Stapel verarbeiten;
+für erste Tests immer genau eine entbehrliche Karte verwenden.
+
+## Wie der Hintergrundbetrieb funktioniert
+
+Der Epson-eigene Tastenempfänger läuft als kleiner isolierter Hilfsprozess.
+Nach einer physischen Taste 1 schließt er seine Verbindung und endet. Erst wenn
+beides bestätigt ist, startet ein eigener Scanprozess über ImageCaptureCore.
+Dieser prüft den Einzug und die Korrekturen, scannt, speichert und schließt die
+Verbindung. Erst nach bestätigtem Abschluss startet der nächste Tastenempfänger.
+So greifen beide Wege nicht gleichzeitig auf den Scanner zu. Jeder Scanprozess
+ist neu; der zuvor beobachtete Fehler beim erneuten Öffnen einer ICA-Verbindung
+innerhalb desselben Prozesses wird damit vermieden. Zwei vollständige Zyklen
+und mehrere Ordnerwechsel wurden auf diesem Mac geprüft.
+
+Beim Öffnen des Tastenempfängers werden frühe Ereignisse kurz verworfen. Scannen
+ist erst nach der sichtbaren Bereitschaft möglich. Unterbrochene Vorgänge werden
+nicht automatisch wiederholt. Stirbt die Haupt-App, schließen die Hilfsprozesse
+beim Erkennen des fehlenden Elternprozesses ihre Verbindung.
+
+**Pausieren und Scanner freigeben** gibt auch die Epson-Tastenhelfer zurück.
+Andere Epson-Geräte können während des Direktmodus ebenfalls von deren Pause
+betroffen sein. Die Freigabe wird erst nach Bestätigung und Ende des betreffenden
+Hilfsprozesses gemeldet.
+
+Ein Start bei Anmeldung wird nicht automatisch eingerichtet. Nach der lokalen
+Abnahme kannst du die App in den macOS-Anmeldeobjekten hinzufügen und die alte
+Automatik dort deaktivieren. Ab-/Anmeldung und längere Serien sind ungetestet.
 
 ## Fehler und Wiederherstellung
 
-Die App scannt zuerst in einen privaten Bereich unter
+Die App scannt zuerst unter
 `~/Library/Application Support/Epson DirectScan/Pending/`. Nur vollständig
 lesbare JPGs werden über eine temporäre Datei atomar ohne Ersetzen in den
-Ablageordner übergeben. Das ermöglicht auch nachgelagerten Programmen, das fertige
-JPG sofort weiterzunehmen. Erst nach einem bestätigten vollständigen Job werden
-seine lokalen Originale entfernt.
+Ablageordner übergeben. Nachgelagerte Programme dürfen das fertige JPG sofort
+weiternehmen. Erst nach einem bestätigten vollständigen Job werden seine
+privaten Originale entfernt.
 
-Bei Fehlern, fehlendem Zielordner, Abbruch, Trennung oder Neustart bleiben
+Bei fehlendem Zielordner, Fehler, Abbruch, Trennung oder Neustart bleiben
 unbestätigte Dateien erhalten. Im Menü **Zurückgehaltene Scans und Protokoll öffnen**
-wählen, Dateien prüfen und gegebenenfalls manuell sichern. Danach **Fehler
-zurücksetzen und neu verbinden**. Bereits zurückgehaltene Jobs werden dabei in
-`Recovery/` aufbewahrt; sie werden nicht erneut gescannt oder automatisch exportiert.
+wählen, Dateien prüfen und nötigenfalls manuell sichern. Danach **Fehler zurücksetzen
+und neu verbinden**. Zurückgehaltene Jobs werden in `Recovery/` aufbewahrt und
+nicht erneut gescannt oder automatisch exportiert.
 
-Nach einem App-Absturz können die Epson-Dienste bis zum erneuten Öffnen von
-DirectScan oder der nächsten Mac-Anmeldung pausiert bleiben. Die private Datei
-`epson-services.json` dient zur Wiederherstellung; nicht löschen. DirectScan beim
-Neustart einmal öffnen und pausieren oder beenden, um die Dienste zurückzugeben.
-Bei einer nicht bestätigten Scanner-Freigabe bleiben die Dienste zur Vermeidung
-konkurrierender Zugriffe pausiert. Beenden wartet kurz auf die Bestätigung; bei
-einem Fehler/Timeout bleibt der Wiederherstellungsvermerk für den Neustart
-erhalten. Die App danach erneut öffnen, um die Dienste zurückzugeben.
+Nach einem App-Absturz können Epson-Dienste bis zum erneuten Öffnen von DirectScan
+oder der nächsten Mac-Anmeldung pausiert bleiben. Die private Datei
+`epson-services.json` enthält den Wiederherstellungsvermerk; nicht löschen.
+Bei nicht bestätigter Freigabe bleiben die Dienste ebenfalls pausiert, um
+konkurrierende Zugriffe zu vermeiden. Beenden wartet kurz auf eine Bestätigung;
+bei Fehler/Timeout bleibt der Vermerk erhalten. Die App danach erneut öffnen,
+um die Dienste zurückzugeben.
 
-`events.jsonl` und eine vorherige Logdatei sind begrenzt; sie enthalten feste
-Ereigniscodes, Zahlen und Zeiten, keine Bilder, OCR-Texte oder Geräteseriennummern.
-Private Einstellungen und Jobdateien enthalten den gewählten Ordner. Vor dem
-Teilen von Diagnosen persönliche Pfade entfernen. Keine Netzwerkzugriffe oder
-Uploads durch DirectScan. Das Verhalten von Epson-Software liegt außerhalb dieser
-App.
+`events.jsonl`, `WorkerLogs/` und jeweils eine vorherige Logdatei sind begrenzt.
+Die Ereignisse enthalten Codes, Zahlen und Zeiten, keine Bilder, OCR-Texte oder
+Geräteseriennummern. Einstellungen/Jobdateien enthalten den gewählten Ordner.
+Vor dem Teilen von Diagnosen persönliche Pfade entfernen. DirectScan selbst
+verwendet kein Netzwerk; das Verhalten installierter Epson-Software liegt
+außerhalb der App.
 
 ## Zur bisherigen Lösung zurückkehren
 
-DirectScan pausieren oder beenden. ScanSmart mit dem USB-Scanner öffnen und die
-bisherige AutoSave-App aktivieren. Beide Apps und ihre Einstellungen sind getrennt.
-Vor dem Entfernen von DirectScan die Epson-Dienste zurückgeben und benötigte
-Dateien aus Pending/Recovery sichern. Der eigentliche Ablageordner ist separat.
+DirectScan pausieren oder beenden. ScanSmart und die bisherige AutoSave-App
+öffnen. Beide Apps und ihre Einstellungen bleiben getrennt. Vor dem Entfernen
+von DirectScan die Epson-Dienste zurückgeben und benötigte Dateien aus
+Pending/Recovery sichern. Der eigentliche Ablageordner ist separat.

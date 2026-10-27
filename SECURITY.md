@@ -29,16 +29,24 @@ data. No guaranteed response time or security support period is offered for beta
 
 ## Native DirectScan candidate
 
-The separate native candidate uses ImageCaptureCore, not Accessibility or
-System Events. Its first connection and recovery share an explicit takeover
+The separate native candidate uses ImageCaptureCore for scans and an isolated
+helper for the installed Epson Scanner.framework internal button API, without
+Accessibility or System Events. The helper refuses any driver version except
+the checked 6.7.84 and verifies method signatures before calling it. No Epson
+binary is redistributed. Each physical button must be followed by confirmed
+helper close and process exit before the separate ICA scan process starts; the
+next receiver starts only after confirmed scan completion, close and exit. Its first connection and recovery share an explicit takeover
 confirmation. It temporarily unloads the current user's two known Epson launch
 agents while listening; no vendor files or persistent disable settings change.
 The original loaded labels are recorded privately and restored after confirmed
 scanner release. On an unconfirmed close or abrupt process exit, the memo stays
 for restoration on the next app launch (or normal agents return at next login).
 Do not delete this memo to suppress an error. The candidate never alters the
-scanner's global auto-launch application assignment. Button delivery is still
-unverified; presence of the guarded legacy button property is not acceptance.
+scanner's global auto-launch application assignment. The legacy ICA callback/KVO
+route did not deliver events and has been removed from the scan worker. Two real
+button scans passed through the Epson-specific helper; other driver versions,
+models and extended recovery/login behavior remain unverified. A short startup
+drain rejects early button events; busy or late events cannot queue a scan.
 
 JPG handoff uses private per-job staging, complete eager ImageIO decoding with
 per-frame status, and atomic exclusive rename into the chosen destination.

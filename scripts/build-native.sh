@@ -14,8 +14,11 @@ mkdir -p "$ROOT/build"
 TASK_BUILD="$(mktemp -d "$ROOT/build/.native-build.XXXXXX")"
 trap 'rm -rf -- "$TASK_BUILD"' EXIT
 BUNDLE="$TASK_BUILD/Epson DirectScan Beta.app"
-mkdir -p "$BUNDLE/Contents/MacOS"
+mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Helpers"
 cp "$BIN/EpsonDirectScan" "$BUNDLE/Contents/MacOS/"
+clang -fobjc-arc -mmacosx-version-min=13.0 -framework AppKit -framework IOKit \
+  "$ROOT/native/Helpers/EpsonButtonReceiver.m" -o "$BUNDLE/Contents/Helpers/EpsonButtonReceiver"
+codesign --force --sign - "$BUNDLE/Contents/Helpers/EpsonButtonReceiver"
 cp "$ROOT/native/Resources/Info.plist" "$BUNDLE/Contents/Info.plist"
 plutil -lint "$BUNDLE/Contents/Info.plist"
 codesign --force --sign - "$BUNDLE"

@@ -1,17 +1,19 @@
 # Changelog
 
-## Unreleased — native DirectScan experiment (local only)
+## Unreleased — native DirectScan beta (local only)
 
-- Add a separate Swift menu-bar candidate with destination selection, three
-  driver correction switches, private staging/recovery and guarded JPG handoff.
-- Reject incomplete JPEG frames even when ImageIO tolerates a synthetic end
-  marker. Keep Epson services paused until scanner close is confirmed; share
-  takeover consent across connect and recovery. Preserve previous local builds.
-- Wait for the real feeder after Epson's intermediate selection notification.
-- Native software suite: 18 tests. Physical-button acceptance failed on ES-C320W
-  USB: loaded-card press produced no ICA/KVO event and no feed. Reconnect after
-  pause also needs a fix. This candidate is not a working ScanSmart replacement
-  and is not released; the installed native app is paused.
+- Add a separate Swift menu-bar app with destination selection, three driver
+  correction switches, private staging/recovery and guarded JPG handoff.
+- Receive the physical button through an isolated helper using the installed
+  Epson Scanner.framework. Restrict the internal API to checked driver 6.7.84;
+  require confirmed close and process exit before an isolated ICA scan starts.
+- Reject incomplete JPEG frames, duplicate/early/late triggers and invalid process
+  messages. Deliver live helper events immediately. Never replay uncertain scans.
+- Preserve previous local builds, share connection/recovery consent, and return
+  Epson services only after confirmed release. Leave login items unchanged.
+- 31 native tests and two real ES-C320W USB button scans passed, including a changed
+  destination and automatic rearming. Broader reliability remains unverified;
+  this native development build is not publicly released.
 
 ## Unreleased — timing controls
 

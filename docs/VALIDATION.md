@@ -169,3 +169,40 @@ Epson's installed Scanner.framework contains its own interrupt/button handling;
 that is a lead for a separate Epson-specific adapter, not proof of an available
 public macOS API or a tested replacement. No manufacturer file or global scanner
 autolaunch assignment was changed by the installed app.
+
+### Native button handoff — 2026-10-27, local build 5
+
+The earlier ICA button gate was resolved by a different mechanism: the installed
+Epson Scanner.framework 6.7.84 delivered a confirmed physical `didPressButton:1`
+callback. The app now isolates this internal driver API in its own helper, checks
+the exact version and method ABI, then closes and exits the helper before starting
+a fresh ICA scan process. No Epson binaries are redistributed. Early startup
+signals and non-1 buttons cannot authorize a scan. The earlier within-process ICA
+reopen defect is avoided by process isolation, rather than claimed fixed in ICA.
+
+31 native tests passed, including actual subprocess streaming/ordering/invalid
+frames, frozen settings, duplicate/busy/early/late button rejection, confirmed
+close plus exit before scan/rearm/service restoration, retained pending files on
+failure, and authorized worker readiness/empty feeder. A real long-running-child
+handshake reproduced buffering until EOF with FileHandle.read(upToCount:); bounded
+POSIX reads corrected it, and the full suite passed. Build/plist/deep signature
+and driver compatibility checks passed.
+
+Two single-card scans were then triggered by the physical Epson button with the
+status window closed and no Mac clicks. Each yielded exactly one readable JPG;
+Pending was empty afterward, and the app returned to Ready:
+
+| Test | Destination | Image | Bytes | Accepted button to JPG / Ready |
+| --- | --- | --- | --- | --- |
+| First card | selected normal scan folder | 741×1037, 300 dpi | 306854 | about 6 s / 8 s |
+| Second card | separately selected test subfolder | 745×1037, 300 dpi | 330105 | about 5 s / 7 s |
+
+The second filename was absent from the original folder. All three corrections
+were enabled; the first image was visually checked, upright with tight card crop.
+Input skew/rotation was not independently controlled, so their individual effects
+remain unquantified. Changing folders through the real picker paused/released
+and reopened the button helper successfully; the original destination was then
+restored. These are two cycles with a folder change between them, not a long
+uninterrupted-series, sleep/wake, cancellation or login acceptance test. Additional
+independent review of the new process/button architecture remains required before
+calling the local development work finished. No native public release is implied.

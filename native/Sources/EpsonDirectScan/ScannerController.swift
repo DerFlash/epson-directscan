@@ -11,6 +11,7 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
     private let now: () -> TimeInterval
     var settings: () -> ScanSettings
     var onChange: (() -> Void)?
+    var onScanFinished: ((Int) -> Void)?
     private(set) var policy = ScanPolicy()
     private(set) var message = "Pausiert"
     private(set) var buttonEvents = 0
@@ -26,8 +27,6 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
     private var opening = false
     private var desiredActive = false
     private var resumeAfterClose = false
-    private var observingButton = false
-    private var buttonSource: String?
     private var deadline: TimeInterval?
     private var timer: Timer?
     var busy: Bool { policy.phase == .scanning || closing }
@@ -94,7 +93,6 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
         guard !closing else { return }
         closing = true; releaseFailed = false
         guard let s = scanner else { finishCloseConfirmed(); return }
-        if observingButton { s.removeObserver(self, forKeyPath: "buttonPressed"); observingButton = false }
         if opening { deadline = now() + 20; return }
         if s.hasOpenSession { deadline = now() + 5; s.requestCloseSession() }
         else { finishCloseConfirmed() }
@@ -148,7 +146,7 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
         }
         guard candidates.count <= 1 else { fail("Mehrere passende USB-Scanner gefunden. Bitte nur einen verbinden.", code: "ambiguous_scanner"); return }
         guard let s = candidates.first else { return }
-        scanner = s; buttonSource = nil; releaseFailed = false; opening = true; s.delegate = self; deadline = now() + 20
+        scanner = s; releaseFailed = false; opening = true; s.delegate = self; deadline = now() + 20
         diagnostics.record("session_requested"); update("Verbinde Epson über USB …"); s.requestOpenSession()
     }
     func deviceBrowser(_ browser: ICDeviceBrowser, didRemove device: ICDevice, moreGoing: Bool) {
@@ -158,7 +156,6 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
     func didRemove(_ device: ICDevice) { if device === scanner { removed() } }
     private func removed() {
         let interrupted = job != nil
-        if observingButton, let s = scanner { s.removeObserver(self, forKeyPath: "buttonPressed"); observingButton = false }
         scanner?.delegate = nil; scanner = nil; selectedReady = false; closing = false; opening = false; releaseFailed = false; deadline = nil; job = nil
         policy.disconnected()
         diagnostics.record(interrupted ? "device_removed_during_scan" : "device_removed")
@@ -191,40 +188,19 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
             diagnostics.record("intermediate_unit_ignored")
             return
         }
-        if scanner.responds(to: NSSelectorFromString("buttonPressed")) {
-            scanner.addObserver(self, forKeyPath: "buttonPressed", options: [.new], context: nil)
-            observingButton = true
-        }
         selectedReady = true; deadline = nil; policy.sessionReady()
-        diagnostics.record("ready", values: ["buttonObservation": observingButton ? 1 : 0])
-        update(buttonEvents == 0 ? "Verbunden – Tastenempfang noch ungeprüft" : "Bereit – Epson-Taste drücken")
-    }
-    @objc(device:didReceiveButtonPress:)
-    func deviceButton(_ device: ICDevice, button: String) { if device === scanner { buttonReceived(button, source: "delegate") } }
-    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        guard keyPath == "buttonPressed", let device = object as? ICDevice else { super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context); return }
-        let button = change?[.newKey] as? String
-        DispatchQueue.main.async { [weak self] in
-            guard let self, device === self.scanner, let button else { return }
-            self.buttonReceived(button, source: "property")
-        }
-    }
-    func device(_ device: ICDevice, didReceiveStatusInformation status: [ICDeviceStatus: Any]) {
-        guard device === scanner, let value = status[.statusNotificationKey] as? String else { return }
-        if value == ICButtonTypeScan { buttonReceived(value, source: "status") }
+        diagnostics.record("scan_session_ready")
+        update("Treiber bereit")
     }
     func deviceBrowser(_ browser: ICDeviceBrowser, requestsSelect device: ICDevice) {
         if device === scanner { diagnostics.record("untyped_device_selection_ignored") }
     }
-    private func buttonReceived(_ value: String, source: String) {
-        guard value == ICButtonTypeScan else { diagnostics.record("other_button_ignored"); return }
-        if let buttonSource, buttonSource != source { return }
-        buttonSource = source; buttonEvents += 1
-        diagnostics.record("scan_button", values: ["count": buttonEvents, "source": source == "delegate" ? 1 : source == "property" ? 2 : 3])
+    // Only the isolated worker calls this after an accepted physical button.
+    func scanAuthorized() {
         guard desiredActive, selectedReady, !closing, let s = scanner, s.hasOpenSession,
               let feeder = s.selectedFunctionalUnit as? ICScannerFunctionalUnitDocumentFeeder,
-              policy.phase == .ready else { update(); return }
-        guard feeder.documentLoaded else { update("Taste erkannt – bitte eine Karte einlegen und erneut drücken"); return }
+              policy.phase == .ready else { return }
+        guard feeder.documentLoaded else { onScanFinished?(0); return }
         guard policy.buttonPressed() else { return }
         do {
             let snapshot = settings()
@@ -272,6 +248,7 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
         do {
             try storage.finish(job: job); self.job = nil; deadline = nil; policy.completed()
             diagnostics.record("scan_completed", values: ["pages": pages]); update("Bereit – \(pages) JPG gespeichert")
+            onScanFinished?(pages)
         } catch { fail(error.localizedDescription, code: "completion_unconfirmed", error: error) }
     }
     func device(_ device: ICDevice, didEncounterError error: Error?) {

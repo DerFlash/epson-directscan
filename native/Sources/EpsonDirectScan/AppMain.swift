@@ -5,6 +5,9 @@ import Darwin
 @main
 enum DirectScanMain {
     static func main() {
+        if CommandLine.arguments.dropFirst().first == "--scan-worker" {
+            exit(ScanWorkerMain.run(CommandLine.arguments))
+        }
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("Epson DirectScan", isDirectory: true)
         do {
             let storage = try ScanStorage(root: base)

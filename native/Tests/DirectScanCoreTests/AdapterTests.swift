@@ -12,11 +12,18 @@ private final class FakeServices: EpsonServices {
 private final class FakeDevice: ICScannerDevice {
     var openSession = false
     var closeRequested = false
+    var scanRequested = false
+    let feeder = EmptyFeeder()
     override var name: String? { "EPSON ES-C320W" }
     override var transportType: String? { "ICTransportTypeUSB" }
     override var hasOpenSession: Bool { openSession }
+    override var selectedFunctionalUnit: ICScannerFunctionalUnit { feeder }
     override func requestOpenSession() {}
     override func requestCloseSession() { closeRequested = true }
+    override func requestScan() { scanRequested = true }
+}
+private final class EmptyFeeder: ICScannerFunctionalUnitDocumentFeeder {
+    override var documentLoaded: Bool { false }
 }
 private final class FakeBrowser: ICDeviceBrowser {
     let device = FakeDevice()
@@ -48,6 +55,21 @@ private final class TestClock { var time: TimeInterval = 0 }
     deinit { try? FileManager.default.removeItem(at: root) }
 }
 @Suite @MainActor struct AdapterTests {
+    @Test func authorizedWorkerCannotScanBeforeReadyOrWithoutPaper() throws {
+        let f = try AdapterFixture()
+        var completed: Int?
+        f.controller.onScanFinished = { completed = $0 }
+        f.controller.scanAuthorized()
+        #expect(!f.browser.device.scanRequested)
+        #expect(completed == nil)
+        f.controller.scannerDevice(f.browser.device, didSelect: f.browser.device.feeder, error: nil)
+        #expect(!f.browser.device.scanRequested)
+        f.controller.scanAuthorized()
+        #expect(completed == 0)
+        #expect(!f.browser.device.scanRequested)
+        f.controller.pause()
+        f.controller.device(f.browser.device, didCloseSessionWithError: nil)
+    }
     @Test func intermediateUnitNotificationWaitsForTheRequestedFeeder() throws {
         let f = try AdapterFixture()
         f.controller.scannerDevice(f.browser.device, didSelect: ICScannerFunctionalUnit(), error: nil)

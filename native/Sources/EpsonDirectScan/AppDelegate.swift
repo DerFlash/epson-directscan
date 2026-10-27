@@ -5,7 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let storage: ScanStorage
     let diagnostics: Diagnostics
     var settings: ScanSettings
-    var controller: ScannerController!
+    var controller: ScanCoordinator!
     private var statusItem: NSStatusItem!
     private let menu = NSMenu()
     private var quitting = false
@@ -28,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         self.storage = storage; diagnostics = Diagnostics(root: storage.root)
         settings = (try? storage.loadSettings()) ?? ScanSettings()
         super.init()
-        controller = ScannerController(storage: storage, diagnostics: diagnostics, settings: { [weak self] in self?.settings ?? ScanSettings() })
+        controller = ScanCoordinator(storage: storage, diagnostics: diagnostics, settings: { [weak self] in self?.settings ?? ScanSettings() })
         controller.onChange = { [weak self] in
             guard let self else { return }
             self.refreshIcon()
@@ -210,6 +210,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let choose = NSButton(title: "Ablageordner wählen …", target: self, action: #selector(chooseFolder))
             choose.bezelStyle = .rounded; choose.frame = NSRect(x: 244, y: 52, width: 220, height: 32)
             content.addSubview(choose); folderButton = choose
+            let options = NSButton(title: "Einstellungen …", target: self, action: #selector(showSettings))
+            options.bezelStyle = .rounded; options.frame = NSRect(x: 16, y: 8, width: 180, height: 32)
+            content.addSubview(options)
             let close = NSButton(title: "Schließen", target: self, action: #selector(closeStatus))
             close.bezelStyle = .rounded; close.frame = NSRect(x: 362, y: 8, width: 102, height: 32)
             content.addSubview(close); statusPanel = panel
@@ -217,6 +220,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         refreshIcon(); NSApp.activate(ignoringOtherApps: true); statusPanel?.makeKeyAndOrderFront(nil)
     }
     @objc private func closeStatus() { statusPanel?.close() }
+    @objc private func showSettings() {
+        guard let content = statusPanel?.contentView else { return }
+        menuNeedsUpdate(menu)
+        menu.popUp(positioning: nil, at: NSPoint(x: 18, y: 44), in: content)
+    }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
     @objc private func about() {
         let alert = NSAlert(); alert.messageText = "Epson DirectScan 0.2 Beta"
