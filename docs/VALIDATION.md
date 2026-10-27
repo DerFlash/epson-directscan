@@ -532,3 +532,31 @@ without one the app explicitly uses fixed fallback. Also verify the entire outer
 holder margins, centering and deskew interaction for fixed dimensions. Width with
 automatic height remains unavailable until its own driver test passes. These gates
 must not be counted as completed by the software tests or synthetic pair algebra.
+
+Whole-branch review identified four Important issues, all addressed in one
+regression-backed fix pass:
+
+1. Export preparation, publication and final cleanup now share the parent-liveness
+   predicate. Tests simulate parent loss during final export and finalization:
+   no new publication after loss, and originals/receipts remain recoverable.
+2. Real work checkpoints cover hashing, PDF page writing/validation, chunked JPG
+   copies and finalization. The exporter has a 140-second inactivity window rather
+   than a 20-second whole-tail deadline. Tests keep a healthy tail alive beyond 20s,
+   extend it on a valid checkpoint, then demonstrate bounded cancellation on a stall.
+3. The tested shutdown policy preserves explicit save-and-quit intent beyond 30s
+   while supervised work continues, and completes on worker exit or a real failure.
+   Ordinary pause/quit retains its 6-second bound.
+4. New profiles require explicit disabled readback for competing driver rotation
+   and fixed-area cropping. Both missing and mistyped rotation features were shown
+   to authorize transport with the guard removed, and reject it with the guard active.
+
+No Critical finding was identified. One Minor remains deferred: comprehensive
+tagged-ICC color fidelity and non-normal EXIF/mirroring fixtures. The present normal
+scanner-path marker/DPI tests do not establish those general metadata guarantees.
+Review did not certify arbitrary imported/non-300dpi images, exhaustive power-loss
+or publication-instruction fault injection, hostile same-user filesystem races,
+a complete historical installed pending-job migration, every UI localization or
+assistive-technology flow, or actual hung-Vision cancellation latency/large-job
+throughput. Those broader guarantees are not claimed by this beta. Installation,
+new release distribution and physical acceptance remain separate from this local
+implementation check.
