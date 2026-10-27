@@ -66,6 +66,14 @@ A user-authorized physical Start opens an insertion session; subsequent insertio
 only scan within that active session. Physical Stop or the configured idle timer
 ends it; active transfers are excluded from inactivity. Session error/parent death
 retains pages and never replays a scan. SIGUSR1 requests graceful finish separately
-from abort/termination. Original JPGs remain private until verified export; receipts
+from abort/termination. After installing its handlers, the worker reports Ready
+and waits for a separate parent SIGUSR2 before arming the feeder; queued finish
+intent closes it without starting capture. Original JPGs remain private until verified export; receipts
 identify the renamed inode and digest, allowing crash reconciliation without
 accepting a colliding replacement. Diagnostic logs contain no recognized text.
+
+Export grouping is persisted before publication, including explicit recovery as a
+collection PDF from an ordinary job. A retry reconciles the same transaction and
+cannot silently switch format. A successfully exported collection with an
+incomplete final duplex sheet keeps its source job and manifest privately in
+Recovery for inspection instead of deleting the originals.

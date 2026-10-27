@@ -17,8 +17,9 @@ protocol NativeHelper: AnyObject {
     func cancel()
     func forceStop()
     func finish()
+    func arm()
 }
-extension NativeHelper { func finish() {} }
+extension NativeHelper { func finish() {}; func arm() {} }
 
 // Pipe events and process exit are delivered in order on the main queue.
 final class NativeProcess: NativeHelper {
@@ -87,4 +88,5 @@ final class NativeProcess: NativeHelper {
     func cancel() { if process.isRunning { process.terminate() } }
     func forceStop() { if process.isRunning { _ = kill(process.processIdentifier, SIGKILL) } }
     func finish() { if process.isRunning { _ = kill(process.processIdentifier, SIGUSR1) } }
+    func arm() { if process.isRunning { _ = kill(process.processIdentifier, SIGUSR2) } }
 }

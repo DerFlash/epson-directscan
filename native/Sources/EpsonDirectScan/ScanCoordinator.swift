@@ -28,6 +28,7 @@ final class ScanCoordinator {
     private var complete: Int?
     private var empty = false
     private var feedingReady = false
+    private var feedingArmed = false
     private var feedingEnded = false
     private var feedingTransfer = false
     private var idleSince: TimeInterval?
@@ -80,7 +81,7 @@ final class ScanCoordinator {
     private func launch(_ next: HelperRole) throws {
         let process = try makeHelper(next)
         helper = process; role = next; closed = false; closeReported = false; files = 0; complete = nil; empty = false
-        feedingReady = false; feedingEnded = false; feedingTransfer = false; idleSince = nil; finishReason = nil; collectionPages = 0; pauseAfterCollection = false
+        feedingReady = false; feedingArmed = false; feedingEnded = false; feedingTransfer = false; idleSince = nil; finishReason = nil; collectionPages = 0; pauseAfterCollection = false
         process.onEvent = { [weak self, weak process] event in
             guard let self, let process, self.helper === process else { return }
             self.receive(event)
@@ -109,19 +110,25 @@ final class ScanCoordinator {
         switch (role, event.event) {
         case (.feeding?, "ready"):
             guard !feedingReady else { fail("Doppelte Einzugsbereitschaft.", code: "feeding_duplicate_ready"); return }
-            feedingReady = true; idleSince = now(); deadline = nil
-            update("Sammlung aktiv – Karten nachlegen · 0 Seiten")
+            feedingReady = true
+            if finishReason != nil {
+                deadline = now() + 20; helper?.finish(); update("Sammlung wird beendet …")
+            } else {
+                feedingArmed = true; idleSince = now(); deadline = nil; helper?.arm()
+                update("Sammlung aktiv – Karten nachlegen · 0 Seiten")
+            }
         case (.feeding?, "batchBegin"):
-            guard feedingReady, !feedingEnded, !feedingTransfer, finishReason == nil else { fail("Unerwarteter Einzugsstart.", code: "feeding_batch_invalid"); return }
-            feedingTransfer = true; idleSince = nil; deadline = now() + 130
+            guard feedingArmed, !feedingEnded, !feedingTransfer else { fail("Unerwarteter Einzugsstart.", code: "feeding_batch_invalid"); return }
+            feedingTransfer = true; idleSince = nil
+            if finishReason == nil { deadline = now() + 130 }
             update("Sammlung – Karte wird gescannt · \(collectionPages) Seiten")
         case (.feeding?, "batchEnd"):
-            guard feedingReady, !feedingEnded else { fail("Unerwarteter Einzugsabschluss.", code: "feeding_batch_invalid"); return }
+            guard feedingArmed, !feedingEnded else { fail("Unerwarteter Einzugsabschluss.", code: "feeding_batch_invalid"); return }
             feedingTransfer = false
             if finishReason == nil { idleSince = now(); deadline = nil }
             update("Sammlung aktiv – Karten nachlegen · \(collectionPages) Seiten")
         case (.feeding(let job)?, "page"):
-            guard feedingReady, !feedingEnded, event.value == collectionPages + 1,
+            guard feedingArmed, !feedingEnded, event.value == collectionPages + 1,
                   let name = event.file, !name.isEmpty, name == URL(fileURLWithPath: name).lastPathComponent,
                   name.hasSuffix(".jpg"), let sheet = event.sheet, let side = event.side, [0,1].contains(side) else {
                 fail("Unerwartete Sammlungsseite. Die Bilder bleiben erhalten.", code: "feeding_page_invalid"); return
@@ -226,11 +233,14 @@ final class ScanCoordinator {
         else { restoreServices() }
     }
     func finishCollection(pauseAfter: Bool = false) {
-        guard collecting, feedingReady else { return }
+        guard collecting else { return }
         pauseAfterCollection = pauseAfterCollection || pauseAfter
         guard !feedingEnded, finishReason == nil else { return }
-        finishReason = .stop; idleSince = nil; deadline = now() + 20
-        helper?.finish(); update("Sammlung wird beendet …")
+        finishReason = .stop; idleSince = nil
+        // The child installs its signal handlers before Ready. Until then, latch
+        // intent without sending a signal that could kill an initializing process.
+        if feedingReady { deadline = now() + 20; helper?.finish() }
+        update("Sammlung wird beendet …")
     }
     func recover() {
         guard !busy else { return }

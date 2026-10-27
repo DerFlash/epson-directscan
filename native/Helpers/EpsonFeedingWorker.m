@@ -31,8 +31,8 @@
 - (NSUInteger)bitsPerSample; - (NSUInteger)samplesPerPixel;
 - (int)surfaceType; - (NSUInteger)paperSerialNumber; - (BOOL)closed; - (int)imageFormat;
 @end
-static volatile sig_atomic_t aborted=0, finishing=0;
-static void signalHandler(int number){if(number==SIGUSR1)finishing=1;else aborted=1;}
+static volatile sig_atomic_t aborted=0, finishing=0, armed=0;
+static void signalHandler(int number){if(number==SIGUSR1)finishing=1;else if(number==SIGUSR2)armed=1;else aborted=1;}
 static void emitObject(NSDictionary *event){
  NSData *d=[NSJSONSerialization dataWithJSONObject:event options:0 error:nil];
  if(d){flockfile(stdout);fwrite(d.bytes,1,d.length,stdout);putchar('\n');fflush(stdout);funlockfile(stdout);}
@@ -136,7 +136,7 @@ int main(int argc,char **argv){@autoreleasepool{
  NSData *bytes=[[NSData alloc] initWithBase64EncodedString:@(argv[3]) options:0];NSDictionary *settings=bytes?[NSJSONSerialization JSONObjectWithData:bytes options:0 error:nil]:nil;
  if(![settings isKindOfClass:NSDictionary.class]||![settings[@"automaticFeeding"] isEqual:@YES]||[settings[@"paused"] boolValue])return 2;
  for(NSString *key in @[@"duplex",@"crop",@"deskew",@"rotate"])if(![settings[key] isKindOfClass:NSNumber.class])return 2;
- signal(SIGTERM,signalHandler);signal(SIGINT,signalHandler);signal(SIGUSR1,signalHandler);
+ signal(SIGTERM,signalHandler);signal(SIGINT,signalHandler);signal(SIGUSR1,signalHandler);signal(SIGUSR2,signalHandler);
  [NSApplication.sharedApplication setActivationPolicy:NSApplicationActivationPolicyProhibited];
  int lease=claimLease(root);if(lease<0){emit(@"error",-302);emit(@"closed",0);return 1;}
  if(getppid()!=parent){close(lease);emit(@"closed",0);return 1;}
@@ -156,7 +156,16 @@ int main(int argc,char **argv){@autoreleasepool{
   if([scanner colorFormat]!=1800||[scanner imageFormat]!=1||[scanner duplexEnabled]!=receiver.duplex||[scanner autoCroppingEnabled]!=[settings[@"crop"] boolValue]||[scanner skewCorrectionEnabled]!=[settings[@"deskew"] boolValue]){emit(@"error",-306);return 1;}
   if(receiver.rotate){NSBundle *b=[NSBundle bundleWithPath:@"/Library/Image Capture/Support/EPSON/Epson Scan 2/Core/ImageProcessor.framework"];if(![[b objectForInfoDictionaryKey:@"CFBundleShortVersionString"] isEqual:@"6.7.84"]||![b load]||!NSClassFromString(@"EIPAnalyzer")||![NSFileManager.defaultManager fileExistsAtPath:@"/Library/Image Capture/Support/EPSON/Epson Scan 2/PlugIns/Esaod.bundle"]){emit(@"error",-307);return 1;}}
   if(aborted||getppid()!=parent)return 1;
-  emit(@"ready",1);status=[scanner startScanningInAFM];if(status){emit(@"error",status);return 1;}
+  emit(@"ready",1);
+  // A queued UI finish must win over startup. Only the parent may arm after
+  // receiving Ready; an initializing child never starts scanning on its own.
+  while(!armed&&!finishing&&!aborted&&getppid()==parent){
+   [NSRunLoop.mainRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.05]];
+  }
+  if(aborted||getppid()!=parent)return 1;
+  if(finishing){result=0;emit(@"end",0);}
+  else {
+  status=[scanner startScanningInAFM];if(status){emit(@"error",status);return 1;}
   BOOL stopSent=NO;NSTimeInterval stopDeadline=0;
   while([scanner jobMode]!=0||[scanner isScanning]){@autoreleasepool{
    [NSRunLoop.mainRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.05]];
@@ -165,6 +174,7 @@ int main(int argc,char **argv){@autoreleasepool{
    if(stopSent&&NSProcessInfo.processInfo.systemUptime>=stopDeadline){receiver.failed=YES;emit(@"error",-308);break;}
   }}
   result=receiver.failed||aborted?1:0;if(result==0)emit(@"end",0);
+  }
  }@catch(NSException *exception){emit(@"error",-309);result=1;}
  @finally{
   if([scanner jobMode]!=0)[scanner stopScanningInAutoFeedingMode];int code=opened?[scanner close]:0;

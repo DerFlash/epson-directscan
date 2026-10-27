@@ -3,6 +3,34 @@ import Testing
 @testable import EpsonDirectScan
 
 @Suite @MainActor struct HelperProcessTests {
+    @Test func feedingArmAndFinishUseDistinctSignalsAfterReadiness() async throws {
+        let script = """
+        import json,signal,time
+        done=False
+        def emit(name): print(json.dumps({'event':name,'value':0}),flush=True)
+        def finish(a,b):
+            global done
+            emit('end');done=True
+        signal.signal(signal.SIGUSR2,lambda a,b:emit('armed'))
+        signal.signal(signal.SIGUSR1,finish)
+        emit('ready')
+        limit=time.monotonic()+5
+        while not done and time.monotonic()<limit:time.sleep(.01)
+        raise SystemExit(0 if done else 1)
+        """
+        let helper = NativeProcess(executable: URL(fileURLWithPath: "/usr/bin/python3"), arguments: ["-c",script])
+        var events: [String] = []
+        let status: Int32 = try await withCheckedThrowingContinuation { continuation in
+            helper.onEvent = { event in
+                events.append(event.event)
+                if event.event == "ready" { helper.arm() }
+                if event.event == "armed" { helper.finish() }
+            }
+            helper.onExit = { continuation.resume(returning: $0) }
+            do { try helper.start() } catch { continuation.resume(throwing: error) }
+        }
+        #expect(status == 0 && events == ["ready","armed","end"])
+    }
     @Test func readyIsDeliveredWhileTheReceiverIsStillRunning() async throws {
         let acknowledgement = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: acknowledgement) }

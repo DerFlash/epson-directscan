@@ -146,4 +146,34 @@ import Foundation
         #expect(try store.manifest(job: job).endReason == .interrupted)
         #expect(try store.pendingJobs().map(\.id) == [job.id])
     }
+    @Test func interruptedNormalRecoveryRetainsCollectionGroupingAcrossRestart() throws {
+        let store = try fixture.store()
+        for format in [OutputFormat.jpg, .pdf] {
+            let output = try fixture.destination(format.rawValue)
+            var settings = ScanSettings(destination: output.path); settings.outputFormat = format; settings.duplex = true
+            let job = try store.beginJob(settings: settings)
+            for (name,side) in [("front.jpg",PageSide.front),("back.jpg",.back)] {
+                let source = job.directory.appendingPathComponent(name); try fixture.jpeg(source)
+                try store.stage(source: source, job: job, sheet: 1, side: side)
+            }
+            let first = try store.recoverCollection(job: job)
+            #expect(first.count == 1 && first[0].lastPathComponent.hasSuffix("_Sammlung.pdf"))
+            // Also exercise publication before receipt acknowledgement for the PDF setting.
+            if format == .pdf {
+                let journal = job.directory.appendingPathComponent("job.json")
+                var value = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: journal)) as? [String:Any])
+                var receipts = try #require(value["receipts"] as? [[String:Any]])
+                receipts[0]["published"] = false; value["receipts"] = receipts
+                try JSONSerialization.data(withJSONObject: value).write(to: journal)
+            }
+            let restarted = try ScanStorage(root: store.root)
+            let retried: [URL]
+            // The same retry path as the app's recovery action.
+            do { retried = try restarted.recoverCollection(job: job) }
+            catch { retried = try restarted.export(job: job, allowInterrupted: true) }
+            #expect(retried == first)
+            #expect(try FileManager.default.contentsOfDirectory(atPath: output.path) == [first[0].lastPathComponent])
+            try restarted.finish(job: job)
+        }
+    }
 }

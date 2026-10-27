@@ -13,10 +13,12 @@ private final class FakeHelper: NativeHelper {
     var onExit: ((Int32) -> Void)?
     var cancelled = false
     var finishRequested = false
+    var armRequested = false
     func start() throws {}
     func cancel() { cancelled = true }
     func forceStop() { cancelled = true }
     func finish() { finishRequested = true }
+    func arm() { armRequested = true }
     func emit(_ name: String, _ value: Int? = nil, file: String? = nil) {
         onEvent?(HelperEvent(event: name, value: value, file: file))
     }
@@ -66,6 +68,7 @@ private final class HandoffClock { var time: TimeInterval = 0 }
         guard case .feeding(let job) = f.factory.roles.last else { Issue.record("Expected automatic feeding"); return }
         #expect(job.settings.automaticFeeding)
         let worker = f.factory.helpers[1]; worker.emit("ready", 1)
+        #expect(worker.armRequested)
         f.settings.value.duplex = true
         #expect(!job.settings.duplex)
         f.clock.time = 10000; f.controller.checkDeadline()
@@ -125,12 +128,17 @@ private final class HandoffClock { var time: TimeInterval = 0 }
         guard case .feeding(let job) = f.factory.roles.last else { Issue.record("Expected feeding"); return }
         let worker = f.factory.helpers[1]; worker.emit("ready", 1)
         try image.jpeg(job.directory.appendingPathComponent("front.jpg"))
+        let original = try Data(contentsOf: job.directory.appendingPathComponent("front.jpg"))
         worker.onEvent?(HelperEvent(event: "page", value: 1, file: "front.jpg", sheet: 1, side: 0))
         worker.emit("end", 0); worker.emit("closed", 0); worker.exit()
         #expect(f.controller.lastCollectionIncomplete)
         f.factory.helpers.last?.emit("ready", 1)
         #expect(f.controller.message.contains("unvollständig"))
         #expect(f.controller.lastFile?.pathExtension == "pdf")
+        let retained = f.storage.recoveryDirectory.appendingPathComponent(job.id.uuidString)
+        #expect(try Data(contentsOf: retained.appendingPathComponent("front.jpg")) == original)
+        #expect(FileManager.default.fileExists(atPath: retained.appendingPathComponent("job.json").path))
+        #expect(try !f.storage.hasUnfinishedJobs())
     }
     @Test func pageAfterEndCannotFinalizeOrAppendToANewCollection() throws {
         let f = try HandoffFixture(); f.settings.value.automaticFeeding = true; f.trigger()
@@ -167,6 +175,26 @@ private final class HandoffClock { var time: TimeInterval = 0 }
         worker.emit("end", 0); worker.emit("closed", 0); worker.exit()
         #expect(f.factory.roles.count == 2)
         #expect(!f.controller.listening && f.controller.sessionReleased && !f.services.paused)
+    }
+    @Test func finishDuringStartupIsLatchedAndNeverArmsTheScanner() throws {
+        let f = try HandoffFixture(); f.settings.value.automaticFeeding = true; f.trigger()
+        let worker = f.factory.helpers[1]
+        f.controller.finishCollection(pauseAfter: true)
+        #expect(!worker.finishRequested && !worker.armRequested)
+        worker.emit("ready", 1)
+        #expect(worker.finishRequested && !worker.armRequested)
+        worker.emit("end", 0); worker.emit("closed", 0); worker.exit()
+        #expect(f.factory.roles.count == 2)
+        #expect(!f.controller.listening && f.controller.sessionReleased && !f.services.paused)
+        #expect(try !f.storage.hasUnfinishedJobs())
+    }
+    @Test func finishAcceptsAnAlreadyArmedInFlightBatchWithoutExtendingItsDeadline() throws {
+        let f = try HandoffFixture(); f.settings.value.automaticFeeding = true; f.trigger()
+        let worker = f.factory.helpers[1]; worker.emit("ready", 1)
+        f.controller.finishCollection(); worker.emit("batchBegin", 1)
+        #expect(f.controller.policy.phase == .scanning && !worker.cancelled)
+        f.clock.time = 25; f.controller.checkDeadline()
+        #expect(worker.cancelled)
     }
     @Test func buttonAfterCloseIsNeverTreatedAsANewPhysicalTrigger() throws {
         let f = try HandoffFixture()

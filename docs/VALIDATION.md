@@ -301,7 +301,7 @@ before schema2 migration. Destination remains the normal Documents/Scans folder.
   a physical Stop followed by clean close0/exit0. This does not replace the
   installed application acceptance.
 
-Software checks:50 native tests (including real JPEG/PDF parsing/rendering,
+Software checks:54 native tests (including real JPEG/PDF parsing/rendering,
 exclusive publication receipts, crash reconciliation, incomplete pairing,
 coordinator timing/stop/late-event ownership and Epson orientation on neutral
 inverted text) plus26 Node and38 Python legacy tests passed. Native release build,
@@ -317,3 +317,15 @@ inverted-text test returned180° and the corrected output returned upright. The
 colorful test card sometimes returned upright despite being inverted, so this is
 explicitly documented as an Epson detection limitation, not guaranteed card
 orientation. Private card images/paths/log evidence remain outside the repository.
+
+
+One independent whole-branch source review found3Important issues and no
+Critical/Minor findings. One RED→GREEN fix pass now verifies private retention
+of incomplete duplex originals, stable recovery grouping across restarts for
+ordinary JPG/PDF jobs, and queued startup finish intent. The worker waits for a
+separate parent arm signal after readiness, so a queued finish closes without
+starting capture. A real subprocess test checks distinct arm/finish signals.
+The corrected build9 passed release compilation, deep signature and ABI checks;
+its installation and the remaining automatic-feed hardware tests are pending.
+No deliberate real-device Stop during a partially transferred card was performed;
+software retention/partial-page tests do not certify that callback ordering.

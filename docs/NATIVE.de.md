@@ -105,7 +105,8 @@ kompatiblen Modul wird keine unbemerkte Ersatzkorrektur verwendet.
    Wartefrist die Sitzung. **Unbegrenzt** benötigt ein ausdrückliches Stop.
 5. Erst dann wird das gemeinsame PDF geprüft und in den Ablageordner übergeben.
    Bei einer unvollständigen letzten Duplex-Karte enthält es alle fertig
-   übernommenen Seiten; die App zeigt den fehlenden Partner ausdrücklich an.
+   übernommenen Seiten; die App zeigt den fehlenden Partner ausdrücklich an. Die Originalbilder
+   dieses Vorgangs bleiben außerdem privat in `Recovery/` zur Prüfung erhalten.
 
 Ein Schließen des Statusfensters beendet die Sammlung nicht. Beim Beenden der
 App kannst du speichern, zurückhalten oder abbrechen. Ein Absturz, Scannerfehler
@@ -168,7 +169,9 @@ Bei fehlendem Zielordner, Fehler, Abbruch, Trennung oder Neustart bleiben
 unbestätigte Dateien erhalten. Im Menü **Zurückgehaltene Scans und Protokoll öffnen**
 wählen und Dateien prüfen. **Zurückgehaltene Seiten als PDF sichern** exportiert
 explizit die bestätigten Seiten im ursprünglichen Ablageordner, ohne einen Scan
-zu starten. Bei bereits angefangenen Ausgaben, unbestätigten Zusatzdateien oder
+zu starten. Die gewählte Sammlungs-Ausgabe wird im Exportnachweis festgehalten;
+ein Wiederholen bestätigt dieselbe Datei und wechselt nicht unbemerkt zu JPGs
+oder Karten-PDFs. Bei unbestätigten Zusatzdateien oder
 einem fehlenden ursprünglichen Ordner bleibt die manuelle Prüfung nötig.
 Danach **Fehler zurücksetzen
 und neu verbinden**. Zurückgehaltene Jobs werden in `Recovery/` aufbewahrt und
@@ -200,3 +203,8 @@ DirectScan pausieren oder beenden. ScanSmart und die bisherige AutoSave-App
 öffnen. Beide Apps und ihre Einstellungen bleiben getrennt. Vor dem Entfernen
 von DirectScan die Epson-Dienste zurückgeben und benötigte Dateien aus
 Pending/Recovery sichern. Der eigentliche Ablageordner ist separat.
+
+Wenn du ausdrücklich zur vorherigen nativen0.2-Fassung zurückkehrst, beende
+DirectScan zuerst und sichere die aktuelle `settings.json` separat. Die ältere
+Fassung benötigt die ebenfalls aufbewahrte `settings-v1-backup.json` als
+`settings.json`; sie versteht die neuen Duplex-/PDF-Einstellungen nicht.

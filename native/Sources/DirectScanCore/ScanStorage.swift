@@ -19,6 +19,7 @@ private struct JobRecord: Codable {
     var publishedSources: [String] = []
     var manifest: PageManifest?
     var receipts: [ExportReceipt]? = []
+    var collectionExport: Bool?
 }
 
 private struct ExportReceipt: Codable {
@@ -149,10 +150,19 @@ public final class ScanStorage {
         var record = try record(job)
         guard let manifest = record.manifest, let reason = manifest.endReason, !manifest.pages.isEmpty,
               reason != .interrupted || allowInterrupted else { throw ScanFailure.unfinishedPages }
-        if !job.settings.automaticFeeding && !asCollection && manifest.hasIncompleteSheet { throw ScanFailure.incompletePair }
+        let existingCollection = (record.receipts ?? []).contains { $0.targetName == job.fileStem + "_Sammlung.pdf" }
+        guard !existingCollection || record.collectionExport != false else { throw ScanFailure.invalidSource }
+        let collection = job.settings.automaticFeeding || asCollection || record.collectionExport == true || existingCollection
+        // Persist grouping before any publication. A recovery retry must never switch back
+        // to the original ordinary JPG/per-card-PDF setting after exporting a collection.
+        if record.collectionExport != collection {
+            guard record.collectionExport == nil || (record.receipts ?? []).isEmpty else { throw ScanFailure.invalidSource }
+            record.collectionExport = collection
+            try write(record, to: job.directory.appendingPathComponent("job.json"))
+        }
+        if !collection && manifest.hasIncompleteSheet { throw ScanFailure.incompletePair }
         _ = try validateDestination(job.destination.path)
         let groups: [[ValidatedPage]]
-        let collection = job.settings.automaticFeeding || asCollection
         let pdf = collection || job.settings.outputFormat == .pdf
         if collection { groups = [manifest.pages] }
         else if pdf { groups = Dictionary(grouping: manifest.pages, by: \.sheet).sorted { $0.key < $1.key }.map(\.value) }
@@ -279,7 +289,13 @@ public final class ScanStorage {
             let directory = root.appendingPathComponent("Receipts", isDirectory: true)
             try fm.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
             try write(record, to: directory.appendingPathComponent(job.id.uuidString + ".json"))
-            try fm.removeItem(at: job.directory)
+            if manifest.hasIncompleteSheet {
+                // Keep the closed job privately for inspection, including its manifest.
+                // Moving on the same private volume is atomic and retains original bytes.
+                try fm.moveItem(at: job.directory, to: recoveryDirectory.appendingPathComponent(job.id.uuidString))
+            } else {
+                try fm.removeItem(at: job.directory)
+            }
             return
         }
         guard !record.publishedSources.isEmpty,
