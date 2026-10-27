@@ -55,8 +55,8 @@ public final class ScanStorage {
             let data = try Data(contentsOf: path)
             let settings = try JSONDecoder().decode(ScanSettings.self, from: data)
             try settings.validate()
-            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any], json["schemaVersion"] as? Int == 1 {
-                let backup = root.appendingPathComponent("settings-v1-backup.json")
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any], let version = json["schemaVersion"] as? Int, [1,2].contains(version) {
+                let backup = root.appendingPathComponent("settings-v\(version)-backup.json")
                 // Never replace a previous backup, including after an interrupted migration.
                 if !fm.fileExists(atPath: backup.path) {
                     try data.write(to: backup, options: .withoutOverwriting)

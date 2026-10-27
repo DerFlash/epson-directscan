@@ -3,7 +3,7 @@ import Foundation
 public enum OutputFormat: String, Codable { case jpg, pdf }
 
 public struct ScanSettings: Codable, Equatable {
-    public var schemaVersion = 2
+    public var schemaVersion = 3
     public var destination: String?
     public var paused = false
     public var crop = true
@@ -13,37 +13,50 @@ public struct ScanSettings: Codable, Equatable {
     public var outputFormat: OutputFormat = .jpg
     public var automaticFeeding = false
     public var feedingTimeoutSeconds = 120
+    public var profiles: [ScanProfile] = []
+    public var activeProfileID: UUID?
+    public var activeProfile: ScanProfile? { profiles.first { $0.id == activeProfileID } }
+    public var driverCrop: Bool { activeProfile.map { $0.area.isAutomatic && crop } ?? crop }
+    public var driverRotate: Bool { activeProfile.map { $0.orientation == .epson } ?? rotate }
+    public var requiresImageProcessing: Bool { activeProfile.map { $0.orientation != .epson } ?? false }
     public init(destination: String? = nil) { self.destination = destination }
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, destination, paused, crop, deskew, rotate, duplex, outputFormat, automaticFeeding, feedingTimeoutSeconds
+        case schemaVersion, destination, paused, crop, deskew, rotate, duplex, outputFormat, automaticFeeding, feedingTimeoutSeconds, profiles, activeProfileID
     }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let version = try c.decode(Int.self, forKey: .schemaVersion)
-        guard [1,2].contains(version) else { throw ScanFailure.invalidSettings }
+        guard [1,2,3].contains(version) else { throw ScanFailure.invalidSettings }
         destination = try c.decodeIfPresent(String.self, forKey: .destination)
         paused = try c.decode(Bool.self, forKey: .paused)
         crop = try c.decode(Bool.self, forKey: .crop)
         deskew = try c.decode(Bool.self, forKey: .deskew)
         rotate = try c.decode(Bool.self, forKey: .rotate)
-        if version == 2 {
+        if version >= 2 {
             duplex = try c.decode(Bool.self, forKey: .duplex)
             outputFormat = try c.decode(OutputFormat.self, forKey: .outputFormat)
             automaticFeeding = try c.decode(Bool.self, forKey: .automaticFeeding)
             feedingTimeoutSeconds = try c.decode(Int.self, forKey: .feedingTimeoutSeconds)
         }
+        if version == 3 {
+            profiles = try c.decode([ScanProfile].self, forKey:.profiles)
+            activeProfileID = try c.decodeIfPresent(UUID.self, forKey:.activeProfileID)
+        }
         try validate()
     }
     public func validate() throws {
-        guard schemaVersion == 2, destination == nil || destination!.hasPrefix("/"),
-              [0,30,60,120,300].contains(feedingTimeoutSeconds) else {
+        guard schemaVersion == 3, destination == nil || destination!.hasPrefix("/"),
+              [0,30,60,120,300].contains(feedingTimeoutSeconds), profiles.count <= 20,
+              Set(profiles.map(\.id)).count == profiles.count,
+              activeProfileID == nil || activeProfile != nil else {
             throw ScanFailure.invalidSettings
         }
+        try profiles.forEach { try $0.validate() }
     }
 }
 
 public enum ScanFailure: String, Error, LocalizedError {
-    case invalidSettings, invalidDestination, invalidJPEG, invalidSource, collision, unfinishedPages, invalidPDF, incompletePair
+    case invalidSettings, invalidDestination, invalidJPEG, invalidSource, collision, unfinishedPages, invalidPDF, incompletePair, unsupportedProfile
     public var errorDescription: String? {
         switch self {
         case .invalidSettings: return "Die Einstellungen konnten nicht gelesen werden. Bitte die Einstellungen prüfen."
@@ -54,6 +67,7 @@ public enum ScanFailure: String, Error, LocalizedError {
         case .unfinishedPages: return "Es gibt unbestätigte Scans. Bitte die zurückgehaltenen Dateien prüfen."
         case .invalidPDF: return "Das PDF konnte nicht vollständig geprüft werden. Die gescannten Seiten bleiben erhalten."
         case .incompletePair: return "Zu einer Karte fehlt eine Seite. Die vorhandenen Seiten bleiben erhalten."
+        case .unsupportedProfile: return "Diese Scanfläche wird nicht unterstützt. Bitte Breite und Höhe innerhalb der Scannergrenzen angeben; automatische Höhe ist noch nicht abgenommen."
         }
     }
 }
