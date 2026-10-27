@@ -14,15 +14,17 @@ public struct ScanJob: Codable, Equatable {
     }
 }
 
-private struct JobRecord: Codable {
+struct JobRecord: Codable {
     let job: ScanJob
     var publishedSources: [String] = []
     var manifest: PageManifest?
     var receipts: [ExportReceipt]? = []
     var collectionExport: Bool?
+    var processing: ProcessingRecord?
+    var processingArtifacts: [String]?
 }
 
-private struct ExportReceipt: Codable {
+struct ExportReceipt: Codable {
     let sources: [String]
     let targetName: String
     let temporaryName: String
@@ -44,7 +46,7 @@ public final class ScanStorage {
             try fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: folder.path)
         }
     }
-    private func write<T: Encodable>(_ value: T, to url: URL) throws {
+    func write<T: Encodable>(_ value: T, to url: URL) throws {
         try JSONEncoder().encode(value).write(to: url, options: .atomic)
         try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     }
@@ -97,16 +99,18 @@ public final class ScanStorage {
         try write(JobRecord(job: job, manifest: PageManifest(duplex: settings.duplex)), to: directory.appendingPathComponent("job.json"))
         return job
     }
-    private func record(_ job: ScanJob) throws -> JobRecord {
+    func record(_ job: ScanJob) throws -> JobRecord {
         let expected = pendingDirectory.appendingPathComponent(job.id.uuidString, isDirectory: true)
         guard job.directory.standardizedFileURL == expected.standardizedFileURL else { throw ScanFailure.invalidSource }
-        return try JSONDecoder().decode(JobRecord.self, from: Data(contentsOf: job.directory.appendingPathComponent("job.json")))
+        let record = try JSONDecoder().decode(JobRecord.self, from: Data(contentsOf: job.directory.appendingPathComponent("job.json")))
+        guard record.job == job else { throw ScanFailure.invalidSource }
+        return record
     }
     public func manifest(job: ScanJob) throws -> PageManifest {
         guard let manifest = try record(job).manifest else { throw ScanFailure.invalidSource }
         return manifest
     }
-    private func localSource(_ source: URL, job: ScanJob) throws {
+    func localSource(_ source: URL, job: ScanJob) throws {
         guard source.standardizedFileURL.deletingLastPathComponent() == job.directory.standardizedFileURL,
               source.resolvingSymlinksInPath() == source.standardizedFileURL,
               source.lastPathComponent != "job.json" else { throw ScanFailure.invalidSource }
@@ -130,7 +134,7 @@ public final class ScanStorage {
         manifest.endReason = reason; record.manifest = manifest
         try write(record, to: job.directory.appendingPathComponent("job.json"))
     }
-    private func fingerprint(_ url: URL) throws -> (UInt64, UInt64, String) {
+    func fingerprint(_ url: URL) throws -> (UInt64, UInt64, String) {
         let attributes = try fm.attributesOfItem(atPath: url.path)
         guard attributes[.type] as? FileAttributeType == .typeRegular else { throw ScanFailure.invalidSource }
         let handle = try FileHandle(forReadingFrom: url); defer { try? handle.close() }
@@ -147,8 +151,9 @@ public final class ScanStorage {
     }
     /// Reentrant export: a receipt identifies the actual renamed inode, including a crash before acknowledgement.
     public func export(job: ScanJob, allowInterrupted: Bool = false, asCollection: Bool = false) throws -> [URL] {
+        try prepareImages(job:job)
         var record = try record(job)
-        guard let manifest = record.manifest, let reason = manifest.endReason, !manifest.pages.isEmpty,
+        guard let manifest = try checkedProcessing(record,job:job) ?? record.manifest, let reason = manifest.endReason, !manifest.pages.isEmpty,
               reason != .interrupted || allowInterrupted else { throw ScanFailure.unfinishedPages }
         let existingCollection = (record.receipts ?? []).contains { $0.targetName == job.fileStem + "_Sammlung.pdf" }
         guard !existingCollection || record.collectionExport != false else { throw ScanFailure.invalidSource }
@@ -279,12 +284,14 @@ public final class ScanStorage {
     public func finish(job: ScanJob) throws {
         let record = try record(job)
         let remaining = try fm.contentsOfDirectory(at: job.directory, includingPropertiesForKeys: nil)
-        if let manifest = record.manifest, !manifest.pages.isEmpty {
+        if let manifest = try checkedProcessing(record,job:job) ?? record.manifest, !manifest.pages.isEmpty {
             let receipts = record.receipts ?? []
             let names = Set(receipts.flatMap(\.sources))
             guard manifest.endReason != nil, !receipts.isEmpty, receipts.allSatisfy(\.published),
                   Set(manifest.pages.map(\.sourceName)) == names,
-                  remaining.allSatisfy({ $0.lastPathComponent == "job.json" || names.contains($0.lastPathComponent) }) else { throw ScanFailure.unfinishedPages }
+                  remaining.allSatisfy({ $0.lastPathComponent == "job.json" || names.contains($0.lastPathComponent) ||
+                      (record.manifest?.pages.map(\.sourceName) ?? []).contains($0.lastPathComponent) ||
+                      (record.processingArtifacts ?? []).contains($0.lastPathComponent) }) else { throw ScanFailure.unfinishedPages }
             for receipt in receipts { guard try matches(job.destination.appendingPathComponent(receipt.targetName), receipt) else { throw ScanFailure.unfinishedPages } }
             let directory = root.appendingPathComponent("Receipts", isDirectory: true)
             try fm.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
