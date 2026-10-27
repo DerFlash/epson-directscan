@@ -167,5 +167,5 @@ not removed by uninstalling. No autostart entry is created.
 
 No network access, telemetry or image upload. Private state may contain paths;
 redact diagnostics before sharing. See [SECURITY.md](../SECURITY.md).
-Source-available under the [PolyForm Noncommercial License 1.0.0](../LICENSE);
+Source-available under the [PolyForm Strict License 1.0.0](../LICENSE);
 see [licensing and commercial-use enquiries](../LICENSING.md).

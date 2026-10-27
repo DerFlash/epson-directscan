@@ -112,10 +112,10 @@ Die DMG installiert keinen Epson-Treiber und richtet keinen Autostart ein.
 Anleitung und bekannte Beta-Grenzen:
 https://github.com/DerFlash/epson-directscan/blob/main/docs/NATIVE.de.md
 
-Lizenz: PolyForm Noncommercial 1.0.0. Kommerzielle Nutzung außerhalb der
+Lizenz: PolyForm Strict 1.0.0. Kommerzielle Nutzung außerhalb der
 ausdrücklichen Lizenzfreigaben benötigt vorherige schriftliche Genehmigung
 von Björn Teichmann. Derzeit kein kommerzielles Verkaufsangebot.
-License: PolyForm Noncommercial 1.0.0. Commercial use outside its express
+License: PolyForm Strict 1.0.0. Commercial use outside its express
 permissions requires prior written permission. No commercial license is
 currently offered for sale. See LICENSE.txt and LICENSING.md.
 EOF

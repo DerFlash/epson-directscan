@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- License the project under PolyForm Noncommercial 1.0.0. Commercial use outside
+- License the project under PolyForm Strict 1.0.0; modifications and redistribution
+  require separate permission. Commercial use outside
   its express permissions requires separate prior written permission from
   Björn Teichmann; no commercial license or software purchase is offered for sale.
 - Include the license and licensing/contact notice in native and legacy app

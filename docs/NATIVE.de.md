@@ -14,9 +14,10 @@ der Epson-Treiber muss separat installiert sein.
 
 ## Lizenz und kommerzielle Nutzung
 
-Der Quellcode steht unter der [PolyForm Noncommercial License 1.0.0](../LICENSE).
-Nichtkommerzielle Nutzung, Änderungen und Weitergabe sind nach deren Bedingungen
-erlaubt. Sonstige kommerzielle Nutzung, auch im eigenen Betrieb, benötigt die
+Der Quellcode steht unter der [PolyForm Strict License 1.0.0](../LICENSE).
+Nichtkommerzielle Nutzung ist nach deren Bedingungen erlaubt. Änderungen und
+Weitergabe benötigen eine gesonderte Genehmigung. Sonstige kommerzielle Nutzung,
+auch im eigenen Betrieb, benötigt die
 vorherige gesonderte schriftliche Genehmigung von **Björn Teichmann**.
 Die ausdrücklich in der Lizenz genannten Freigaben, etwa für Bildungs- und
 öffentliche Einrichtungen, gelten ebenfalls.

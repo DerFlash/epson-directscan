@@ -172,7 +172,7 @@ Zielordner bleiben erhalten. Die App legt keinen Autostart an.
 Keine Netzwerkverbindung, Telemetrie oder Bildübertragung. Statusdateien können
 Ordner- und Dateipfade enthalten; vor Weitergabe von Diagnosen private Angaben
 entfernen. Siehe [Datenschutz und Sicherheit](../SECURITY.md),
-[technischen Entwurf](design.md) sowie die [PolyForm Noncommercial License
+[technischen Entwurf](design.md) sowie die [PolyForm Strict License
 1.0.0](../LICENSE) und [Hinweise zu kommerziellen Nutzungsanfragen](../LICENSING.md).
 
 Prüfergebnisse und ein Ablauf für die verbleibende Hardware-Abnahme stehen in

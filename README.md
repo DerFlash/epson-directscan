@@ -130,8 +130,9 @@ never run it alongside DirectScan.
 
 ## License
 
-Source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE).
-Noncommercial use, modification and redistribution are permitted under its terms.
+Source-available under the [PolyForm Strict License 1.0.0](LICENSE).
+Noncommercial use is permitted under its terms. Modifications and redistribution
+require separate permission.
 Commercial use outside the license's express permissions requires prior,
 separate written permission from **Björn Teichmann**. See [licensing and
 contact](LICENSING.md) to discuss an intended use. No commercial license or

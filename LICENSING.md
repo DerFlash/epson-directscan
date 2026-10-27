@@ -1,14 +1,15 @@
 # Licensing
 
-Epson DirectScan is source-available under the **PolyForm Noncommercial License
+Epson DirectScan is source-available under the **PolyForm Strict License
 1.0.0**. The complete, unmodified license terms are in [LICENSE](LICENSE).
 The licensor is **Björn Teichmann** (GitHub: [DerFlash](https://github.com/DerFlash)).
 This is not an OSI-approved open-source license.
 
 ## Noncommercial use
 
-The public license permits noncommercial use, modification and redistribution,
-subject to its terms. It also expressly permits use by the organizations listed
+The public license permits noncommercial use, subject to its terms. It does not
+grant permission to modify or redistribute the software; those activities require
+separate permission. It also expressly permits use by the organizations listed
 under "Noncommercial Organizations", including educational and government
 institutions. Those express permissions remain part of the license.
 
@@ -32,9 +33,9 @@ requires the necessary additional rights.
 
 ## Deutsch
 
-Der Quellcode ist unter der **PolyForm Noncommercial License 1.0.0** verfügbar.
-Nichtkommerzielle Nutzung, Änderungen und Weitergabe sind nach deren Bedingungen
-erlaubt. Die ausdrücklich in der Lizenz genannten Freigaben, etwa für Bildungs-
+Der Quellcode ist unter der **PolyForm Strict License 1.0.0** verfügbar.
+Nichtkommerzielle Nutzung ist nach deren Bedingungen erlaubt. Änderungen und
+Weitergabe benötigen eine gesonderte Genehmigung. Die ausdrücklich in der Lizenz genannten Freigaben, etwa für Bildungs-
 und öffentliche Einrichtungen, gelten ebenfalls.
 
 Sonstige kommerzielle Nutzung, auch im eigenen Betrieb, der Einsatz für bezahlte
