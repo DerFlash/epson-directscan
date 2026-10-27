@@ -396,5 +396,15 @@ Verification: 67 native Swift tests and the compiled Epson callback harness pass
 runs could not access compiler caches / legacy AppleScript I/O; the same tests
 passed with normal local execution permissions. Release build, Epson module
 compatibility check, plist lint and strict code-signature validation pass.
-Build 12 installation and physical-device acceptance are pending; software tests
-alone do not establish motor-stop timing or actual hardware recovery.
+Build 12 is installed with an archived previous build, matching executable hash
+and valid strict signature. Settings remained duplex/per-card PDF to the chosen
+folder with all corrections enabled. The old metadata-only failed job was
+archived through the recovery UI without replaying capture.
+
+The first device retest reproduced failed pickup followed by physical Stop.
+The driver again completed with no error and no pages. The app displayed
+“Bereit – Epson-Taste drücken · Keine Seite gescannt – Vorlage und Einzug prüfen”,
+rearmed its receiver and left Pending empty. No output file was created. The user
+confirmed that physical Stop halted transport. Automatic no-progress cancellation
+and a subsequent valid card are still pending; software tests alone do not
+establish those hardware behaviors.
