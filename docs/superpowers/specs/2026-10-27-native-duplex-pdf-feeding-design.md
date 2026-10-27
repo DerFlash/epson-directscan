@@ -1,6 +1,6 @@
 # Duplex, PDF und automatischer Einzug für Epson DirectScan
 
-Status: Entwurf zur Freigabe; noch keine neue Produktfassung gebaut.
+Status: vom Nutzer am 27.10.2026 ausdrücklich zur Umsetzung freigegeben.
 Unabhängiger Builder-Check: keine wichtigen offenen Planungsfragen.
 
 ## Ziel und bestätigte Anforderungen
