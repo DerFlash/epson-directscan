@@ -90,6 +90,9 @@ static BOOL compatible(void){
  if(!exact(u,@"initWithLocationID:productIDForValidation:","@24@0:8I16S20"))return NO;
  NSDictionary *types=@{@"initWithInterface:":@"@24@0:8@16",@"open":@"i16@0:8",@"close":@"i16@0:8",@"isOpened":@"B16@0:8",@"setDelegate:":@"v24@0:8@16",@"setWorkFolder:":@"v24@0:8@16",@"autoFeedingModeSupported":@"B16@0:8",@"duplexSupported":@"B16@0:8",@"autoCroppingSupported":@"B16@0:8",@"skewCorrectionSupported":@"B16@0:8",@"supportedColorFormats":@"@16@0:8",@"supportedImageFormats":@"@16@0:8",@"setXResolution:":@"v24@0:8Q16",@"setYResolution:":@"v24@0:8Q16",@"setColorFormat:":@"v20@0:8i16",@"colorFormat":@"i16@0:8",@"setImageFormat:":@"v20@0:8i16",@"imageFormat":@"i16@0:8",@"setDuplexEnabled:":@"v20@0:8B16",@"duplexEnabled":@"B16@0:8",@"setAutoCroppingEnabled:":@"v20@0:8B16",@"autoCroppingEnabled":@"B16@0:8",@"setSkewCorrectionEnabled:":@"v20@0:8B16",@"skewCorrectionEnabled":@"B16@0:8",@"setScanAreaInPixel:":@"v48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16",@"setAutoFeedingModeTimeout:":@"v24@0:8Q16",@"startScanningInAFM":@"i16@0:8",@"stopScanningInAutoFeedingMode":@"i16@0:8",@"isScanning":@"B16@0:8",@"jobMode":@"C16@0:8"};
  for(NSString *key in types)if(!exact(c,key,[types[key] UTF8String]))return NO;
+ Class receiver=NSClassFromString(@"FeedingReceiver");
+ NSDictionary *callbacks=@{@"scannerWillBeginContinuousScanning:":@"v24@0:8@16",@"scannerDidEndContinuousScanning:":@"v24@0:8@16",@"scannerWillCancelScanning:":@"v24@0:8@16",@"scannerDidCancelScanning:":@"v24@0:8@16",@"scanner:willScanToScannedImageHandle:":@"v32@0:8@16@24",@"scanner:didScanToScannedImageHandle:":@"v32@0:8@16@24",@"scanner:didPressButton:":@"v32@0:8@16q24"};
+ for(NSString *key in callbacks)if(!exact(receiver,key,[callbacks[key] UTF8String]))return NO;
  return YES;
 }
 @interface FeedingReceiver:NSObject
@@ -100,6 +103,15 @@ static BOOL compatible(void){
 @implementation FeedingReceiver
 - (void)scannerWillBeginContinuousScanning:(id)s{emit(@"batchBegin",1);}
 - (void)scannerDidEndContinuousScanning:(id)s{emit(@"batchEnd",1);}
+- (void)scanner:(id)s willScanToScannedImageHandle:(id<FeedingImage>)handle {
+ // Required unconditional Epson callback. The image is incomplete at this point;
+ // only didScanToScannedImageHandle may validate and stage it.
+}
+- (void)scannerWillCancelScanning:(id)s{}
+- (void)scannerDidCancelScanning:(id)s{self.stopRequested=YES;}
+- (void)scanner:(id)s didPressButton:(long long)number {
+ // An active collection is not restarted or queued by additional Start presses.
+}
 - (void)scannerDidRequestStop:(id)s{self.stopRequested=YES;}
 - (void)scannerDidDisconnect:(id)s{self.failed=YES;emit(@"error",-310);}
 - (void)scanner:(id)s didCompleteScanningWithError:(int)e{if(e){self.failed=YES;emit(@"error",e);}}

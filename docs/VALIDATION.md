@@ -284,7 +284,7 @@ No source behavior or installed app binary changed for this setup.
 ### Native duplex/PDF/automatic feeding — 2026-10-27 (acceptance in progress)
 
 Local feature branch `feat/native-duplex-pdf`; no push, public release or merge.
-The installed build8 is0.3.0-beta.1-dev at the existing app path/bundle ID. The
+The installed build10 is0.3.0-beta.1-dev at the existing app path/bundle ID. The
 previous builds are retained privately. Existing login registration is preserved;
 logout/login remains untested. A schema1 settings backup was verified private0600
 before schema2 migration. Destination remains the normal Documents/Scans folder.
@@ -325,7 +325,21 @@ of incomplete duplex originals, stable recovery grouping across restarts for
 ordinary JPG/PDF jobs, and queued startup finish intent. The worker waits for a
 separate parent arm signal after readiness, so a queued finish closes without
 starting capture. A real subprocess test checks distinct arm/finish signals.
-The corrected build9 passed release compilation, deep signature and ABI checks;
-its installation and the remaining automatic-feed hardware tests are pending.
+The corrected build10 passed release compilation, deep signature and ABI checks
+and was installed at the existing path. Its About version and saved macOS login
+entry were read back. The remaining automatic-feed hardware tests are pending.
 No deliberate real-device Stop during a partially transferred card was performed;
 software retention/partial-page tests do not certify that callback ordering.
+
+
+The first installed AF attempt on build8 did pull an initially loaded card but
+aborted before image delivery. The crash stack identified an unconditional
+`scanner:willScanToScannedImageHandle:` callback missing from the receiver (the
+private prototype had implemented it). A hardware-free harness now compiles and
+invokes the exact shipped receiver's mandatory page-begin/cancel/button callbacks;
+it reproduced the exception RED and passes GREEN after the fix. The no-open
+compatibility check now checks the receiver contract too. All54 Swift tests still
+pass. The empty failed job was inspected and archived through the app's recovery
+UI, without scan replay or data deletion. A subsequent open timed out; no helper
+remained, services were restored, and a scanner power cycle was requested before
+another device test. This is not a successful installed AF acceptance yet.
