@@ -1,6 +1,6 @@
 # Failed Pickup and Stop Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Resolve issue #3 without losing pages or replaying capture, install and retest locally.
 
@@ -31,15 +31,19 @@
 
 **Interfaces:** Controller exposes an empty-result reason to the worker; worker emits a validated empty-reason value after release; parent retains that notice through receiver readiness. Parent finishes a stalled continuous batch through the existing finish signal, with the finish reason recorded in its job manifest.
 
-- [ ] Add fake loaded-feeder fixtures and regression tests for empty nil-error completion, ICA cancellation/domain mismatch, unknown files, partial duplex, progress cancellation/reset/timeout and close failures. Tests assert real manifests, output directories and policy outcomes.
-- [ ] Add parent tests for validated empty notices, close+exit ordering, malformed values, continuous active-batch stall and unlimited idle waiting.
-- [ ] Run `bash scripts/test-native.sh`; expect the new behavioral assertions to fail on the old implementation. Record failures.
-- [ ] Implement the smallest fixes matching the spec, bump build 12 and update the user guide.
-- [ ] Run `bash scripts/test-native.sh`, `bash scripts/test.sh` and `bash scripts/build-native.sh --replace`; expect all tests and signed build validation to pass.
-- [ ] Commit locally; obtain the required independent final code review and resolve important findings with failing regressions first.
+- [x] Add fake loaded-feeder fixtures and regression tests for empty nil-error completion, ICA cancellation/domain mismatch, unknown files, partial duplex, progress cancellation/reset/timeout and close failures. Tests assert real manifests, output directories and policy outcomes.
+- [x] Add parent tests for validated empty notices, close+exit ordering, malformed values, continuous active-batch stall and unlimited idle waiting.
+- [x] Run `bash scripts/test-native.sh`; expect the new behavioral assertions to fail on the old implementation. Record failures.
+- [x] Implement the smallest fixes matching the spec, bump build 12 and update the user guide.
+- [x] Run `bash scripts/test-native.sh`, `bash scripts/test.sh` and `bash scripts/build-native.sh --replace`; expect all tests and signed build validation to pass.
+- [x] Commit locally; obtain the required independent final code review and resolve important findings with failing regressions first.
 
 After code review, preserve the existing private empty failed job through the
 recovery UI, quit the old app, install with `scripts/install-native.sh --replace`
 and read back version/signature/settings/readiness. Request physical tests only
 when the app is ready. Record actual results and remaining hardware limits; do
 not mark issue #3 complete before the device retest.
+
+Local acceptance completed on build14: manual empty Stop, automatic pickup
+limit and subsequent ordinary duplex card scan verified. Real scanner jam remains
+a visible fault. Details and hardware limits are in `docs/VALIDATION.md`.

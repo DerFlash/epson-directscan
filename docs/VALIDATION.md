@@ -418,5 +418,21 @@ adds explicit paper-path/recovery and disconnected/reconnect hints while keeping
 error state and retained files. All 70 native, 26 Node and 38 Python tests pass
 (134 total); release build, compatibility, signature and installed/build hash
 checks pass. The new hints were covered by RED→GREEN controller/handoff tests. Epson documentation requires physical paper-path
-clearance; automatic USB reconnection remains outside this fix. Clearance and a
-subsequent valid card scan are still pending.
+clearance; automatic USB reconnection remains outside this fix.
+
+Final build14 device acceptance: the user confirmed a clear paper path and no
+flashing error. Root closed ScanSmart, launched the installed native app and
+verified readiness/profile in the real UI. One normal expendable card was then
+scanned using the physical Epson button. Both sides were staged and a single
+616,141-byte PDF was automatically published. Independent CGPDFDocument reading
+confirmed two pages (177.84×248.88pt and178.56×248.16pt), and both pages rendered
+successfully. Pending was empty; the app returned to ready/listening with one
+physical button event and one saved output. Closing the status window left the
+main app and its button receiver running. The original failed empty jobs remain
+archived privately, and the previous application builds remain backed up.
+
+Local acceptance of the reported workflow is complete. No deliberate repeat jam
+or forced mid-image hardware cancellation was performed; retention/error cases
+are covered by regression tests. Prior image-quality limits and other unverified
+native-device cases remain as documented above. The source branch remains local;
+GitHub issue #3 records the result and stays open pending publication/integration.
