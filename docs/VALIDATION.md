@@ -120,7 +120,10 @@ Record the exact macOS, ScanSmart, scanner and connection versions with results.
 Do not publish real scans, private paths or unredacted state files as evidence.
 
 
-## Native DirectScan candidate (0.2, local branch)
+## Native DirectScan development history (0.2, local branch)
+
+Current final build 6 acceptance is recorded at the end of this section. The
+earlier ICA-only candidate and its failed button route are retained as history.
 
 Direct ICA USB scans were verified on the same Mac and ES-C320W. With
 VF_AUTOCROP=1, VF_DESKEW=true and VF_AUTOROTATE=true, the second sample produced
@@ -145,15 +148,15 @@ The physical-button acceptance gate therefore failed for the current ICA route.
 Do not claim the native app's button workflow is accepted, and do not publish it
 as a working replacement until that gate passes.
 
-The reviewed local candidate now has 18 passing native tests. A deliberately
+Before the Epson-specific button integration, the reviewed candidate had 18 passing native tests. A deliberately
 truncated real JPEG with a synthetic end marker is rejected using per-frame
 ImageIO status after eager decoding. Injected scanner/service adapters verify
 that delayed, failed and absent close acknowledgements do not restore Epson
 services early or silently rearm. Shared connection/recovery consent is tested.
 These adapters never actuate the real scanner or launch agents. A fresh legacy
 26 Node + 38 Python suite and signed build also passed. Hardware acceptance of
-the installed native menu-bar app has not passed. The app is installed but paused;
-both original Epson launch agents were confirmed running after session release.
+the installed native menu-bar app has not passed. At that stage the app was installed but paused; both original Epson launch
+agents were confirmed running after session release.
 
 A pure non-scanning diagnostic found that Epson emits an intermediate selection
 notification before the actual feeder (1.908 and 2.117 seconds in that run).
@@ -203,6 +206,65 @@ Input skew/rotation was not independently controlled, so their individual effect
 remain unquantified. Changing folders through the real picker paused/released
 and reopened the button helper successfully; the original destination was then
 restored. These are two cycles with a folder change between them, not a long
-uninterrupted-series, sleep/wake, cancellation or login acceptance test. Additional
-independent review of the new process/button architecture remains required before
-calling the local development work finished. No native public release is implied.
+uninterrupted-series, sleep/wake, cancellation or login acceptance test. The additional independent review and final hardened build are recorded below. No native public release is implied.
+
+
+### Final native build 6 and restart ownership regression
+
+A fresh independent review of the new helper/process architecture found one
+Important issue and no Critical/Minor findings: startup recovery could restore
+Epson services while an old child was still alive or blocked in driver close.
+A separate hardware-free child holding the scanner OS lock reproduced the failure
+(32 tests, two failed assertions). Both real helpers now independently hold the
+same exclusive flock before any hardware open, through close and process exit;
+each rechecks its parent after acquisition. Service restoration and new connection
+check that same lock, even without a recovery memo. A live owner blocks recovery
+without removing the memo. The regression and entire native suite passed 32/32.
+The unchanged legacy suite passed 26 Node + 38 Python. Release build, deep ad-hoc
+signature and guarded Epson6.7.84 compatibility checks passed. One review fix pass;
+no author-claimed second review.
+
+The final installed build then passed a third physical single-card scan with the
+status window closed: one event, one fully readable JPG in the original folder,
+745×1037 at300dpi,293255bytes. Accepted button08:10:36Z -> JPG08:10:41Z -> Ready
+08:10:43Z; Pending0. The rearmed receiver held the ownership lock. A final real UI
+pause confirmed the lock free, memo absent and both original Epson services back;
+reconnecting returned to Ready. Settings remain the normal destination with all
+three corrections on. Installed main/helper hashes match the built artifacts.
+No ScanSmart frontend was running. Source remains on the local feature branch.
+
+
+### Implementation decisions and remaining limits
+
+These decisions carry forward the execution record; no review findings remain
+open, and the reviewer reported no Minor findings to defer.
+
+1. Use bundled Swift Testing because this CLT-only Mac lacks XCTest. Cost: the
+   test launcher needs the bundled macro plugin; older toolchains are unverified.
+2. Replace short-lived button probes with a persistent instrumented app so human
+   confirmation cannot arrive after the receiver expires. The attempted ICA/KVO
+   route still failed and was removed; actual hardware acceptance remained the
+   gate rather than being inferred from API availability.
+3. Add an optional, closable status panel alongside the menu-bar icon. Cost: one
+   extra small UI surface; it makes readiness, settings and test counts visible.
+4. Use the installed Epson button API only in a guarded separate process. Cost:
+   dependence on a private ABI; only checked driver6.7.84 is accepted and Epson
+   binaries are never redistributed.
+5. Run each accepted scan in a fresh process because same-process ICA reopening
+   failed while fresh-process scans worked. Cost: small process startup overhead
+   and a protocol requiring explicit ordering/cancellation tests.
+6. Require manual reconnect after an idle USB interruption instead of an unproven
+   background retry through the internal driver. Cost: interruptions require a
+   user action; unattended reconnection is not promised.
+7. Add one fresh review for the new helper architecture because the earlier
+   review covered the superseded ICA button route. Cost: an additional review;
+   its one Important finding was verified RED→GREEN without a further re-review.
+8. Leave physical long series, sleep/wake, cancellation and login acceptance open.
+   Cost: the local three-card beta acceptance does not establish those conditions
+   or general production reliability.
+9. Reject other scanner models and driver versions. Cost: compatibility needs
+   separate work and real-device acceptance after a model or driver change.
+
+Automatic login registration was deliberately left unchanged, as allowed by the
+approved design. The branch and checkout are retained locally at the user's
+request; no native release, merge or publication is part of this completion.

@@ -11,7 +11,9 @@
   messages. Deliver live helper events immediately. Never replay uncertain scans.
 - Preserve previous local builds, share connection/recovery consent, and return
   Epson services only after confirmed release. Leave login items unchanged.
-- 31 native tests and two real ES-C320W USB button scans passed, including a changed
+- Hold a shared OS ownership lock in both helpers so startup recovery cannot race
+  a surviving helper. Keep service restoration blocked until the lock is free.
+- 32 native tests and three real ES-C320W USB button scans passed, including a changed
   destination and automatic rearming. Broader reliability remains unverified;
   this native development build is not publicly released.
 

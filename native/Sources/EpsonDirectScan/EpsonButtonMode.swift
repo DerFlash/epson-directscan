@@ -25,6 +25,8 @@ final class EpsonButtonMode: EpsonServices {
         return (result.status, output ? result.output : "")
     }
     func restore() throws {
+        let lease = try ScannerLease(root: root)
+        defer { withExtendedLifetime(lease) {} }
         guard FileManager.default.fileExists(atPath: memo.path) else { return }
         let labels = try JSONDecoder().decode([String].self, from: Data(contentsOf: memo))
         for label in labels {

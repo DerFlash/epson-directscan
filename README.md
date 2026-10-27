@@ -1,7 +1,7 @@
 # Epson ScanSmart AutoSave — 0.1.0-beta.3-dev
 
 > Native menu-bar app candidate: [German DirectScan guide](docs/NATIVE.de.md).
-> Local beta: two physical-button JPG scans passed on ES-C320W USB with driver 6.7.84.
+> Local beta: three physical-button JPG scans passed on ES-C320W USB with driver 6.7.84.
 > Uses a guarded internal Epson button API; other driver versions are refused.
 > The existing 0.1 ScanSmart helper below remains separate.
 

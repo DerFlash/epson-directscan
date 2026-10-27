@@ -41,9 +41,12 @@ agents while listening; no vendor files or persistent disable settings change.
 The original loaded labels are recorded privately and restored after confirmed
 scanner release. On an unconfirmed close or abrupt process exit, the memo stays
 for restoration on the next app launch (or normal agents return at next login).
-Do not delete this memo to suppress an error. The candidate never alters the
+Each helper independently holds the shared scanner.lock OS lease through hardware
+open and close. Startup restoration and a new connection also check it, so a
+surviving/blocked old helper keeps recovery blocked after its parent exits. Do not
+delete the memo or lock file to suppress an error. The candidate never alters the
 scanner's global auto-launch application assignment. The legacy ICA callback/KVO
-route did not deliver events and has been removed from the scan worker. Two real
+route did not deliver events and has been removed from the scan worker. Three real
 button scans passed through the Epson-specific helper; other driver versions,
 models and extended recovery/login behavior remain unverified. A short startup
 drain rejects early button events; busy or late events cannot queue a scan.

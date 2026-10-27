@@ -4,6 +4,9 @@
 #import <objc/runtime.h>
 #include <signal.h>
 #include <unistd.h>
+#include <sys/file.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 @protocol EpsonUSB <NSObject>
 - (id)initWithLocationID:(unsigned int)location productIDForValidation:(unsigned short)product;
@@ -54,6 +57,16 @@ static BOOL findLocation(unsigned int *location) {
     }
     IOObjectRelease(iterator); return matches == 1;
 }
+static int claimLease(NSString *root) {
+    int fd = open([[root stringByAppendingPathComponent:@"scanner.lock"] fileSystemRepresentation],
+                  O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0600);
+    if (fd < 0) return -1;
+    struct stat info;
+    if (fstat(fd, &info) != 0 || !S_ISREG(info.st_mode) || info.st_uid != getuid() || flock(fd, LOCK_EX | LOCK_NB) != 0) {
+        close(fd); return -1;
+    }
+    fchmod(fd, 0600); return fd;
+}
 @interface ButtonReceiver : NSObject
 @property BOOL armed;
 @property BOOL pressed;
@@ -68,8 +81,9 @@ static BOOL findLocation(unsigned int *location) {
 
 int main(int argc, char **argv) { @autoreleasepool {
     BOOL checkOnly = argc == 2 && strcmp(argv[1], "--check") == 0;
-    pid_t parent = argc == 3 ? (pid_t)strtol(argv[2], NULL, 10) : 0;
-    if (!checkOnly && (argc != 3 || strcmp(argv[1], "--parent") != 0 || parent <= 1 || parent != getppid())) return 2;
+    pid_t parent = argc == 5 ? (pid_t)strtol(argv[2], NULL, 10) : 0;
+    if (!checkOnly && (argc != 5 || strcmp(argv[1], "--parent") != 0 || strcmp(argv[3], "--root") != 0 ||
+                       argv[4][0] != '/' || parent <= 1 || parent != getppid())) return 2;
     signal(SIGTERM, stopReceiver); signal(SIGINT, stopReceiver);
     [[NSApplication sharedApplication] setActivationPolicy:NSApplicationActivationPolicyProhibited];
     NSBundle *bundle = [NSBundle bundleWithPath:@"/Library/Image Capture/Support/EPSON/Epson Scan 2/Core/Scanner.framework"];
@@ -92,11 +106,14 @@ int main(int argc, char **argv) { @autoreleasepool {
         (methodHasReturn(scannerClass, @selector(isOpened), "B", 2) || methodHasReturn(scannerClass, @selector(isOpened), "c", 2));
     if (!valid) { emit(@"error", -102); emit(@"closed", 0); return 1; }
     if (checkOnly) { emit(@"compatible", 6784); return 0; }
+    int lease = claimLease([NSString stringWithUTF8String:argv[4]]);
+    if (lease < 0) { emit(@"error", -108); emit(@"closed", 0); return 1; }
+    if (getppid() != parent) { close(lease); emit(@"closed", 0); return 1; }
     unsigned int location = 0;
-    if (!findLocation(&location)) { emit(@"error", -103); emit(@"closed", 0); return 1; }
+    if (!findLocation(&location)) { close(lease); emit(@"error", -103); emit(@"closed", 0); return 1; }
     id<EpsonUSB> usb = [(id<EpsonUSB>)[usbClass alloc] initWithLocationID:location productIDForValidation:400];
     id<EpsonScanner> scanner = [(id<EpsonScanner>)[scannerClass alloc] initWithInterface:usb];
-    if (!usb || !scanner) { emit(@"error", -104); emit(@"closed", 0); return 1; }
+    if (!usb || !scanner) { close(lease); emit(@"error", -104); emit(@"closed", 0); return 1; }
     ButtonReceiver *receiver = [ButtonReceiver new]; [scanner setDelegate:receiver];
     int result = 1; BOOL opened = NO;
     @try {
@@ -127,5 +144,5 @@ int main(int argc, char **argv) { @autoreleasepool {
         emit(@"closed", closeStatus);
         if (closeStatus != 0) result = 1;
     }
-    return result;
+    close(lease); return result;
 } }

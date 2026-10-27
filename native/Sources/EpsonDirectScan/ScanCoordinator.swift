@@ -65,7 +65,7 @@ final class ScanCoordinator {
             try mode.acquire()
             desiredActive = true; policy.resume(); policy.recover()
             try launch(.button)
-        } catch { fail("Tastenempfang konnte nicht starten. Bitte Treiber und Ordner prüfen.", code: "receiver_start_failed") }
+        } catch { fail(error.localizedDescription, code: "receiver_start_failed") }
     }
     private func launch(_ next: HelperRole) throws {
         let process = try makeHelper(next)
@@ -187,7 +187,7 @@ final class ScanCoordinator {
             if policy.phase == .paused { update("Pausiert – Scanner für andere Programme freigegeben") }
             else { update() }
             if resume { DispatchQueue.main.async { [weak self] in self?.start() } }
-        } catch { policy.failed(); update("Scanner frei, aber Epson-Dienste nicht wiederhergestellt. Bitte App erneut öffnen.") }
+        } catch { policy.failed(); update("Epson-Dienste bleiben pausiert. " + error.localizedDescription) }
     }
     func checkDeadline() {
         guard let deadline, now() >= deadline else { return }

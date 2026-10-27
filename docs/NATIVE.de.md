@@ -1,10 +1,11 @@
 # Epson DirectScan Beta – native Menüleisten-App
 
 Lokale Entwicklungsfassung 0.2.0-beta.1-dev für den Epson ES-C320W über USB.
-Zwei vollständige Tastenscans wurden am 27.10.2026 geprüft: jeweils ein lesbares
+Drei vollständige Tastenscans wurden am 27.10.2026 geprüft: jeweils ein lesbares
 JPG ohne Mac-Klicks, danach wieder bereit. Der zweite Scan ging nach einer
 Ordneränderung ausschließlich in den neuen Ordner. Anschließend wurde der
-normale Ablageordner wieder eingestellt. Das ist eine lokale Beta-Abnahme,
+normale Ablageordner wieder eingestellt; der dritte Scan prüfte die abschließend
+gehärtete Fassung erneut dort. Das ist eine lokale Beta-Abnahme,
 keine allgemeine Produktionsfreigabe für andere Macs, Treiber oder Scanner.
 
 Die App ersetzt die ScanSmart-Oberfläche. Sie braucht weder Bedienungshilfen
@@ -27,7 +28,8 @@ der Epson-Treiber muss separat installiert sein.
 ## Bauen und installieren
 
 Apple-Kommandozeilen-Werkzeuge sind erforderlich (Swift und Clang). Die Tests
-verwenden Swift Testing; hier geprüft mit Swift 6.4/CLT. Keine zusätzlichen
+verwenden Swift Testing und Python 3 für einen künstlichen Hilfsprozess; hier
+geprüft mit Swift 6.4/CLT. Python wird von der installierten App nicht benötigt. Keine zusätzlichen
 Pakete oder Laufzeiten werden heruntergeladen.
 
 ```
@@ -92,8 +94,10 @@ Dieser prüft den Einzug und die Korrekturen, scannt, speichert und schließt di
 Verbindung. Erst nach bestätigtem Abschluss startet der nächste Tastenempfänger.
 So greifen beide Wege nicht gleichzeitig auf den Scanner zu. Jeder Scanprozess
 ist neu; der zuvor beobachtete Fehler beim erneuten Öffnen einer ICA-Verbindung
-innerhalb desselben Prozesses wird damit vermieden. Zwei vollständige Zyklen
+innerhalb desselben Prozesses wird damit vermieden. Drei Einzelkartenscans
 und mehrere Ordnerwechsel wurden auf diesem Mac geprüft.
+
+Die Zähler in der Statusansicht gelten seit dem jeweiligen App-Start.
 
 Beim Öffnen des Tastenempfängers werden frühe Ereignisse kurz verworfen. Scannen
 ist erst nach der sichtbaren Bereitschaft möglich. Unterbrochene Vorgänge werden
@@ -126,7 +130,12 @@ nicht erneut gescannt oder automatisch exportiert.
 
 Nach einem App-Absturz können Epson-Dienste bis zum erneuten Öffnen von DirectScan
 oder der nächsten Mac-Anmeldung pausiert bleiben. Die private Datei
-`epson-services.json` enthält den Wiederherstellungsvermerk; nicht löschen.
+`epson-services.json` enthält den Wiederherstellungsvermerk. Zusätzlich hält
+jeder Hilfsprozess unabhängig von der Haupt-App die Betriebssystem-Sperre
+`scanner.lock`. Solange ein alter Prozess sie noch hält, blockiert die App sowohl
+die Wiederherstellung der Epson-Dienste als auch eine neue Verbindung. Das gilt
+auch bei einem verzögerten Treiberabschluss nach einem Neustart. Beide Dateien
+bitte nicht löschen; bei belegter Sperre warten und erneut verbinden.
 Bei nicht bestätigter Freigabe bleiben die Dienste ebenfalls pausiert, um
 konkurrierende Zugriffe zu vermeiden. Beenden wartet kurz auf eine Bestätigung;
 bei Fehler/Timeout bleibt der Vermerk erhalten. Die App danach erneut öffnen,

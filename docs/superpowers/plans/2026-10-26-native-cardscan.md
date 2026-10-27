@@ -102,9 +102,9 @@ SECURITY.md; CI workflow when applicable.
   output there; pause releases scanner. Keep test files/evidence private.
 - [x] Document install/start/use/recovery/rollback, exact tested limits, driver/button
   requirements and missing notarization. Do not claim unsupported models/platforms.
-- [ ] Request one fresh whole-branch code review; fix important issues with a failing
+- [x] Request one fresh whole-branch code review; fix important issues with a failing
   regression test then run suites/build. No public push/merge/release.
-- [ ] Leave local app usable if accepted; retain fallback and its settings. Report
+- [x] Leave local app usable if accepted; retain fallback and its settings. Report
   actual hardware results and any unresolved button blocker without false success.
 
 ## Hardware-driven architecture adjustment — 2026-10-27

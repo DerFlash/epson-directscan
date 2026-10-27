@@ -30,7 +30,7 @@ final class NativeProcess: NativeHelper {
         switch role {
         case .button:
             self.init(executable: Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/EpsonButtonReceiver"),
-                      arguments: ["--parent", String(getpid())])
+                      arguments: ["--parent", String(getpid()), "--root", root.path])
         case .scan(let settings):
             guard let executable = Bundle.main.executableURL else { throw CocoaError(.fileNoSuchFile) }
             let data = try JSONEncoder().encode(settings)

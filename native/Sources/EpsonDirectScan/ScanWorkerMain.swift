@@ -30,6 +30,11 @@ enum ScanWorkerMain {
         defer { termination.cancel(); interrupt.cancel() }
         do {
             let storage = try ScanStorage(root: URL(fileURLWithPath: arguments[2], isDirectory: true))
+            let lease = try ScannerLease(root: storage.root)
+            defer { withExtendedLifetime(lease) {} }
+            guard getppid() == parent else {
+                emit(HelperEvent(event: "closed", value: 0)); return 1
+            }
             let logs = storage.root.appendingPathComponent("WorkerLogs", isDirectory: true)
             try FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
             let controller = ScannerController(storage: storage, diagnostics: Diagnostics(root: logs),
