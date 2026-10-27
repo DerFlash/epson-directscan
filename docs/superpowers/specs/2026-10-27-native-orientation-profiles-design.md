@@ -1,7 +1,7 @@
 # Ausrichtung und feste Außenmaße für Epson DirectScan
 
-Status: vom Nutzer am 27.10.2026 freigegeben; lokale Implementierung und
-Softwareprüfung, anschließend getrennte physische Abnahme der neuen Gerätefälle.
+Status: vom Nutzer am 27.10.2026 freigegeben; lokal implementiert und softwaregeprüft
+(98 native Tests). Die physische Abnahme der neuen Gerätefälle steht noch aus.
 
 ## Auftrag und getroffene Entscheidungen
 
