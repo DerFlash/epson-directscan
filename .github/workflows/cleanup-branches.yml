@@ -1,0 +1,59 @@
+name: Cleanup merged branches
+
+on:
+  pull_request:
+    types: [closed]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Report eligible merged branches without deleting them
+        type: boolean
+        default: true
+
+permissions: {}
+
+concurrency:
+  group: cleanup-merged-branches
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: >-
+      (github.event_name != 'pull_request' &&
+       github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.merged == true &&
+       github.event.pull_request.head.repo.id == github.event.repository.id &&
+       github.event.pull_request.base.ref == github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      # Always run reviewed default-branch code; never check out a PR head.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          CLEANUP_GITHUB_TOKEN: ${{ github.token }}
+        with:
+          script: |
+            const cleanup = require('./.github/scripts/cleanup-branches.cjs');
+            const results = await cleanup.run({
+              github, context, core,
+              token: process.env.CLEANUP_GITHUB_TOKEN,
+              dryRun: context.eventName === 'workflow_dispatch' &&
+                context.payload.inputs?.dry_run !== 'false'
+            });
+            await core.summary
+              .addHeading('Merged branch cleanup')
+              .addTable([
+                [{data: 'Branch', header: true}, {data: 'Result', header: true}],
+                ...results.map(({branch, status}) => [branch, status])
+              ])
+              .write();
