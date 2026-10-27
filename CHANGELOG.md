@@ -10,8 +10,12 @@
   cards, verify PDF geometry and journal exclusive exports without overwriting.
 - Migrate settings with an exact private backup. Preserve the app path, bundle
   identifier and existing login registration. No public release is part of this work.
+- Verify duplex JPG, per-card PDF, reinsertion without Start, physical Stop,
+  automatic idle completion and retained-page recovery on the local ES-C320W.
+  55 Swift tests, the mandatory-callback harness and all64 legacy tests pass.
 - Epson orientation detection needs readable text; colorful cards may remain
-  inverted. New local hardware acceptance is recorded in docs/VALIDATION.md.
+  inverted, and the AFM output may be darker than ordinary scans. Local beta
+  hardware acceptance and remaining limits are recorded in docs/VALIDATION.md.
 
 ## Unreleased — native DirectScan beta (local only)
 

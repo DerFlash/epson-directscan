@@ -2,8 +2,9 @@
 
 Lokale Entwicklungsfassung **0.3.0-beta.1-dev** für den Epson ES-C320W über USB.
 Sie ergänzt doppelseitige JPGs, ein PDF pro Karte und den kontinuierlichen Einzug
-mit einem gemeinsamen PDF. Die neue Fassung befindet sich in der lokalen
-Hardware-Abnahme; die Ergebnisse stehen in [VALIDATION.md](VALIDATION.md).
+mit einem gemeinsamen PDF. Duplex-JPG, Karten-PDF, automatisches Nachlegen,
+Stopptaste und eine 30-Sekunden-Wartefrist wurden lokal am Gerät geprüft;
+die Ergebnisse stehen in [VALIDATION.md](VALIDATION.md).
 Die frühere einseitige Fassung wurde mit drei echten Tastenscans geprüft.
 Das ist keine allgemeine Produktionsfreigabe für andere Macs, Treiber oder Scanner.
 
@@ -87,7 +88,10 @@ Datei wird niemals ersetzt.
 Die automatische Drehung verwendet Epsons Texterkennung zur Orientierung.
 Sie ist **bei farbigen Spielkarten und Kartenrückseiten nicht zuverlässig**:
 Die Testkarte wurde trotz aktivierter Erkennung teilweise auf dem Kopf belassen.
-Es gibt keine feste Ausrichtungsgarantie. Bei einem fehlenden oder nicht
+Es gibt keine feste Ausrichtungsgarantie. Bei der Testkarte wirkten Bilder im
+kontinuierlichen Modus außerdem dunkler als normale Scans. Eine zusätzliche
+Farb-/Tonwertangleichung zwischen den beiden Treiberwegen ist nicht enthalten.
+Bei einem fehlenden oder nicht
 kompatiblen Modul wird keine unbemerkte Ersatzkorrektur verwendet.
 
 ### Kontinuierlicher Einzug

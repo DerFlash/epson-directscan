@@ -281,65 +281,93 @@ the running native app remained Ready/listening with the normal destination.
 This verifies the saved login configuration, not an actual logout/login cycle.
 No source behavior or installed app binary changed for this setup.
 
-### Native duplex/PDF/automatic feeding — 2026-10-27 (acceptance in progress)
+### Native duplex/PDF/automatic feeding — 2026-10-27 local acceptance
 
-Local feature branch `feat/native-duplex-pdf`; no push, public release or merge.
-The installed build10 is0.3.0-beta.1-dev at the existing app path/bundle ID. The
-previous builds are retained privately. Existing login registration is preserved;
-logout/login remains untested. A schema1 settings backup was verified private0600
-before schema2 migration. Destination remains the normal Documents/Scans folder.
+Local branch `feat/native-duplex-pdf`, in the existing checkout. Installed
+**0.3.0-beta.1-dev, build11** uses the stable app path/bundle ID. Prior builds and
+an exact private0600 schema1 settings backup remain available. Schema2 migration
+preserved the original folder/corrections. Saved macOS login registration and
+background permission were read back; an actual logout/login remains untested.
+No native push, merge, public release or PR was authorized or performed.
 
-- **Duplex JPG passed:** one physical Start, two RGB/300dpi files with a shared
-  card number and front/back suffixes;745×1037 and744×1034 pixels. Both visually
-  inspected, no incomplete job, receiver automatically Ready again.
-- **Per-card PDF passed:** one physical Start, one2-page PDF, front then back;
- 745×1033 and744×1030 source pixels at300dpi. Both PDF pages rendered with Poppler
-  and visually inspected. Pending empty and receiver Ready.
-- **Installed continuous feeding/Stop and30s idle acceptance remain pending.**
-  A private raw-driver diagnostic already verified two automatic insertions
-  without another Start, four complete RGB sides with sheet/side metadata, and
-  a physical Stop followed by clean close0/exit0. This does not replace the
-  installed application acceptance.
+| Check | Actual result |
+| --- | --- |
+| Duplex JPG | One physical Start produced two readable RGB/300dpi JPGs, shared card number, front/back suffixes.745×1037 and744×1034 pixels, visually inspected. |
+| PDF per card | One physical Start produced one2-page PDF, front then back,300dpi and correct card-size boxes. Both pages rendered/inspected. |
+| True automatic feeding | An initially loaded card was scanned after one physical Start. Reinserting the same card without another button produced a second front/back pair: four ordered complete pages with sheet/side metadata. |
+| Physical Stop, final build11 | User scanned a card, waited for completion and pressed Epson Stop. The app automatically published a2-page collection PDF, journal reason `stop`, and returned Ready. No pending pages. |
+| Idle timeout, final build11 | With30seconds selected, user scanned one card and neither inserted another nor pressed Stop. The app published a2-page PDF with journal reason `idleTimeout`, after34seconds total including capture, and automatically returned Ready. |
+| Real recovery | Four pages retained after a PDF-validation failure were exported through the actual recovery UI as one4-page PDF, without another scan. Published grouping/receipt were checked, all four pages rendered/inspected, Pending empty. |
+| Final installed profile | Duplex JPG, automatic collection off,120seconds saved for later collection use, all three corrections on, normal Documents/Scans destination, listening/Ready. |
 
-Software checks:54 native tests (including real JPEG/PDF parsing/rendering,
-exclusive publication receipts, crash reconciliation, incomplete pairing,
-coordinator timing/stop/late-event ownership and Epson orientation on neutral
-inverted text) plus26 Node and38 Python legacy tests passed. Native release build,
-plist, deep signature verification and no-device-open helper ABI checks passed.
-The legacy fixture-only AppleScript tests require an execution context with access
-to their runtime; the first restricted run failed8 fixture calls and its rerun
-passed all38. They do not read or operate application windows.
+Checks ran on the installed driver6.7.84, Apple Silicon/macOS27.0.1. The installed
+main executable, both helpers and plist match the checked build; deep signature,
+plist and no-device-open helper ABI checks passed. The small status panel can be
+closed while the menu-bar app/listener continue running. Private images, job
+receipts, source hashes and rendered output evidence are outside the repository.
 
-The full Epson ScanEngine prototype produced striped image data and is not
-shipped. Native Scanner.framework supplies clean JPEG/crop/deskew; the installed
-ImageProcessor/Esaod supplies orientation detection on decoded RGB. A neutral
-inverted-text test returned180° and the corrected output returned upright. The
-colorful test card sometimes returned upright despite being inverted, so this is
-explicitly documented as an Epson detection limitation, not guaranteed card
-orientation. Private card images/paths/log evidence remain outside the repository.
+#### Software verification and fixes
 
+55 Swift tests cover real JPEG/PDF decoding/rendering, migration/backup,
+exclusive output/receipts, crash reconciliation, pairing, session/idle/stop/late
+messages and cross-process ownership. A separate hardware-free callback harness
+compiles and invokes the exact shipped feeding receiver.26 Node and38 Python
+legacy tests also pass; their fixture-only AppleScript probes do not read or
+operate real application windows. The initial restricted legacy run could not
+use its runtime; the rerun passed all38 Python tests.
 
-One independent whole-branch source review found3Important issues and no
-Critical/Minor findings. One RED→GREEN fix pass now verifies private retention
-of incomplete duplex originals, stable recovery grouping across restarts for
-ordinary JPG/PDF jobs, and queued startup finish intent. The worker waits for a
-separate parent arm signal after readiness, so a queued finish closes without
-starting capture. A real subprocess test checks distinct arm/finish signals.
-The corrected build10 passed release compilation, deep signature and ABI checks
-and was installed at the existing path. Its About version and saved macOS login
-entry were read back. The remaining automatic-feed hardware tests are pending.
-No deliberate real-device Stop during a partially transferred card was performed;
-software retention/partial-page tests do not certify that callback ordering.
+One independent whole-branch review found3Important issues,0Critical and0Minor.
+All three received reproducing RED→GREEN tests in one fix pass: incomplete duplex
+originals are retained privately, recovery grouping remains stable across a
+restart, and startup finish intent prevents arming. A real subprocess test checks
+distinct arm/finish signals. No re-review loop was used.
 
+Hardware acceptance exposed two additional bugs, both fixed with regressions:
 
-The first installed AF attempt on build8 did pull an initially loaded card but
-aborted before image delivery. The crash stack identified an unconditional
-`scanner:willScanToScannedImageHandle:` callback missing from the receiver (the
-private prototype had implemented it). A hardware-free harness now compiles and
-invokes the exact shipped receiver's mandatory page-begin/cancel/button callbacks;
-it reproduced the exception RED and passes GREEN after the fix. The no-open
-compatibility check now checks the receiver contract too. All54 Swift tests still
-pass. The empty failed job was inspected and archived through the app's recovery
-UI, without scan replay or data deletion. A subsequent open timed out; no helper
-remained, services were restored, and a scanner power cycle was requested before
-another device test. This is not a successful installed AF acceptance yet.
+- A mandatory unconditional Epson page-begin callback was missing from the
+  product receiver, although the private probe implemented it. The exact receiver
+  harness reproduced that exception; page-begin/cancel/button callbacks and the
+  no-open compatibility check now enforce this contract before device capture.
+  The empty failed job was inspected and archived through recovery. After the
+  driver crash, one reconnect stalled; a scanner power cycle restored opening.
+- Quartz read177.6pt back as177.60000000000002pt. Exact equality incorrectly
+  rejected an otherwise complete4-page PDF. A test using the actual cropped card
+  dimensions reproduced the failure. Validation now permits0.0001pt rounding
+  (<1/2000 of a300dpi pixel), while keeping page-count and readability checks.
+  All four original pages survived and were recovered; the corrected physical
+  Stop and idle tests then passed without manual saving.
+
+#### Decisions and limits
+
+1. Retain the existing checkout and a new local feature branch, following the
+   prior user preference. The checkout and old native branch/build backups stay
+   available; this work does not integrate or publish anything.
+2. Develop independent settings/PDF storage while waiting for physical driver
+   tests. This saved human waiting time; hardware acceptance stayed mandatory.
+3. Use native Scanner.framework capture/crop/deskew plus Epson ImageProcessor/
+   Esaod orientation. The full ScanEngine prototype visibly corrupted images and
+   was discarded. This keeps the Epson detector and avoids that failing pipeline;
+   compatibility remains restricted to the checked internal6.7.84 ABI.
+4. Advance UI/installation before marking all driver gates complete so the real
+   installed app could supply the remaining evidence. Failures retained prior
+   builds/pages and were not counted as passed acceptance.
+5. Overlap the one source review with pending human hardware actions. Subsequent
+   review and device findings were handled by reproducing tests in the same fix
+   pass; source review was never substituted for actual scanner acceptance.
+6. The reviewer explicitly declined to certify pending AF/timeout hardware;
+   root subsequently performed the installed insertion/Stop/idle tests above.
+7. Deliberate Stop during a partially transferred card was not performed on the
+   device. Software verifies completed-page retention and private preservation
+   of an incomplete last sheet; actual driver cancellation ordering may still
+   require explicit recovery in that corner case.
+8. Final installation/GUI/signature judgment was retained by root: the installed
+   About version, files/signature, settings, ready state and saved login entry
+   were read back. This does not establish a logout/login cycle.
+
+No minor findings were deferred. Long series, forced mid-transfer cancellation,
+sleep/wake, logout/login, other models/driver versions and other Macs remain
+unverified. A neutral inverted-text fixture returned180° and the corrected output
+returned upright. Colored playing cards sometimes remain inverted, and AFM images
+of this test card are darker than ordinary ICA images. These observed image-quality
+limits are stated in the user instructions; no extra tone-matching feature was
+added. This is a local beta acceptance, not general production certification.
