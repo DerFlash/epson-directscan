@@ -58,9 +58,56 @@ private final class HandoffClock { var time: TimeInterval = 0 }
         button.emit("ready", 1); button.emit("button", 1)
         button.emit("closed", 0); button.exit()
     }
+    func profileExport() throws -> (ScanJob,FakeHelper) {
+        settings.value.automaticFeeding=true
+        let p=ScanProfile(name:"Karte");settings.value.profiles=[p];settings.value.activeProfileID=p.id
+        trigger()
+        guard case .feeding(let job) = factory.roles.last else {throw ScanFailure.invalidSettings}
+        let image=try StorageTests(), feed=factory.helpers[1];feed.emit("ready",1)
+        try image.jpeg(job.directory.appendingPathComponent("a.jpg"),width:80,height:40)
+        feed.onEvent?(HelperEvent(event:"page",value:1,file:"a.jpg",sheet:1,side:0))
+        feed.emit("end",0);feed.emit("closed",0);feed.exit()
+        guard case .export = factory.roles.last,let worker=factory.helpers.last else {throw ScanFailure.invalidSettings}
+        return (job,worker)
+    }
     deinit { try? FileManager.default.removeItem(at: root) }
 }
 @Suite @MainActor struct HandoffTests {
+    @Test func parentLossDuringFinalExportCannotPublishOrRemoveOriginals() throws {
+        let f=try HandoffFixture();let (job,_)=try f.profileExport()
+        var alive=true,clock:Double=0,exportChecks=0
+        let status=ExportWorkerMain.run(["app","--export-worker",f.storage.root.path,job.id.uuidString,String(getppid())],emit:{event in
+            if event.event == "checkpoint",event.value == 2 {exportChecks += 1;if exportChecks == 3 {alive=false}}
+        },parentAlive:{alive},now:{clock += 2;return clock})
+        #expect(status == 1 && exportChecks == 3)
+        #expect(try FileManager.default.contentsOfDirectory(atPath:job.destination.path).isEmpty)
+        #expect(FileManager.default.fileExists(atPath:job.directory.appendingPathComponent("a.jpg").path))
+        #expect(try f.storage.hasUnfinishedJobs())
+    }
+    @Test func parentLossDuringFinalizationKeepsOriginalsAndPublishedReceiptForRecovery() throws {
+        let f=try HandoffFixture();let (job,_)=try f.profileExport()
+        var alive=true,clock:Double=0,finishChecks=0
+        let status=ExportWorkerMain.run(["app","--export-worker",f.storage.root.path,job.id.uuidString,String(getppid())],emit:{event in
+            if event.event == "checkpoint",event.value == 3 {finishChecks += 1;if finishChecks == 3 {alive=false}}
+        },parentAlive:{alive},now:{clock += 2;return clock})
+        #expect(status == 1 && finishChecks == 3)
+        #expect(try FileManager.default.contentsOfDirectory(atPath:job.destination.path).count == 1)
+        #expect(FileManager.default.fileExists(atPath:job.directory.appendingPathComponent("a.jpg").path))
+        #expect(try f.storage.hasUnfinishedJobs())
+        #expect(try f.storage.export(job:job).count == 1)
+        try f.storage.finish(job:job)
+    }
+    @Test func healthyExportTailLivesBeyondTwentySecondsAndStallsRemainBounded() throws {
+        let f=try HandoffFixture();let (_,worker)=try f.profileExport()
+        worker.emit("processing",1)
+        f.clock.time=21;f.controller.checkDeadline()
+        #expect(!worker.cancelled && f.controller.policy.phase == .scanning)
+        f.clock.time=100;worker.emit("checkpoint",2)
+        f.clock.time=221;f.controller.checkDeadline()
+        #expect(!worker.cancelled && f.controller.busy)
+        f.clock.time=241;f.controller.checkDeadline()
+        #expect(worker.cancelled && f.controller.policy.phase == .error)
+    }
     @Test func cancellingExportAfterScannerReleaseDoesNotInventADeviceReleaseFailure() throws {
         let f = try HandoffFixture(), image = try StorageTests()
         f.settings.value.automaticFeeding=true

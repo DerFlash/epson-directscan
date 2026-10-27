@@ -38,6 +38,7 @@ final class ScanCoordinator {
     private var pauseAfterCollection = false
     private var exportPages = 0
     private var exportProgress = 0
+    private var checkpointStage = 0
     private var pauseAfterExport = false
     private var lastOrientationFallback = false
     private(set) var collectionPages = 0
@@ -51,6 +52,9 @@ final class ScanCoordinator {
     var busy: Bool { policy.phase == .scanning || stopping || releaseFailed }
     var listening: Bool { desiredActive }
     var sessionReleased: Bool { helper == nil && !releaseFailed }
+    // A real supervised timeout must also let a pending quit finish; the
+    // existing recovery memo is retained when release was not confirmed.
+    var canFinishTermination: Bool { helper == nil || releaseFailed }
     init(storage: ScanStorage, diagnostics: Diagnostics, settings: @escaping () -> ScanSettings,
          services: EpsonServices? = nil, makeHelper: ((HelperRole) throws -> NativeHelper)? = nil,
          conflictingApps: @escaping () -> Bool = {
@@ -93,6 +97,7 @@ final class ScanCoordinator {
         feedingReady = false; feedingArmed = false; feedingEnded = false; feedingTransfer = false; idleSince = nil; finishReason = nil; collectionPages = 0; pauseAfterCollection = false
         feedingProgressDeadline = nil
         exportProgress = 0
+        checkpointStage = 0
         process.onEvent = { [weak self, weak process] event in
             guard let self, let process, self.helper === process else { return }
             self.receive(event)
@@ -120,11 +125,17 @@ final class ScanCoordinator {
         }
         guard !stopping, desiredActive else { return }
         switch (role, event.event) {
+        case (.export?, "checkpoint"), (.scan?, "checkpoint"):
+            guard let stage=event.value,(1...3).contains(stage),stage >= checkpointStage,complete == nil else {
+                fail("Ungültige Verarbeitungsmeldung.",code:"processing_checkpoint_invalid");return
+            }
+            checkpointStage=stage;deadline=now()+140
+            if stage >= 2 {update("Scans werden geprüft und gespeichert …")}
         case (.export?, "processing"):
-            guard let value = event.value, value > exportProgress, value <= exportPages, complete == nil else {
+            guard let value = event.value, value > exportProgress, value <= exportPages, complete == nil, checkpointStage <= 1 else {
                 fail("Ungültiger Verarbeitungsfortschritt. Die Originalseiten bleiben erhalten.",code:"processing_progress_invalid");return
             }
-            exportProgress = value;deadline = now()+20
+            exportProgress = value;deadline = now()+140
             update("Ausrichtung wird geprüft · \(value)/\(exportPages) Seiten")
         case (.scan?, "notice"), (.export?, "notice"):
             guard event.value == 1, complete == nil, !lastOrientationFallback else { fail("Ungültiger Ausrichtungshinweis.",code:"processing_notice_invalid");return }
@@ -189,7 +200,7 @@ final class ScanCoordinator {
             }
             files += 1
             if case .scan? = role { imagesSaved += 1 }
-            deadline = now()+20
+            deadline = now()+140
             lastFile = URL(fileURLWithPath: destination, isDirectory: true).appendingPathComponent(name)
             diagnostics.record("output_published", values: ["file": files]); update("\(files) Datei(en) gespeichert – Scan läuft …")
         case (.scan?, "complete"), (.export?, "complete"):

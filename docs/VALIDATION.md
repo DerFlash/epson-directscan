@@ -496,7 +496,7 @@ Local `feat/orientation-scan-profiles`, candidate **0.4.0-beta.1-dev, build 16**
 This is an implementation/software check, not new physical scanner acceptance or
 a publication. The installed app was not replaced or launched by this work.
 
-- 90 native Swift tests pass, including the explicitly enabled production Vision
+- 98 native Swift tests pass, including the explicitly enabled production Vision
   comparison with the private spike inputs; the native Objective-C callback/area
   contract harness also passes. The legacy/distribution suites pass 26 Node and 42
   Python tests. The ad-hoc native app builds and validates its helper compatibility

@@ -18,13 +18,14 @@ enum JPEGInput {
 }
 
 public enum PDFOutput {
-    public static func write(pages: [URL], to output: URL, dpi: Double) throws {
+    public static func write(pages: [URL], to output: URL, dpi: Double, onCheckpoint: () throws -> Void = {}) throws {
         guard !pages.isEmpty, dpi.isFinite, dpi > 0 else { throw ScanFailure.invalidPDF }
         guard let consumer = CGDataConsumer(url: output as CFURL), let context = CGContext(consumer: consumer, mediaBox: nil, nil) else { throw ScanFailure.invalidPDF }
         var geometry: [CGRect] = []
         do {
             for source in pages {
                 try autoreleasepool {
+                    try onCheckpoint()
                     let image = try JPEGInput.decode(source)
                     var box = CGRect(x: 0, y: 0, width: Double(image.width) * 72 / dpi, height: Double(image.height) * 72 / dpi)
                     let data = NSData(bytes: &box, length: MemoryLayout<CGRect>.size)
@@ -32,11 +33,14 @@ public enum PDFOutput {
                     context.draw(image, in: box)
                     context.endPDFPage()
                     geometry.append(box)
+                    try onCheckpoint()
                 }
             }
             context.closePDF()
+            try onCheckpoint()
             guard let document = CGPDFDocument(output as CFURL), document.numberOfPages == pages.count else { throw ScanFailure.invalidPDF }
             for index in geometry.indices {
+                try onCheckpoint()
                 guard let page = document.page(at: index+1) else { throw ScanFailure.invalidPDF }
                 let actual = page.getBoxRect(.mediaBox), expected = geometry[index]
                 // Quartz may return 177.60000000000002 for a written 177.6pt box.

@@ -9,7 +9,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private let menu = NSMenu()
     private var quitting = false
-    private var terminationReplyPending = false
+    private lazy var shutdown = ShutdownFlow(
+        workerRunning:{[weak self] in !(self?.controller.canFinishTermination ?? true)},
+        pause:{[weak self] in self?.controller.pause()},
+        save:{[weak self] in self?.controller.finishCollection(pauseAfter:true)},
+        reply:{[weak self] forced in
+            if forced,self?.controller.sessionReleased == false {self?.diagnostics.record("quit_without_release_services_memo_retained")}
+            NSApp.reply(toApplicationShouldTerminate:true)
+        })
     private var folderPanel: NSOpenPanel?
     private var profilePanel: ProfilePanel?
     private var recoveryProcessing = false
@@ -35,10 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         controller.onChange = { [weak self] in
             guard let self else { return }
             self.refreshIcon()
-            if self.terminationReplyPending && !self.controller.busy {
-                self.terminationReplyPending = false
-                NSApp.reply(toApplicationShouldTerminate: true)
-            }
+            self.shutdown.changed()
         }
     }
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -315,7 +319,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func about() {
         let version = Bundle.main.object(forInfoDictionaryKey: "DirectScanVersion") as? String ?? "Beta"
         let alert = NSAlert(); alert.messageText = "Epson DirectScan " + version
-        alert.informativeText = "Unabhängige Mac-App für ES-C320W über USB. Ein- oder doppelseitig, JPG/PDF und kontinuierlicher Einzug. Die Bildkorrekturen verwenden den installierten Epson-Treiber 6.7.84. Die Drehung benötigt erkennbaren Text und ist bei Spielkarten nicht zuverlässig. Keine Bedienungshilfen, kein Upload. Beta – Hardwaretests siehe Anleitung."
+        alert.informativeText = "Unabhängige Mac-App für ES-C320W über USB. Ein- oder doppelseitig, JPG/PDF und kontinuierlicher Einzug. Scanprofile bieten feste Außenmaße und feste Drehungen oder lokale Texterkennung mit festen Ersatzwerten. Die Erfassung verwendet den installierten Epson-Treiber 6.7.84. Gemeinsame Duplex-Drehung benötigt eine geprüfte Rückseitenzuordnung. Keine Bedienungshilfen, kein Upload. Beta – Hardwaretests siehe Anleitung."
         alert.addButton(withTitle: "OK"); NSApp.activate(ignoringOtherApps: true); alert.runModal()
     }
     private func showError(_ text: String) {
@@ -334,28 +338,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let choice = alert.runModal()
             if choice == .alertThirdButtonReturn { return .terminateCancel }
             if choice == .alertFirstButtonReturn {
-                quitting = true; terminationReplyPending = true
-                controller.finishCollection(pauseAfter: true)
-                DispatchQueue.main.asyncAfter(deadline: .now()+30) { [weak self] in
-                    guard let self, self.terminationReplyPending else { return }
-                    self.terminationReplyPending = false; self.controller.pause()
-                    NSApp.reply(toApplicationShouldTerminate: true)
-                }
-                return .terminateLater
+                quitting = true
+                return shutdown.requestSave() ? .terminateLater : .terminateNow
             }
         }
-        quitting = true; controller.pause()
-        if controller.busy {
-            terminationReplyPending = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
-                guard let self, self.terminationReplyPending else { return }
-                self.terminationReplyPending = false
-                if !self.controller.sessionReleased { self.diagnostics.record("quit_without_release_services_memo_retained") }
-                NSApp.reply(toApplicationShouldTerminate: true)
-            }
-            return .terminateLater
-        }
-        return .terminateNow
+        quitting = true
+        return shutdown.requestPause() ? .terminateLater : .terminateNow
     }
     func applicationWillTerminate(_ notification: Notification) {
         if controller.sessionReleased { try? controller.mode.restore() }

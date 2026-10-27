@@ -48,6 +48,11 @@ enum ScanWorkerMain {
             let controller = ScannerController(storage: storage, diagnostics: Diagnostics(root: logs),
                 settings: { settings }, services: WorkerServices(), conflictingApps: { false })
             controller.processingCancelled = {cancellation.cancelled || getppid() != parent}
+            var lastCheckpoint = -Double.infinity
+            controller.onProcessingCheckpoint = {
+                let time=ProcessInfo.processInfo.systemUptime
+                if time-lastCheckpoint >= 1 {lastCheckpoint=time;emit(HelperEvent(event:"checkpoint",value:2))}
+            }
             var outcome: Int?
             var sentFiles = 0
             var sentNotice = false

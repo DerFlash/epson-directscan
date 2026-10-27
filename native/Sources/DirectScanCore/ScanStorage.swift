@@ -134,26 +134,29 @@ public final class ScanStorage {
         manifest.endReason = reason; record.manifest = manifest
         try write(record, to: job.directory.appendingPathComponent("job.json"))
     }
-    func fingerprint(_ url: URL) throws -> (UInt64, UInt64, String) {
+    func fingerprint(_ url: URL, isCancelled: () -> Bool = {false}, onCheckpoint: () throws -> Void = {}) throws -> (UInt64, UInt64, String) {
+        try processingCheckpoint(isCancelled,onCheckpoint)
         let attributes = try fm.attributesOfItem(atPath: url.path)
         guard attributes[.type] as? FileAttributeType == .typeRegular else { throw ScanFailure.invalidSource }
         let handle = try FileHandle(forReadingFrom: url); defer { try? handle.close() }
         var hash = SHA256()
-        while let bytes = try handle.read(upToCount: 1024*1024), !bytes.isEmpty { hash.update(data: bytes) }
+        while let bytes = try handle.read(upToCount: 1024*1024), !bytes.isEmpty {
+            try processingCheckpoint(isCancelled,onCheckpoint);hash.update(data: bytes)
+        }
         return ((attributes[.systemFileNumber] as? NSNumber)?.uint64Value ?? 0,
                 (attributes[.systemNumber] as? NSNumber)?.uint64Value ?? 0,
                 hash.finalize().map { String(format: "%02x", $0) }.joined())
     }
-    private func matches(_ url: URL, _ receipt: ExportReceipt) throws -> Bool {
+    private func matches(_ url: URL, _ receipt: ExportReceipt, isCancelled: () -> Bool = {false}, onCheckpoint: () throws -> Void = {}) throws -> Bool {
         guard fm.fileExists(atPath: url.path), url.resolvingSymlinksInPath() == url.standardizedFileURL else { return false }
-        let value = try fingerprint(url)
+        let value = try fingerprint(url,isCancelled:isCancelled,onCheckpoint:onCheckpoint)
         return value.0 == receipt.inode && value.1 == receipt.device && value.2 == receipt.digest
     }
     /// Reentrant export: a receipt identifies the actual renamed inode, including a crash before acknowledgement.
-    public func export(job: ScanJob, allowInterrupted: Bool = false, asCollection: Bool = false, isCancelled: () -> Bool = { false }) throws -> [URL] {
-        try prepareImages(job:job,isCancelled:isCancelled)
+    public func export(job: ScanJob, allowInterrupted: Bool = false, asCollection: Bool = false, isCancelled: () -> Bool = { false }, onCheckpoint: () throws -> Void = {}) throws -> [URL] {
+        try prepareImages(job:job,isCancelled:isCancelled,onCheckpoint:onCheckpoint)
         var record = try record(job)
-        guard let manifest = try checkedProcessing(record,job:job) ?? record.manifest, let reason = manifest.endReason, !manifest.pages.isEmpty,
+        guard let manifest = try checkedProcessing(record,job:job,isCancelled:isCancelled,onCheckpoint:onCheckpoint) ?? record.manifest, let reason = manifest.endReason, !manifest.pages.isEmpty,
               reason != .interrupted || allowInterrupted else { throw ScanFailure.unfinishedPages }
         let existingCollection = (record.receipts ?? []).contains { $0.targetName == job.fileStem + "_Sammlung.pdf" }
         guard !existingCollection || record.collectionExport != false else { throw ScanFailure.invalidSource }
@@ -174,7 +177,7 @@ public final class ScanStorage {
         else { groups = manifest.pages.map { [$0] } }
         var outputs: [URL] = []
         for group in groups {
-            guard !isCancelled() else { throw CocoaError(.userCancelled) }
+            try processingCheckpoint(isCancelled,onCheckpoint)
             let number = String(format: "%04d", group[0].sheet)
             let name: String
             if collection { name = job.fileStem + "_Sammlung.pdf" }
@@ -185,11 +188,11 @@ public final class ScanStorage {
             if let index = (record.receipts ?? []).firstIndex(where: { $0.targetName == name }) {
                 var receipt = record.receipts![index]
                 guard receipt.sources == sources else { throw ScanFailure.invalidSource }
-                if try !matches(target, receipt) {
+                if try !matches(target, receipt,isCancelled:isCancelled,onCheckpoint:onCheckpoint) {
                     guard !receipt.published else { throw ScanFailure.invalidSource }
                     let temp = job.destination.appendingPathComponent(receipt.temporaryName)
-                    guard try matches(temp, receipt) else { throw ScanFailure.unfinishedPages }
-                    guard !isCancelled() else { throw CocoaError(.userCancelled) }
+                    guard try matches(temp, receipt,isCancelled:isCancelled,onCheckpoint:onCheckpoint) else { throw ScanFailure.unfinishedPages }
+                    try processingCheckpoint(isCancelled,onCheckpoint)
                     guard renamex_np(temp.path, target.path, UInt32(RENAME_EXCL)) == 0 else {
                         if errno == EEXIST { throw ScanFailure.collision }
                         throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
@@ -205,21 +208,25 @@ public final class ScanStorage {
                 Darwin.close(descriptor)
                 var journaled = false
                 defer { if !journaled { try? fm.removeItem(at: temporary) } }
-                if pdf { try PDFOutput.write(pages: group.map { job.directory.appendingPathComponent($0.sourceName) }, to: temporary, dpi: 300) }
+                if pdf { try PDFOutput.write(pages: group.map { job.directory.appendingPathComponent($0.sourceName) }, to: temporary, dpi: 300, onCheckpoint:{ try processingCheckpoint(isCancelled,onCheckpoint) }) }
                 else {
                     let source = job.directory.appendingPathComponent(group[0].sourceName)
                     _ = try JPEGInput.decode(source)
-                    try Data(contentsOf: source).write(to: temporary)
+                    let reader=try FileHandle(forReadingFrom:source), writer=try FileHandle(forWritingTo:temporary)
+                    defer {try? reader.close();try? writer.close()}
+                    while let bytes=try reader.read(upToCount:1024*1024),!bytes.isEmpty {
+                        try processingCheckpoint(isCancelled,onCheckpoint);try writer.write(contentsOf:bytes)
+                    }
                 }
                 let handle = try FileHandle(forWritingTo: temporary); try handle.synchronize(); try handle.close()
-                guard !isCancelled() else { throw CocoaError(.userCancelled) }
-                let value = try fingerprint(temporary)
+                try processingCheckpoint(isCancelled,onCheckpoint)
+                let value = try fingerprint(temporary,isCancelled:isCancelled,onCheckpoint:onCheckpoint)
                 guard value.0 != 0 else { throw ScanFailure.invalidSource }
                 var receipt = ExportReceipt(sources: sources, targetName: name, temporaryName: temporary.lastPathComponent,
                     inode: value.0, device: value.1, digest: value.2, published: false)
                 if record.receipts == nil { record.receipts = [] }; record.receipts!.append(receipt)
                 try write(record, to: job.directory.appendingPathComponent("job.json")); journaled = true
-                guard !isCancelled() else { throw CocoaError(.userCancelled) }
+                try processingCheckpoint(isCancelled,onCheckpoint)
                 guard renamex_np(temporary.path, target.path, UInt32(RENAME_EXCL)) == 0 else {
                     if errno == EEXIST { throw ScanFailure.collision }
                     throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
@@ -285,10 +292,11 @@ public final class ScanStorage {
         try write(record, to: job.directory.appendingPathComponent("job.json"))
         return target
     }
-    public func finish(job: ScanJob) throws {
+    public func finish(job: ScanJob, isCancelled: () -> Bool = {false}, onCheckpoint: () throws -> Void = {}) throws {
+        try processingCheckpoint(isCancelled,onCheckpoint)
         let record = try record(job)
         let remaining = try fm.contentsOfDirectory(at: job.directory, includingPropertiesForKeys: nil)
-        if let manifest = try checkedProcessing(record,job:job) ?? record.manifest, !manifest.pages.isEmpty {
+        if let manifest = try checkedProcessing(record,job:job,isCancelled:isCancelled,onCheckpoint:onCheckpoint) ?? record.manifest, !manifest.pages.isEmpty {
             let receipts = record.receipts ?? []
             let names = Set(receipts.flatMap(\.sources))
             guard manifest.endReason != nil, !receipts.isEmpty, receipts.allSatisfy(\.published),
@@ -296,10 +304,11 @@ public final class ScanStorage {
                   remaining.allSatisfy({ $0.lastPathComponent == "job.json" || names.contains($0.lastPathComponent) ||
                       (record.manifest?.pages.map(\.sourceName) ?? []).contains($0.lastPathComponent) ||
                       (record.processingArtifacts ?? []).contains($0.lastPathComponent) }) else { throw ScanFailure.unfinishedPages }
-            for receipt in receipts { guard try matches(job.destination.appendingPathComponent(receipt.targetName), receipt) else { throw ScanFailure.unfinishedPages } }
+            for receipt in receipts { guard try matches(job.destination.appendingPathComponent(receipt.targetName), receipt,isCancelled:isCancelled,onCheckpoint:onCheckpoint) else { throw ScanFailure.unfinishedPages } }
             let directory = root.appendingPathComponent("Receipts", isDirectory: true)
             try fm.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
             try write(record, to: directory.appendingPathComponent(job.id.uuidString + ".json"))
+            try processingCheckpoint(isCancelled,onCheckpoint)
             if manifest.hasIncompleteSheet {
                 // Keep the closed job privately for inspection, including its manifest.
                 // Moving on the same private volume is atomic and retains original bytes.

@@ -4,6 +4,14 @@ import Foundation
 @testable import DirectScanCore
 
 @Suite struct DriverConfigurationTests {
+    @Test func activeProfileRequiresExplicitDisabledCorrectionReadbacks() throws {
+        var s=ScanSettings();var p=ScanProfile(name:"Hülle");p.area=ScanArea(widthMM:76,heightMM:102);p.orientation = .vision
+        s.profiles=[p];s.activeProfileID=p.id
+        for actual in [["VF_DESKEW":1],["VF_DESKEW":1,"VF_AUTOCROP":0],["VF_DESKEW":1,"VF_AUTOROTATE":0]] {
+            #expect(throws:(any Error).self) {try validateDriverCorrections(settings:s,actual:actual)}
+        }
+        try validateDriverCorrections(settings:s,actual:["VF_DESKEW":1,"VF_AUTOCROP":0,"VF_AUTOROTATE":0])
+    }
     @Test func profileDisablesConflictingDriverCorrectionsInBothPayloads() throws {
         var s = ScanSettings();var p = ScanProfile(name:"Hülle")
         p.area = ScanArea(widthMM:76,heightMM:102);p.orientation = .vision

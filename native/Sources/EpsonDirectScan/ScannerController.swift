@@ -5,6 +5,7 @@ import DirectScanCore
 final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDeviceDelegate {
     private(set) var orientationFallback = false
     var processingCancelled: () -> Bool = { false }
+    var onProcessingCheckpoint: () throws -> Void = {}
     let storage: ScanStorage
     let diagnostics: Diagnostics
     let mode: EpsonServices
@@ -310,13 +311,13 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
         }
         do {
             try storage.complete(job: job, reason: .completed)
-            let outputs = try storage.export(job: job,isCancelled:processingCancelled)
+            let outputs = try storage.export(job: job,isCancelled:processingCancelled,onCheckpoint:onProcessingCheckpoint)
             orientationFallback = try !storage.processingNotice(job:job).isEmpty
             for target in outputs {
                 imagesSaved += 1; lastFile = target
                 update("\(imagesSaved) Datei(en) gespeichert")
             }
-            try storage.finish(job: job); self.job = nil; deadline = nil; policy.completed()
+            try storage.finish(job: job,isCancelled:processingCancelled,onCheckpoint:onProcessingCheckpoint); self.job = nil; deadline = nil; policy.completed()
             diagnostics.record("scan_completed", values: ["pages": pages]); update("Bereit – \(outputs.count) Datei(en) gespeichert")
             onScanFinished?(outputs.count)
         } catch { fail(error.localizedDescription, code: "completion_unconfirmed", error: error) }

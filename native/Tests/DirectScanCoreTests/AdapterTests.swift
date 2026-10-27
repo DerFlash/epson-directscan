@@ -25,6 +25,8 @@ private final class FakeDevice: ICScannerDevice {
     override func cancelScan() { cancelRequests += 1 }
 }
 private final class EmptyFeeder: ICScannerFunctionalUnitDocumentFeeder {
+    var features: [ICScannerFeature]?
+    override var vendorFeatures: [ICScannerFeature]? {features}
     var loaded = false
     var dpi: Int = 300
     var color: ICScannerPixelDataType = .RGB
@@ -54,6 +56,9 @@ private final class FakeBrowser: ICDeviceBrowser {
     override func stop() {}
 }
 private final class TestClock { var time: TimeInterval = 0 }
+private final class WrongRotationFeature: ICScannerFeatureEnumeration {
+    override var internalName: String? {"VF_AUTOROTATE"}
+}
 private final class AreaFeeder: ICScannerFunctionalUnitDocumentFeeder {
     var unit: ICScannerMeasurementUnit = .inches
     var rectangle = CGRect.zero
@@ -70,15 +75,17 @@ private final class AreaFeeder: ICScannerFunctionalUnitDocumentFeeder {
     let clock = TestClock()
     let controller: ScannerController
     let storage: ScanStorage
-    init(loaded: Bool = false, duplex: Bool = false) throws {
+    init(loaded: Bool = false, duplex: Bool = false, profile: ScanProfile? = nil, features: [ICScannerFeature]? = nil) throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         storage = try ScanStorage(root: root.appendingPathComponent("private"))
         let out = root.appendingPathComponent("out")
         try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
         let browser = self.browser, services = self.services, clock = self.clock
         browser.device.feeder.loaded = loaded
+        browser.device.feeder.features = features
         var snapshot = ScanSettings(destination: out.path)
         snapshot.duplex = duplex; snapshot.crop = false; snapshot.deskew = false; snapshot.rotate = false
+        if let profile {snapshot.profiles=[profile];snapshot.activeProfileID=profile.id}
         controller = ScannerController(storage: storage, diagnostics: Diagnostics(root: storage.root),
             settings: { snapshot }, services: services,
             makeBrowser: { browser }, conflictingApps: { false }, now: { clock.time })
@@ -90,6 +97,16 @@ private final class AreaFeeder: ICScannerFunctionalUnitDocumentFeeder {
     deinit { try? FileManager.default.removeItem(at: root) }
 }
 @Suite @MainActor struct AdapterTests {
+    @Test func missingOrMistypedRotationFeatureStopsProfileScanBeforeTransport() throws {
+        var profile=ScanProfile(name:"Karte");profile.orientation = .vision
+        let variants: [[ICScannerFeature]?] = [nil,[WrongRotationFeature()]]
+        for features in variants {
+            let f=try AdapterFixture(loaded:true,profile:profile,features:features)
+            f.controller.scannerDevice(f.browser.device,didSelect:f.browser.device.feeder,error:nil)
+            f.controller.scanAuthorized()
+            #expect(!f.browser.device.scanRequested && f.controller.policy.phase == .error)
+        }
+    }
     @Test func fixedAreaUsesConfirmedUnitsAndRejectsDriverChanges() throws {
         var settings=ScanSettings();var p=ScanProfile(name:"Karte");p.area=ScanArea(widthMM:63,heightMM:88)
         settings.profiles=[p];settings.activeProfileID=p.id
