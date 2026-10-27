@@ -33,11 +33,97 @@ on readResource(sourcePath)
 	return read (sourcePath as alias) as «class utf8»
 end readResource
 
+on intervalLabels()
+	return {"0,10 Sekunden", "0,25 Sekunden (empfohlen)", "0,50 Sekunden", "1 Sekunde (bisher)", "2 Sekunden"}
+end intervalLabels
+
+on intervalForLabel(labelValue)
+	set labelsValue to my intervalLabels()
+	set millisecondsValue to {100, 250, 500, 1000, 2000}
+	repeat with i from 1 to count labelsValue
+		if labelValue is item i of labelsValue then return item i of millisecondsValue
+	end repeat
+	return missing value
+end intervalForLabel
+
+on pollingSeconds(cfg)
+	set intervalValue to my getKey(cfg, "pollIntervalMs")
+	if intervalValue is missing value then return 1
+	return (intervalValue as real) / 1000
+end pollingSeconds
+
+on monotonicMilliseconds()
+	return ((current application's NSProcessInfo's processInfo()'s systemUptime()) as real) * 1000
+end monotonicMilliseconds
+
+on elapsedMilliseconds(startValue)
+	set durationValue to (my monotonicMilliseconds()) - startValue
+	if durationValue < 0 then return 0
+	return durationValue
+end elapsedMilliseconds
+
+on recordPollTiming(startValue, settingsDuration, captureDuration, policyDuration, actionDuration, actionKind)
+	-- A diagnostic failure must never interrupt or repeat an acknowledged action.
+	try
+		set sampleValue to {settingsMs:settingsDuration, captureMs:captureDuration, policyMs:policyDuration, actionMs:actionDuration, totalMs:(my elapsedMilliseconds(startValue))}
+		if actionKind is "" then
+			my bridge({op:"recordTiming", sample:sampleValue})
+		else
+			my bridge({op:"recordTiming", sample:sampleValue, actionType:actionKind})
+		end if
+	end try
+end recordPollTiming
+
+on formatTimingSummary(responseValue)
+	if my getKey(responseValue, "timingError") is not missing value then return "Die Zeitmessung konnte nicht gelesen werden. Der Scan-Status wird dadurch nicht geändert."
+	set samplesValue to my getKey(responseValue, "timings")
+	if samplesValue is missing value then return "Keine Zeitmessung vorhanden."
+	set sampleCount to (samplesValue's |count|()) as integer
+	if sampleCount is 0 then return "Keine Zeitmessung vorhanden. Starte einen neuen Scan; gemessen werden nur aktive Speicher-Schritte."
+	set summaryValue to "Letzte aktive Prüfungen (Bearbeitung ohne Warteintervall):"
+	set firstIndex to sampleCount - 6
+	if firstIndex < 0 then set firstIndex to 0
+	repeat with i from firstIndex to sampleCount - 1
+		set sampleValue to samplesValue's objectAtIndex:i
+		set actionValue to my getKey(sampleValue, "actionType")
+		set labelValue to "Ansicht/Dateien prüfen"
+		if actionValue is not missing value then
+			set actionText to actionValue as text
+			if actionText is "openSave" then set labelValue to "Speicherseite öffnen"
+			if actionText is "setDestination" then set labelValue to "Zielordner prüfen"
+			if actionText is "save" then set labelValue to "Speichern"
+		end if
+		set summaryValue to summaryValue & linefeed & linefeed & labelValue & ": " & ((my getKey(sampleValue, "totalMs")) as integer) & " ms gesamt" & linefeed & "Fenster lesen: " & ((my getKey(sampleValue, "captureMs")) as integer) & " ms; Aktion: " & ((my getKey(sampleValue, "actionMs")) as integer) & " ms; Prüfintervall: " & ((my getKey(sampleValue, "intervalMs")) as integer) & " ms"
+	end repeat
+	return summaryValue
+end formatTimingSummary
+
 on isExportField(roleText)
 	-- Supported ScanSmart uses combo boxes for prefix and destination.
 	-- Its page-navigation text field must never become a second prefix.
 	return roleText is "AXComboBox"
 end isExportField
+
+on elementTextData(elementValue, roleText)
+	-- Every remote attribute read costs time. Read only fields used below.
+	set valueText to ""
+	set nameText to ""
+	if roleText is "AXStaticText" or my isExportField(roleText) then
+		tell application "System Events"
+			try
+				set valueText to value of elementValue as text
+			end try
+		end tell
+	end if
+	if roleText is "AXStaticText" or roleText is "AXButton" then
+		tell application "System Events"
+			try
+				set nameText to name of elementValue as text
+			end try
+		end tell
+	end if
+	return {valueText:valueText, nameText:nameText}
+end elementTextData
 
 on isSinglePageView(captionValues, hasPreviewNavigation)
 	return (captionValues contains "In Computereinstellungen speichern") and not hasPreviewNavigation
@@ -154,24 +240,49 @@ on reopen
 end reopen
 
 on idle
+	return my pollOnce()
+end idle
+
+on pollOnce()
+	set nextInterval to 1
+	set workStart to my monotonicMilliseconds()
+	set settingsDuration to 0
+	set captureDuration to 0
+	set policyDuration to 0
+	set actionDuration to 0
+	set actionKind to ""
 	try
 		set beforeState to my bridge({op:"getSettings"})
+		set settingsDuration to my elapsedMilliseconds(workStart)
 		set cfg to my getKey(beforeState, "settings")
 		if cfg is missing value then return 2
 		if not (my getKey(cfg, "enabled") as boolean) then return 2
 		if (my getKey(beforeState, "phase") as text) is "paused" then return 2
+		set nextInterval to my pollingSeconds(cfg)
+		set captureStart to my monotonicMilliseconds()
 		try
 			set captureValue to my readCapture()
 		on error number n
+			set captureDuration to my elapsedMilliseconds(captureStart)
 			set r to my bridge({op:"observationError", errorNumber:n})
 			if (my getKey(r, "phase") as text) is "paused" then display notification "Automatik pausiert. Öffne das App-Symbol für Status und Hilfe." with title "ScanSmart AutoSave Beta"
-			return 1
+			my recordPollTiming(workStart, settingsDuration, captureDuration, policyDuration, actionDuration, actionKind)
+			return nextInterval
 		end try
+		set captureDuration to my elapsedMilliseconds(captureStart)
+		set policyStart to my monotonicMilliseconds()
 		set r to my bridge({op:"tick", snapshot:snapshotData of captureValue})
+		set policyDuration to my elapsedMilliseconds(policyStart)
 		set actionValue to my getKey(r, "action")
 		if actionValue is not missing value then
+			set actionKind to my getKey(actionValue, "type") as text
+			set actionStart to my monotonicMilliseconds()
 			set r to my performAction(actionValue, captureValue)
+			set actionDuration to my elapsedMilliseconds(actionStart)
 		end if
+		set previousPhase to my getKey(beforeState, "phase") as text
+		set currentPhase to my getKey(r, "phase") as text
+		if actionKind is not "" or previousPhase is in {"opening", "setting_destination", "verifying"} or currentPhase is in {"opening", "setting_destination", "verifying", "paused"} then my recordPollTiming(workStart, settingsDuration, captureDuration, policyDuration, actionDuration, actionKind)
 		if (my getKey(r, "phase") as text) is "paused" and (my getKey(beforeState, "phase") as text) is not "paused" then
 			display notification "Automatik pausiert. Öffne das App-Symbol für Status und Hilfe." with title "ScanSmart AutoSave Beta"
 		end if
@@ -180,11 +291,12 @@ on idle
 			set codeValue to "adapter_error"
 			if n is -1743 or n is -25211 then set codeValue to "permission_denied"
 			my bridge({op:"pause", errorCode:codeValue, errorNumber:n})
+			my recordPollTiming(workStart, settingsDuration, captureDuration, policyDuration, actionDuration, actionKind)
 			display notification "Automatik pausiert. Öffne das App-Symbol und prüfe Status und Freigaben." with title "ScanSmart AutoSave Beta"
 		end try
 	end try
-	return 1
-end idle
+	return nextInterval
+end pollOnce
 
 on bridge(requestValue)
 	set resourcePath to (path to me as text) & "Contents:Resources:"
@@ -195,12 +307,22 @@ on settingsMenu()
 	activate
 	try
 		set r to my bridge({op:"getSettings"})
-		set selectionValue to choose from list {"Status anzeigen", "Ablageordner wählen", "Automatik aktivieren", "Automatik pausieren", "Trockenlauf einschalten", "Trockenlauf ausschalten", "Fehler zurücksetzen", "Freigaben öffnen", "Beenden"} with title "ScanSmart AutoSave Beta" with prompt "Einstellungen (Scanauflösung, Seiten und Dateinamen stellst du in ScanSmart ein):" default items {"Status anzeigen"}
+		set selectionValue to choose from list {"Status anzeigen", "Ablageordner wählen", "Prüfintervall wählen", "Zeitmessung anzeigen", "Automatik aktivieren", "Automatik pausieren", "Trockenlauf einschalten", "Trockenlauf ausschalten", "Fehler zurücksetzen", "Freigaben öffnen", "Beenden"} with title "ScanSmart AutoSave Beta" with prompt "Einstellungen (Scanauflösung, Seiten und Dateinamen stellst du in ScanSmart ein):" default items {"Status anzeigen"}
 		if selectionValue is false then return
 		set choiceValue to item 1 of selectionValue
 		if choiceValue is "Ablageordner wählen" then
 			set selectedFolder to choose folder with prompt "JPG-Ablageordner für ScanSmart AutoSave wählen:"
 			set r to my bridge({op:"setSettings", patch:{destination:POSIX path of selectedFolder}})
+		else if choiceValue is "Prüfintervall wählen" then
+			set intervalChoice to choose from list (my intervalLabels()) with title "Prüfintervall" with prompt "Abstand zwischen Prüfungen. Kürzere Intervalle reagieren schneller, benötigen aber mehr Rechenleistung. Die Sicherheitsfristen bleiben unverändert." default items {"0,25 Sekunden (empfohlen)"}
+			if intervalChoice is false then return
+			set selectedInterval to my intervalForLabel(item 1 of intervalChoice)
+			if selectedInterval is missing value then return
+			set r to my bridge({op:"setSettings", patch:{pollIntervalMs:selectedInterval}})
+		else if choiceValue is "Zeitmessung anzeigen" then
+			set timingResponse to my bridge({op:"getTimings"})
+			display dialog (my formatTimingSummary(timingResponse)) with title "ScanSmart Zeitmessung" buttons {"OK"} default button "OK"
+			return
 		else if choiceValue is "Automatik aktivieren" then
 			set r to my bridge({op:"setSettings", patch:{enabled:true}})
 		else if choiceValue is "Automatik pausieren" then
@@ -240,7 +362,11 @@ on showStatus(r)
 	if codeValue is not missing value then set statusText to statusText & linefeed & "Fehlercode: " & (codeValue as text) & linefeed & "Prüfe den Scan und schließe offene Speicher-/Fehlerdialoge selbst. Wähle danach ‚Fehler zurücksetzen‘. Ein unklarer Scan wird nicht erneut gespeichert."
 	set numberValue to my getKey(r, "errorNumber")
 	if codeValue is not missing value and numberValue is not missing value then set statusText to statusText & linefeed & "Technische Fehlernummer: " & (numberValue as text)
-	display dialog "Automatik: " & modeText & linefeed & "Trockenlauf: " & dryText & linefeed & "Ordner: " & folderText & linefeed & linefeed & statusText & linefeed & linefeed & "Nach Aktivieren, Ordnerwechsel oder Zurücksetzen erst einen offenen Scan selbst abschließen oder abbrechen. Danach die nächste Karte am Scanner starten." with title "ScanSmart AutoSave Beta" buttons {"OK"} default button "OK"
+	set intervalText to "Nicht verfügbar"
+	if cfg is not missing value then
+		if my getKey(cfg, "pollIntervalMs") is not missing value then set intervalText to ((my getKey(cfg, "pollIntervalMs")) as integer) & " ms"
+	end if
+	display dialog "Automatik: " & modeText & linefeed & "Trockenlauf: " & dryText & linefeed & "Prüfintervall: " & intervalText & linefeed & "Ordner: " & folderText & linefeed & linefeed & statusText & linefeed & linefeed & "Nach Aktivieren, Ordnerwechsel oder Zurücksetzen erst einen offenen Scan selbst abschließen oder abbrechen. Danach die nächste Karte am Scanner starten." with title "ScanSmart AutoSave Beta" buttons {"OK"} default button "OK"
 end showStatus
 
 on emptyCapture(isBlocked)
@@ -317,14 +443,9 @@ on readCapture()
 	repeat with e in allElements
 		tell application "System Events"
 			set roleText to role of e
-			set valueText to ""
-			set nameText to ""
-			try
-				set valueText to value of e as text
-			end try
-			try
-				set nameText to name of e as text
-			end try
+			set textData to my elementTextData(contents of e, roleText)
+			set valueText to valueText of textData
+			set nameText to nameText of textData
 			if roleText is "AXStaticText" then
 				if valueText is not "" then set end of captionsValue to valueText
 				if nameText is not "" and nameText is not valueText then set end of captionsValue to nameText

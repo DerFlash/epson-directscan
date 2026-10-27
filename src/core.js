@@ -96,6 +96,11 @@ var AutoSaveCore = (function () {
             if(plan.folder!==settings.destination || !st.plan || plan.prefix!==st.plan.prefix || plan.suffix!==st.plan.suffix || plan.count!==st.plan.count){pause('destination_readback');return result();}
             st.plan=plan;st.status='saving';reserve('save',plan);return result();
         }
+        if(plan.folder===settings.destination){
+            // The observed destination is already correct. Reserve Save directly;
+            // canDispatch still rechecks the complete plan and every target path.
+            st.plan=plan;st.phase='setting_destination';st.status='saving';reserve('save',plan);return result();
+        }
         st.plan=plan;st.phase='setting_destination';st.status='setting_destination';reserve('setDestination',plan);return result();
     }
     return {initialState:initialState,step:step,classify:view,metadata:metadata};

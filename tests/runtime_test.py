@@ -2,6 +2,81 @@ import unittest, subprocess, tempfile, pathlib, json, os
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 class Runtime(unittest.TestCase):
+    def test_correct_destination_direct_save_survives_persistence_and_verifies(self):
+        self.call('startup')
+        self.call('setSettings', patch={'destination': self.dest, 'enabled': True})
+        idle = dict(foreground=True, blocked=False, processId=7, noJob=True)
+        self.call('tick', snapshot=idle)
+        view = dict(foreground=True, blocked=False, processId=7, noJob=False,
+                    captions=['In Computereinstellungen speichern', '/ 1'],
+                    fields=[self.dest, 'scan'], suffixLabels=['.jpg'],
+                    saveTargetCount=1, saveEnabled=True)
+        response = self.call('tick', snapshot=view)
+        self.assertEqual(response['action']['type'], 'save')
+        action_id = response['action']['id']
+        self.assertTrue(self.call('canDispatch', snapshot=view, actionId=action_id)['allowed'])
+        self.assertEqual(self.call('reportAction', actionId=action_id, success=True)['phase'], 'verifying')
+        pathlib.Path(self.dest + '/scan.jpg').write_bytes((ROOT / 'tests/fixtures/tiny-white.jpg').read_bytes())
+        self.assertEqual(self.call('tick', snapshot=idle)['phase'], 'verifying')
+        self.assertEqual(self.call('tick', snapshot=idle)['status'], 'saved')
+
+    def test_poll_interval_defaults_and_old_settings_migrate(self):
+        self.assertEqual(self.call('startup')['settings']['pollIntervalMs'], 250)
+        path = pathlib.Path(self.root + '/settings.json')
+        old = json.loads(path.read_text())
+        del old['pollIntervalMs']
+        path.write_text(json.dumps(old))
+        self.assertEqual(self.call('getSettings')['settings']['pollIntervalMs'], 250)
+        self.assertEqual(json.loads(path.read_text())['pollIntervalMs'], 250)
+
+    def test_interval_range_rejection_preserves_configuration(self):
+        self.call('startup')
+        self.assertEqual(self.call('setSettings', patch={'pollIntervalMs': 500})['settings']['pollIntervalMs'], 500)
+        for value in [0, 99, 2001, 1.5, '250', True, None]:
+            with self.subTest(value=value):
+                self.assertEqual(self.call('setSettings', patch={'pollIntervalMs': value})['errorCode'], 'invalid_settings')
+                self.assertEqual(self.call('getSettings')['settings']['pollIntervalMs'], 500)
+
+    def test_interval_change_preserves_pending_action_and_acknowledgment(self):
+        self.call('startup')
+        self.call('setSettings', patch={'destination': self.dest, 'enabled': True})
+        self.call('tick', snapshot={'noJob': True, 'blocked': False})
+        choose = dict(foreground=True, blocked=False, processId=7, captions=['Aktion wählen'], saveTargetCount=1, saveEnabled=True, noJob=False)
+        action = self.call('tick', snapshot=choose)['action']
+        changed = self.call('setSettings', patch={'pollIntervalMs': 100})
+        self.assertEqual(changed['phase'], 'opening')
+        self.assertEqual(json.loads(pathlib.Path(self.root + '/state.json').read_text())['pending']['action']['id'], action['id'])
+        self.assertEqual(self.call('reportAction', actionId=action['id'], success=True)['status'], 'awaiting_transition')
+
+    def test_timing_samples_are_bounded_sanitized_and_private(self):
+        self.call('startup')
+        sample = dict(settingsMs=1, captureMs=20, policyMs=2, actionMs=30, totalMs=60, privatePath='/private/scan.jpg')
+        response = self.call('recordTiming', sample=sample, actionType='save', privateTitle='secret')
+        self.assertTrue(response['ok'])
+        path = pathlib.Path(self.root + '/timings.json')
+        first = json.loads(path.read_text())[0]
+        self.assertEqual(first['captureMs'], 20)
+        self.assertEqual(first['actionType'], 'save')
+        self.assertEqual(first['intervalMs'], 250)
+        self.assertGreater(first['atMs'], 0)
+        self.assertNotIn('private', path.read_text())
+        self.assertNotIn('secret', path.read_text())
+        path.write_text(json.dumps([dict(first, privateTitle='secret')] * 150))
+        self.call('recordTiming', sample=sample, actionType='openSave')
+        self.assertEqual(len(self.call('getTimings')['timings']), 128)
+        self.assertNotIn('secret', path.read_text())
+        self.assertEqual(path.stat().st_mode & 511, 384)
+
+    def test_invalid_or_unwritable_timing_never_resets_scan_state(self):
+        self.call('startup')
+        before = pathlib.Path(self.root + '/state.json').read_text()
+        sample = dict(settingsMs=1, captureMs=2, policyMs=3, actionMs=4, totalMs=10)
+        self.assertEqual(self.call('recordTiming', sample=dict(sample, captureMs=-1), actionType='save')['timingError'], 'invalid_settings')
+        os.mkdir(self.root + '/timings.json')
+        self.assertEqual(self.call('recordTiming', sample=sample, actionType='save')['timingError'], 'storage_error')
+        self.assertEqual(pathlib.Path(self.root + '/state.json').read_text(), before)
+        self.assertEqual(self.call('getSettings')['phase'], 'arming')
+
     def test_observation_retry_status_and_error_number_persist_safely(self):
         self.call('startup')
         self.call('setSettings', patch={'destination': self.dest, 'enabled': True})

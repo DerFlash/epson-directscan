@@ -3,7 +3,7 @@ ObjC.import('Foundation');
 ObjC.import('ImageIO');
 ObjC.import('CoreGraphics');
 function handleRequest(request) {
-    var settings={destination:null,enabled:false,dryRun:false}, state=AutoSaveCore.initialState(), storageReady=false;
+    var settings={destination:null,enabled:false,dryRun:false,pollIntervalMs:250}, state=AutoSaveCore.initialState(), storageReady=false;
     try {
         var r=typeof request==='string'?JSON.parse(request):request;
         var fm=$.NSFileManager.defaultManager;
@@ -22,6 +22,9 @@ function handleRequest(request) {
         var logs=cleanLogs();write('events.json',logs);
         settings=read('settings.json',settings);state=read('state.json',state);
         if(!settings || typeof settings.enabled!=='boolean' || typeof settings.dryRun!=='boolean' || !(settings.destination===null || typeof settings.destination==='string'))throw Error('storage_error');
+        function validInterval(value){return Number.isInteger(value)&&value>=100&&value<=2000;}
+        if(settings.pollIntervalMs===undefined)settings.pollIntervalMs=250;
+        if(!validInterval(settings.pollIntervalMs))throw Error('storage_error');
         if(!state || ['arming','ready','opening','setting_destination','verifying','paused'].indexOf(state.phase)<0)throw Error('storage_error');
         function validPlan(p){try{if(!p || !Array.isArray(p.paths))return false;var expected=AutoSaveCore.metadata({captions:['/ '+p.count],fields:[p.folder,p.prefix],suffixLabels:[p.suffix]},settings.destination);return JSON.stringify(expected)===JSON.stringify(p);}catch(e){return false;}}
         if(!Number.isSafeInteger(state.sequence)||state.sequence<0 || codes.indexOf(state.status)<0 || !(state.errorCode===null||codes.indexOf(state.errorCode)>=0))throw Error('storage_error');
@@ -33,12 +36,18 @@ function handleRequest(request) {
         function normalized(d){if(typeof d!=='string'||d[0]!=='/'||d.indexOf('\x00')>=0)throw Error('invalid_destination');return ObjC.unwrap($(d).stringByStandardizingPath).replace(/\/$/,'')||'/';}
         function validDestination(d){return typeof d==='string' && d[0]==='/' && d.indexOf('\x00')<0 && directory(d) && fm.isWritableFileAtPath($(d));}
         var op=r.op||r.type;
-        if(['startup','getSettings','setSettings','reset','tick','canDispatch','reportAction','pause','observationError'].indexOf(op)<0)throw Error('unknown_request');
+        if(['startup','getSettings','setSettings','reset','tick','canDispatch','reportAction','pause','observationError','recordTiming','getTimings'].indexOf(op)<0)throw Error('unknown_request');
         if(op==='setSettings'){
             var patch=r.patch||{}, next=JSON.parse(JSON.stringify(settings));
-            Object.keys(patch).forEach(function(k){if(['destination','enabled','dryRun'].indexOf(k)<0)throw Error('invalid_settings');if(k==='destination'){if(patch[k]!==null&&!validDestination(patch[k]))throw Error('invalid_destination');}else if(typeof patch[k]!=='boolean')throw Error('invalid_settings');next[k]=k==='destination'&&patch[k]!==null?normalized(patch[k]):patch[k];});
+            Object.keys(patch).forEach(function(k){if(['destination','enabled','dryRun','pollIntervalMs'].indexOf(k)<0)throw Error('invalid_settings');if(k==='destination'){if(patch[k]!==null&&!validDestination(patch[k]))throw Error('invalid_destination');}else if(k==='pollIntervalMs'){if(!validInterval(patch[k]))throw Error('invalid_settings');}else if(typeof patch[k]!=='boolean')throw Error('invalid_settings');next[k]=k==='destination'&&patch[k]!==null?normalized(patch[k]):patch[k];});
             if(next.enabled&&!validDestination(next.destination))throw Error('invalid_destination');
-            if(JSON.stringify(next)!==JSON.stringify(settings)){state=AutoSaveCore.initialState();write('state.json',state);settings=next;write('settings.json',settings);}
+            if(JSON.stringify(next)!==JSON.stringify(settings)){
+                // Timing-only changes cannot discard a persisted action reservation.
+                if(['destination','enabled','dryRun'].some(function(k){return next[k]!==settings[k];})){
+                    state=AutoSaveCore.initialState();write('state.json',state);
+                }
+                settings=next;write('settings.json',settings);
+            }
         }
         if(settings.enabled&&!validDestination(settings.destination))throw Error('invalid_destination');
         function inspect(path) {
@@ -87,6 +96,36 @@ function handleRequest(request) {
         write('settings.json',settings);write('state.json',result.state);
         if(state.status!==result.state.status || state.errorCode!==result.state.errorCode){
             var lines=logs;lines.push({code:result.state.status,phase:result.state.phase});if(lines.length>128)lines=lines.slice(-128);write('events.json',lines);
+        }
+        if(op==='recordTiming'||op==='getTimings'){
+            // Diagnostics never own transaction state. Keep only enums and bounded numbers.
+            try {
+                function cleanTiming(value){
+                    if(!value||phases.indexOf(value.phase)<0||codes.indexOf(value.status)<0||
+                       !Number.isFinite(value.atMs)||value.atMs<=0||!validInterval(value.intervalMs)||
+                       [null,'openSave','setDestination','save'].indexOf(value.actionType)<0)throw Error('invalid_settings');
+                    var out={atMs:value.atMs,phase:value.phase,status:value.status,actionType:value.actionType,intervalMs:value.intervalMs};
+                    ['settingsMs','captureMs','policyMs','actionMs','totalMs'].forEach(function(k){
+                        if(!Number.isFinite(value[k])||value[k]<0||value[k]>600000)throw Error('invalid_settings');
+                        out[k]=Math.round(value[k]*1000)/1000;
+                    });
+                    return out;
+                }
+                var samples=read('timings.json',[]);
+                if(!Array.isArray(samples))throw Error('storage_error');
+                samples=samples.slice(-128).map(function(value){try{return cleanTiming(value);}catch(e){return null;}}).filter(function(value){return value!==null;});
+                if(op==='recordTiming'){
+                    var sample=r.sample||{};
+                    var entry={atMs:Number($.NSDate.date.timeIntervalSince1970)*1000,phase:result.state.phase,status:result.state.status,
+                               actionType:r.actionType===undefined?null:r.actionType,intervalMs:settings.pollIntervalMs};
+                    ['settingsMs','captureMs','policyMs','actionMs','totalMs'].forEach(function(k){entry[k]=sample[k];});
+                    samples.push(cleanTiming(entry));samples=samples.slice(-128);
+                }
+                write('timings.json',samples);
+                result.response.timings=samples;
+            } catch(timingError){
+                result.response.timingError=timingError.message==='invalid_settings'?'invalid_settings':'storage_error';
+            }
         }
         return JSON.stringify(result.response);
     } catch(e) {

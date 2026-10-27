@@ -17,6 +17,74 @@ def apple(probe):
 
 
 class AdapterTests(unittest.TestCase):
+    def test_capture_reads_only_text_attributes_consumed_by_each_role(self):
+        # Local script properties use System Events' vocabulary; no app UI is read.
+        element = '''using terms from application "System Events"
+        script fakeElement
+            property value : "/target"
+            property name : "Speichern"
+        end script
+        end using terms from
+        '''
+        for role, expected in [
+            ('AXStaticText', {'valueText': '/target', 'nameText': 'Speichern'}),
+            ('AXButton', {'valueText': '', 'nameText': 'Speichern'}),
+            ('AXComboBox', {'valueText': '/target', 'nameText': ''}),
+            ('AXGroup', {'valueText': '', 'nameText': ''}),
+            ('AXImage', {'valueText': '', 'nameText': ''}),
+            ('AXTextField', {'valueText': '', 'nameText': ''}),
+        ]:
+            with self.subTest(role=role):
+                result = json.loads(apple(element + 'return jsonText(elementTextData(fakeElement, "' + role + '"))'))
+                self.assertEqual(result, expected)
+
+    def test_interval_labels_resolve_to_validated_milliseconds(self):
+        self.assertEqual(apple('return intervalForLabel("0,25 Sekunden (empfohlen)")'), '250')
+        self.assertEqual(apple('return intervalForLabel("1 Sekunde (bisher)")'), '1000')
+        self.assertEqual(apple('return intervalForLabel("unbekannt") is missing value'), 'true')
+
+    def test_timing_summary_handles_empty_and_real_numeric_records(self):
+        self.assertIn('Keine', apple('return formatTimingSummary(decodeJSON("{\\"timings\\":[]}"))'))
+        payload = json.dumps({'timings': [{'phase': 'verifying', 'status': 'verifying_files', 'actionType': 'save', 'totalMs': 120, 'captureMs': 20, 'actionMs': 70, 'intervalMs': 250}]})
+        literal = '"' + payload.replace('\\', '\\\\').replace('"', '\\"') + '"'
+        result = apple('return formatTimingSummary(decodeJSON(' + literal + '))')
+        for text in ['Speichern', '120', '20', '70', '250']:
+            self.assertIn(text, result)
+
+    def test_compiled_idle_uses_interval_and_records_only_active_work(self):
+        # Substitute only GUI/runtime I/O; execute the production idle orchestration.
+        source = (ROOT / 'src/helper.applescript').read_text()
+        def replace_handler(text, name, body):
+            start = text.index('on ' + name + '(')
+            end = text.index('end ' + name, start) + len('end ' + name)
+            return text[:start] + body + text[end:]
+        for interval, active in [(250, False), (1000, False), (100, True)]:
+            with self.subTest(interval=interval, active=active):
+                before = json.dumps(dict(ok=True, settings=dict(enabled=True, pollIntervalMs=interval), phase='ready', status='ready'))
+                after = json.dumps(dict(ok=True, phase='opening' if active else 'ready', status='awaiting_transition' if active else 'ready', **({'action': dict(id='test-1', type='openSave')} if active else {})))
+                def lit(value):
+                    return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
+                fake_bridge = '''on bridge(requestValue)
+                    if op of requestValue is "getSettings" then return my decodeJSON(BEFORE)
+                    if op of requestValue is "tick" then return my decodeJSON(AFTER)
+                    if op of requestValue is "recordTiming" then set end of timingCalls to requestValue
+                    return my decodeJSON(AFTER)
+                end bridge'''.replace('BEFORE', lit(before)).replace('AFTER', lit(after))
+                probe = replace_handler(source, 'bridge', fake_bridge)
+                probe = replace_handler(probe, 'readCapture', 'on readCapture()\nreturn {snapshotData:{}}\nend readCapture')
+                probe = replace_handler(probe, 'performAction', 'on performAction(actionValue, captureValue)\nreturn my decodeJSON(' + lit(after) + ')\nend performAction')
+                command = ('script controller\nproperty timingCalls : {}\n' + probe + '\nend script\n'
+                    + 'set intervalSeconds to controller\'s pollOnce()\n'
+                    + 'return controller\'s jsonText({intervalOutput:intervalSeconds, samples:controller\'s timingCalls})')
+                result = subprocess.run(['osascript', '-e', command], text=True, capture_output=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                value = json.loads(result.stdout)
+                self.assertEqual(value['intervalOutput'], interval / 1000)
+                self.assertEqual(len(value['samples']), 1 if active else 0)
+                if active:
+                    self.assertEqual(value['samples'][0]['actionType'], 'openSave')
+                    self.assertGreaterEqual(value['samples'][0]['sample']['totalMs'], 0)
+
     def test_single_page_marker_excludes_navigation_and_other_views(self):
         self.assertEqual(apple('return isSinglePageView({"In Computereinstellungen speichern"}, false)'), 'true')
         self.assertEqual(apple('return isSinglePageView({"In Computereinstellungen speichern"}, true)'), 'false')

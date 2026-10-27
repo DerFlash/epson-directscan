@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Epson DirectScan Beta</string>
+	<key>CFBundleExecutable</key>
+	<string>EpsonDirectScan</string>
+	<key>CFBundleIdentifier</key>
+	<string>org.scansmart.directscan.beta</string>
+	<key>CFBundleName</key>
+	<string>Epson DirectScan Beta</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.3.0</string>
+	<key>CFBundleVersion</key>
+	<string>14</string>
+	<key>DirectScanVersion</key>
+	<string>0.3.0-beta.1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>JPG- und PDF-Scans im von dir gewählten Ablageordner speichern.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+</dict>
+</plist>
