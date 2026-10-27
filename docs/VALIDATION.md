@@ -268,3 +268,15 @@ open, and the reviewer reported no Minor findings to defer.
 Automatic login registration was deliberately left unchanged, as allowed by the
 approved design. The branch and checkout are retained locally at the user's
 request; no native release, merge or publication is part of this completion.
+
+
+### macOS login registration — 2026-10-27 follow-up
+
+At the user's request, the installed `~/Applications/Epson DirectScan Beta.app`
+was added through macOS General → Login Items → Open at Login. The old ScanSmart
+AutoSave Beta entry was removed from that list to prevent competing startup.
+The final UI list was read back and showed DirectScan present and the old helper
+absent. Existing takeover acknowledgement=true and paused=false were verified;
+the running native app remained Ready/listening with the normal destination.
+This verifies the saved login configuration, not an actual logout/login cycle.
+No source behavior or installed app binary changed for this setup.
