@@ -98,6 +98,53 @@ ersetzt. Nicht mehrere Scan-Apps gleichzeitig verwenden.
 
 ## Einstellungen
 
+### Neue Scanprofile in der Entwicklungsfassung 0.4.0-beta.1-dev
+
+Diese Erweiterung ist noch nicht veröffentlicht oder am Gerät abgenommen. Die
+folgenden Punkte gehören zur lokalen Entwicklungsfassung; der bisherige
+Beta2-Download enthält sie noch nicht.
+
+Unter **Scanprofile bearbeiten …** lassen sich Profile anlegen und anschließend
+im Menü **Scanprofil** wählen. „Bisherige Einstellungen“ verwendet weiterhin die
+vorherigen Korrekturschalter. Bei der Übernahme wird kein neues Profil automatisch
+aktiviert; Schema 1/2 wird mit einer unveränderten privaten Sicherung übernommen.
+
+- **Feste Außenmaße:** Breite quer zum Einzug und Höhe in Einzugsrichtung in
+  Millimetern, also vor einer Drehung. Dezimalkomma und Dezimalpunkt sind möglich.
+  Die Fläche wird mittig erfasst; der automatische Randzuschnitt ist dabei aus.
+  Für einen Toploader sind dessen komplette Außenmaße anzugeben. Der transparente
+  Rand bleibt Bestandteil des angeforderten Scanbereichs. Das innere Kartenmotiv
+  wird nicht ausgeschnitten und das Bild wird nicht auf andere Proportionen gedehnt.
+- Das Kartenprofil beginnt mit bearbeitbaren 63 × 88 mm. Für Toploader gibt es keine
+  angenommenen Universalmaße. In dieser Fassung gelten 50,8–215,9 mm Breite und
+  50,8–297 mm Höhe, zusätzlich die tatsächlichen engeren Treibergrenzen.
+- **Feste Drehung:** 0/90/180/270° im Uhrzeigersinn, getrennt für die beiden
+  Scannerseiten. „Vorne“ und „hinten“ beschreiben die Scannerseite und Dateireihenfolge,
+  nicht eine neu erkannte inhaltliche Kartenvorderseite.
+- **Automatisch – macOS:** lokale schnelle Texterkennung auf verkleinerten
+  Analysekopien. Die gespeicherten Bilder behalten ihre volle Auflösung. Bei Duplex
+  werden beide Seiten eines Blatts gemeinsam beurteilt; die lesbare Fläche darf
+  auf jeder Scannerseite liegen. Unklare oder widersprüchliche Ergebnisse verwenden
+  die festen Ersatzdrehungen und hinterlassen einen Hinweis, keinen Gerätefehler.
+- **Vor dem gemeinsamen Duplex-Betrieb muss die Rückseitenlage für jeden der beiden
+  Scanwege am Epson nachgewiesen werden.** Bis dahin gelten die festen Ersatzwerte;
+  das Profilfenster zeigt dies an. Es wird keine ungeprüfte Zuordnung geraten.
+- **Automatisch – Epson (bisher)** bleibt verfügbar. Die neue feste/macOS-Drehung
+  schaltet Epsons automatische Drehung aus, damit das Bild nicht doppelt gedreht wird.
+
+Feste Breite mit automatisch erkannter Höhe ist noch nicht freigegeben. Insbesondere
+die transparente Endkante einer Hülle ist nicht durch den inneren Kartenrand ersetzbar.
+Die vollständigen Außenränder und Zentrierung sowie die Schräglagenkorrektur bei festen
+Formaten sind noch physisch zu prüfen. Eine Größenvorgabe ändert nicht die mechanischen
+Einzugsgrenzen des Geräts.
+
+Empfangene Originalseiten bleiben bis zum geprüften Export erhalten. Gedrehte Kopien
+und ihre Verarbeitung werden getrennt protokolliert; eine Wiederholung dreht nicht
+noch einmal das bereits verarbeitete Bild. Kartenbilder und erkannte Texte werden
+für diese Funktion nicht hochgeladen und nicht in normale Diagnoseprotokolle geschrieben.
+
+### Bisherige Einstellungen
+
 Das Menü am Scannersymbol und **Einstellungen …** in der Statusansicht bieten:
 
 - Ablageordner wählen oder öffnen;
@@ -117,7 +164,7 @@ Karte enthalten zuerst die Vorder-, dann die Rückseite. Ein Stapel erzeugt je
 Karte ein PDF. Zeitstempel und UUID verhindern Namenskollisionen; eine vorhandene
 Datei wird niemals ersetzt.
 
-Die automatische Drehung verwendet Epsons Texterkennung zur Orientierung.
+Die bisherige automatische Drehung verwendet Epsons Texterkennung zur Orientierung.
 Sie ist **bei farbigen Spielkarten und Kartenrückseiten nicht zuverlässig**:
 Die Testkarte wurde trotz aktivierter Erkennung teilweise auf dem Kopf belassen.
 Es gibt keine feste Ausrichtungsgarantie. Bei der Testkarte wirkten Bilder im

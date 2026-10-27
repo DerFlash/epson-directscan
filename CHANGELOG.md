@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.0-beta.1-dev — unreleased
+
+- Add editable scan profiles with complete physical outside dimensions in mm,
+  centered capture areas and fixed clockwise rotations for each scanner side.
+  Fixed areas disable automatic cropping, retaining transparent holder margins.
+- Add local Apple Vision fast orientation scoring with conservative fixed fallback.
+  Joint duplex inference can use either readable face; it stays gated on a
+  hardware-verified side mapping for each capture path. No such calibration is
+  claimed by this software-only implementation. Width with automatic height also
+  remains explicitly unavailable pending device verification.
+- Preserve original page bytes; journal processed copies before atomic export so
+  retries cannot apply a rotation twice. Keep collection processing outside the
+  menu UI, honor cancellation before publication and retain recoverable originals.
+- Migrate schema1/2 settings with exact private backups and retain previous active
+  behavior. Add regression coverage for pairing, physical geometry, image metadata,
+  retry, corrupt references and cancellation. Existing ad-hoc distribution policy
+  and driver requirements apply; this development candidate is not published.
+
 ## 0.3.0-beta.2 — 2026-10-27
 
 - Rename the repository to `DerFlash/epson-directscan`, retaining issues,

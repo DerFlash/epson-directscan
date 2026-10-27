@@ -489,3 +489,46 @@ or forced mid-image hardware cancellation was performed; retention/error cases
 are covered by regression tests. Prior image-quality limits and other unverified
 native-device cases remain as documented above. The source branch remains local;
 GitHub issue #3 records the result and stays open pending publication/integration.
+
+### Orientation and outside-dimension profiles — 2026-10-27 software acceptance
+
+Local `feat/orientation-scan-profiles`, candidate **0.4.0-beta.1-dev, build 16**.
+This is an implementation/software check, not new physical scanner acceptance or
+a publication. The installed app was not replaced or launched by this work.
+
+- 90 native Swift tests pass, including the explicitly enabled production Vision
+  comparison with the private spike inputs; the native Objective-C callback/area
+  contract harness also passes. The legacy/distribution suites pass 26 Node and 42
+  Python tests. The ad-hoc native app builds and validates its helper compatibility
+  without opening a device.
+- Schema 1/2 exact-byte backups, preserved previous active settings, selected-profile
+  round-trip, invalid dimensions/IDs, confirmed units and rejected area readback,
+  explicit 300dpi pixel conversion and centering are covered by software tests.
+- Pixel marker tests verify clockwise 90/180/270 output, swapped dimensions,300dpi,
+  normal/omitted-normal EXIF, no-op byte preservation and no overwrite. Processed
+  export retry does not rotate again; changed original bytes are rejected. A crash
+  during preparation retains owned partial copies and all captured originals.
+- Joint scoring handles either readable scanner side, both geometric signs/offsets,
+  conflicting strong evidence, ties and missing calibration. An uncalibrated pair
+  uses both fixed values with a notice and does not waste time on OCR.
+- A real private comparison with two distinct card fronts in four digital rotations
+  reproduced 8/8 correct front decisions using the product analyzer. Four back-only
+  variants remained undecided. This small sample is not a general accuracy estimate.
+  Accurate Vision mode still has the separately documented host backend failure;
+  only fast mode is used. No real card image or recognized text was added to Git.
+- Collection processing starts only after capture close/exit, in an isolated
+  exporter. Malformed progress is rejected; cancellation preserves pending pages
+  and cannot trigger a replay. Terminating an exporter after confirmed capture
+  closure does not invent a scanner-release failure. ICA processing checks a
+  thread-safe cancellation flag before publication; manual recovery runs off the UI.
+- The native profile panel was opened in a separate preview using synthetic holder
+  dimensions, with no capture logic or real app settings access. Layout, visible
+  controls and missing-height validation were inspected; the preview was closed.
+
+**Still required on the real ES-C320W/driver 6.7.84:** derive and confirm ICA and
+direct-feeding duplex mappings independently with driver autorotation off, including
+a 90-degree case and swapped card faces. No hardware mapping has been fabricated;
+without one the app explicitly uses fixed fallback. Also verify the entire outer
+holder margins, centering and deskew interaction for fixed dimensions. Width with
+automatic height remains unavailable until its own driver test passes. These gates
+must not be counted as completed by the software tests or synthetic pair algebra.
