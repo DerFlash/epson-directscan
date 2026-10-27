@@ -279,7 +279,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
     @objc private func about() {
-        let alert = NSAlert(); alert.messageText = "Epson DirectScan 0.2 Beta"
+        let version = Bundle.main.object(forInfoDictionaryKey: "DirectScanVersion") as? String ?? "Beta"
+        let alert = NSAlert(); alert.messageText = "Epson DirectScan " + version
         alert.informativeText = "Unabhängige Mac-App für ES-C320W über USB. Ein- oder doppelseitig, JPG/PDF und kontinuierlicher Einzug. Die Bildkorrekturen verwenden den installierten Epson-Treiber 6.7.84. Die Drehung benötigt erkennbaren Text und ist bei Spielkarten nicht zuverlässig. Keine Bedienungshilfen, kein Upload. Beta – Hardwaretests siehe Anleitung."
         alert.addButton(withTitle: "OK"); NSApp.activate(ignoringOtherApps: true); alert.runModal()
     }

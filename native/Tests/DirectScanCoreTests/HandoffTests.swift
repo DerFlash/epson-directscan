@@ -158,6 +158,16 @@ private final class HandoffClock { var time: TimeInterval = 0 }
         #expect(try !f.storage.hasUnfinishedJobs())
         #expect(f.factory.roles.count == 2)
     }
+    @Test func quitCanJoinAnAlreadyFinishingCollectionWithoutRearming() throws {
+        let f = try HandoffFixture(); f.settings.value.automaticFeeding = true; f.settings.value.feedingTimeoutSeconds = 30; f.trigger()
+        let worker = f.factory.helpers[1]; worker.emit("ready", 1)
+        f.clock.time = 30; f.controller.checkDeadline()
+        #expect(worker.finishRequested)
+        f.controller.finishCollection(pauseAfter: true)
+        worker.emit("end", 0); worker.emit("closed", 0); worker.exit()
+        #expect(f.factory.roles.count == 2)
+        #expect(!f.controller.listening && f.controller.sessionReleased && !f.services.paused)
+    }
     @Test func buttonAfterCloseIsNeverTreatedAsANewPhysicalTrigger() throws {
         let f = try HandoffFixture()
         f.button.emit("ready", 1); f.button.emit("closed", 0)

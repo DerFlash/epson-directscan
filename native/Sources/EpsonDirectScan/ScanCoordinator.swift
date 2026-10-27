@@ -226,8 +226,10 @@ final class ScanCoordinator {
         else { restoreServices() }
     }
     func finishCollection(pauseAfter: Bool = false) {
-        guard collecting, feedingReady, !feedingEnded, finishReason == nil else { return }
-        finishReason = .stop; pauseAfterCollection = pauseAfter; idleSince = nil; deadline = now() + 20
+        guard collecting, feedingReady else { return }
+        pauseAfterCollection = pauseAfterCollection || pauseAfter
+        guard !feedingEnded, finishReason == nil else { return }
+        finishReason = .stop; idleSince = nil; deadline = now() + 20
         helper?.finish(); update("Sammlung wird beendet …")
     }
     func recover() {
