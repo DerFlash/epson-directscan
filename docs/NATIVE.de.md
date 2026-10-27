@@ -96,6 +96,23 @@ kompatiblen Modul wird keine unbemerkte Ersatzkorrektur verwendet.
 
 ### Kontinuierlicher Einzug
 
+**Einzug ohne Fortschritt / Stop:** Liefert ein gestarteter Scan 15 Sekunden lang
+keine weitere vollständige Bildseite, fordert die App einen Abbruch an. Im
+kontinuierlichen Modus gilt das nur während eines aktiven Einzugs, nicht beim
+Warten auf weitere Karten. Für die Abbruchbestätigung bleiben 12 Sekunden;
+antwortet der Treiber nicht, bleibt ein sichtbarer Fehler bestehen.
+
+Ein Abschluss ohne Bildseiten (z. B. Stop nach erfolglosem Einzug) zeigt nach
+bestätigter Scanner-Freigabe einen Hinweis wie „Keine Seite gescannt – Vorlage
+und Einzug prüfen“. Danach ist die App für einen neuen Druck auf die Epson-Taste
+bereit. Sie wiederholt den Scan nicht selbst. Ein leerer Auftrag wird nur
+entfernt, wenn tatsächlich keine Bild-/Teildateien vorhanden sind. Bereits
+vorhandene Daten und echte Gerätefehler werden weiterhin zur Prüfung behalten.
+Im kontinuierlichen Modus werden bereits vollständig übernommene Seiten nach
+bestätigtem Abschluss als Sammlungs-PDF gesichert; unvollständige Karten bleiben
+gekennzeichnet. Bitte eine nicht einziehbare Vorlage vor dem nächsten Start
+entnehmen bzw. neu einlegen.
+
 1. Im Leerlauf **Kontinuierlicher Scan (Sammlungs-PDF)** einschalten und die
    gewünschte Wartezeit wählen (Standard 120 Sekunden). Der normale JPG/PDF-Wert
    bleibt gespeichert und gilt nach dem Ausschalten wieder.

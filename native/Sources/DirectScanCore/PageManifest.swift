@@ -1,7 +1,7 @@
 import Foundation
 
 public enum PageSide: String, Codable { case front, back }
-public enum JobEndReason: String, Codable { case completed, stop, idleTimeout, interrupted }
+public enum JobEndReason: String, Codable { case completed, stop, idleTimeout, interrupted, noProgress }
 public struct ValidatedPage: Codable, Equatable {
     public let index: Int
     public let sheet: Int

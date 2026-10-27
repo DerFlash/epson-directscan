@@ -61,6 +61,65 @@ private final class HandoffClock { var time: TimeInterval = 0 }
     deinit { try? FileManager.default.removeItem(at: root) }
 }
 @Suite @MainActor struct HandoffTests {
+    @Test func emptyScanNoticeSurvivesRearmAndNeedsCloseAndExit() throws {
+        let f = try HandoffFixture(); f.trigger()
+        let worker = f.factory.helpers[1]
+        worker.emit("empty", 2) // no progress
+        #expect(f.factory.roles.count == 2)
+        worker.emit("closed", 0); #expect(f.factory.roles.count == 2)
+        worker.exit()
+        #expect(f.factory.roles.count == 3)
+        f.factory.helpers[2].emit("ready", 1)
+        #expect(f.controller.policy.phase == .ready && f.controller.listening)
+        #expect(f.controller.message.contains("Einzug") && f.controller.message.contains("prüfen"))
+        #expect(f.controller.imagesSaved == 0)
+    }
+    @Test func invalidEmptyReasonOrExitCannotRearm() throws {
+        for (reason, exit) in [(99, Int32(0)), (2, Int32(1))] {
+            let f = try HandoffFixture(); f.trigger()
+            let worker = f.factory.helpers[1]; worker.emit("empty", reason)
+            worker.emit("closed", 0); worker.exit(exit)
+            #expect(f.controller.policy.phase == .error)
+            #expect(f.factory.roles.count == 2)
+        }
+    }
+    @Test func outputAfterEmptyCompletionCannotTurnItIntoASuccess() throws {
+        let f = try HandoffFixture(); f.trigger()
+        let worker = f.factory.helpers[1]
+        worker.emit("empty", 1); worker.emit("file", 1, file: "unexpected.jpg")
+        worker.emit("complete", 1); worker.emit("closed", 0); worker.exit()
+        #expect(f.controller.policy.phase == .error)
+        #expect(f.factory.roles.count == 2)
+        #expect(f.controller.imagesSaved == 0)
+    }
+    @Test func feedingStallFinishesWithoutAffectingUnlimitedPaperWaiting() throws {
+        let f = try HandoffFixture(); f.settings.value.automaticFeeding = true
+        f.settings.value.feedingTimeoutSeconds = 0
+        f.trigger(); let worker = f.factory.helpers[1]; worker.emit("ready", 1)
+        f.clock.time = 1000; f.controller.checkDeadline(); #expect(!worker.finishRequested)
+        worker.emit("batchBegin", 1)
+        f.clock.time = 1014; f.controller.checkDeadline(); #expect(!worker.finishRequested)
+        f.clock.time = 1015; f.controller.checkDeadline(); #expect(worker.finishRequested && !worker.cancelled)
+        worker.emit("batchEnd", 1); worker.emit("end", 0); worker.emit("closed", 0); worker.exit()
+        f.factory.helpers.last?.emit("ready", 1)
+        #expect(f.controller.policy.phase == .ready)
+        #expect(f.controller.message.contains("Einzug"))
+        #expect(try !f.storage.hasUnfinishedJobs())
+    }
+    @Test func feedingProgressResetsGuardAndCompletedPagesSurviveStall() throws {
+        let f = try HandoffFixture(), image = try StorageTests()
+        f.settings.value.automaticFeeding = true; f.trigger()
+        guard case .feeding(let job) = f.factory.roles.last else { Issue.record("Expected feeding"); return }
+        let worker = f.factory.helpers[1]; worker.emit("ready", 1); worker.emit("batchBegin", 1)
+        try image.jpeg(job.directory.appendingPathComponent("page.jpg"))
+        f.clock.time = 10
+        worker.onEvent?(HelperEvent(event: "page", value: 1, file: "page.jpg", sheet: 1, side: 0))
+        f.clock.time = 20; f.controller.checkDeadline(); #expect(!worker.finishRequested)
+        f.clock.time = 25; f.controller.checkDeadline(); #expect(worker.finishRequested)
+        worker.emit("batchEnd", 1); worker.emit("end", 0); worker.emit("closed", 0); worker.exit()
+        #expect(f.controller.lastFile?.pathExtension == "pdf")
+        #expect(try !f.storage.hasUnfinishedJobs())
+    }
     @Test func feedingStartsOnlyFromPhysicalButtonAndUnlimitedIdleHasNoWholeSessionDeadline() throws {
         let f = try HandoffFixture()
         f.settings.value.automaticFeeding = true; f.settings.value.feedingTimeoutSeconds = 0
@@ -81,11 +140,11 @@ private final class HandoffClock { var time: TimeInterval = 0 }
         f.settings.value.automaticFeeding = true; f.settings.value.feedingTimeoutSeconds = 30
         f.trigger(); let worker = f.factory.helpers[1]; worker.emit("ready", 1)
         f.clock.time = 10; worker.emit("batchBegin", 1)
-        f.clock.time = 45; f.controller.checkDeadline()
+        f.clock.time = 24; f.controller.checkDeadline()
         #expect(!worker.finishRequested && !worker.cancelled)
-        f.clock.time = 50; worker.emit("batchEnd", 1)
-        f.clock.time = 79; f.controller.checkDeadline(); #expect(!worker.finishRequested)
-        f.clock.time = 80; f.controller.checkDeadline(); #expect(worker.finishRequested && !worker.cancelled)
+        f.clock.time = 25; worker.emit("batchEnd", 1)
+        f.clock.time = 54; f.controller.checkDeadline(); #expect(!worker.finishRequested)
+        f.clock.time = 55; f.controller.checkDeadline(); #expect(worker.finishRequested && !worker.cancelled)
     }
     @Test func collectionPublishesOnlyAfterEndCloseAndExitAndRejectsLatePages() throws {
         let f = try HandoffFixture(), image = try StorageTests()

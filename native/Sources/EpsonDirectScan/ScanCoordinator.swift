@@ -27,6 +27,8 @@ final class ScanCoordinator {
     private var files = 0
     private var complete: Int?
     private var empty = false
+    private var lastScanNotice: EmptyScanReason?
+    private var feedingProgressDeadline: TimeInterval?
     private var feedingReady = false
     private var feedingArmed = false
     private var feedingEnded = false
@@ -82,6 +84,7 @@ final class ScanCoordinator {
         let process = try makeHelper(next)
         helper = process; role = next; closed = false; closeReported = false; files = 0; complete = nil; empty = false
         feedingReady = false; feedingArmed = false; feedingEnded = false; feedingTransfer = false; idleSince = nil; finishReason = nil; collectionPages = 0; pauseAfterCollection = false
+        feedingProgressDeadline = nil
         process.onEvent = { [weak self, weak process] event in
             guard let self, let process, self.helper === process else { return }
             self.receive(event)
@@ -120,11 +123,12 @@ final class ScanCoordinator {
         case (.feeding?, "batchBegin"):
             guard feedingArmed, !feedingEnded, !feedingTransfer else { fail("Unerwarteter Einzugsstart.", code: "feeding_batch_invalid"); return }
             feedingTransfer = true; idleSince = nil
-            if finishReason == nil { deadline = now() + 130 }
+            if finishReason == nil { deadline = now() + 130; feedingProgressDeadline = now() + 15 }
             update("Sammlung – Karte wird gescannt · \(collectionPages) Seiten")
         case (.feeding?, "batchEnd"):
             guard feedingArmed, !feedingEnded else { fail("Unerwarteter Einzugsabschluss.", code: "feeding_batch_invalid"); return }
             feedingTransfer = false
+            feedingProgressDeadline = nil
             if finishReason == nil { idleSince = now(); deadline = nil }
             update("Sammlung aktiv – Karten nachlegen · \(collectionPages) Seiten")
         case (.feeding(let job)?, "page"):
@@ -136,27 +140,28 @@ final class ScanCoordinator {
             do {
                 try storage.stage(source: job.directory.appendingPathComponent(name), job: job, sheet: sheet, side: side == 0 ? .front : .back)
                 collectionPages += 1; files = collectionPages
-                if feedingTransfer && finishReason == nil { deadline = now() + 130 }
+                if feedingTransfer && finishReason == nil { deadline = now() + 130; feedingProgressDeadline = now() + 15 }
                 update("Sammlung – \(collectionPages) Seiten übernommen")
             } catch { fail(error.localizedDescription, code: "feeding_stage_failed") }
         case (.feeding?, "end"):
             guard feedingReady, !feedingEnded, event.value == 0 else { fail("Sammlungsabschluss nicht bestätigt.", code: "feeding_end_invalid"); return }
-            feedingEnded = true; feedingTransfer = false; idleSince = nil
+            feedingEnded = true; feedingTransfer = false; idleSince = nil; feedingProgressDeadline = nil
             if finishReason == nil { finishReason = .stop }
             deadline = now() + 15
             update("Sammlung wird abgeschlossen …")
         case (.button?, "ready"):
             guard policy.phase == .searching else { return }
             policy.sessionReady(); deadline = nil
-            diagnostics.record("button_receiver_ready"); update("Bereit – Epson-Taste drücken" + (lastCollectionIncomplete ? " · Letzte Karte unvollständig; vorhandene Seiten im PDF" : ""))
+            diagnostics.record("button_receiver_ready"); update("Bereit – Epson-Taste drücken" + (lastScanNotice.map { " · " + $0.message } ?? "") + (lastCollectionIncomplete ? " · Letzte Karte unvollständig; vorhandene Seiten im PDF" : ""))
         case (.button?, "button"):
             guard event.value == 1, policy.buttonPressed() else { return }
             buttonEvents += 1; frozenSettings = settings()
+            lastScanNotice = nil; lastCollectionIncomplete = false
             diagnostics.record("scan_button", values: ["count": buttonEvents, "source": 4])
             deadline = now() + 8
             update("Epson-Taste erkannt – Scanner wird übergeben …")
         case (.scan(let snapshot)?, "file"):
-            guard policy.phase == .scanning, let name = event.file,
+            guard policy.phase == .scanning, !empty, complete == nil, let name = event.file,
                   !name.isEmpty, name == URL(fileURLWithPath: name).lastPathComponent,
                   name.lowercased().hasSuffix(snapshot.outputFormat == .pdf ? ".pdf" : ".jpg"), event.value == files + 1,
                   let destination = snapshot.destination else {
@@ -166,13 +171,14 @@ final class ScanCoordinator {
             lastFile = URL(fileURLWithPath: destination, isDirectory: true).appendingPathComponent(name)
             diagnostics.record("output_published", values: ["file": files]); update("\(files) Datei(en) gespeichert – Scan läuft …")
         case (.scan?, "complete"):
-            guard complete == nil, let count = event.value, count > 0, count == files else {
+            guard !empty, complete == nil, let count = event.value, count > 0, count == files else {
                 fail("Scanabschluss konnte nicht bestätigt werden.", code: "worker_complete_invalid"); return
             }
             complete = count
         case (.scan?, "empty"):
-            guard files == 0, complete == nil else { fail("Unerwarteter Scanabschluss.", code: "worker_empty_invalid"); return }
-            empty = true
+            guard files == 0, complete == nil, !empty, let value = event.value,
+                  let reason = EmptyScanReason(rawValue: value) else { fail("Unerwarteter Scanabschluss.", code: "worker_empty_invalid"); return }
+            empty = true; lastScanNotice = reason
         case (_, "error"):
             diagnostics.record("helper_error", values: ["code": event.value ?? 0])
             fail("Der Epson-Empfang oder Scan ist fehlgeschlagen. Bitte Treiber und zurückgehaltene Dateien prüfen.", code: "helper_failed")
@@ -218,6 +224,7 @@ final class ScanCoordinator {
                     try storage.finish(job: job)
                 }
                 diagnostics.record("collection_completed", values: ["pages": collectionPages])
+                if finishReason == .noProgress { lastScanNotice = .noProgress }
                 policy.completed(); policy.disconnected(); frozenSettings = nil
                 if pauseAfterCollection { desiredActive = false; policy.pause(); restoreServices() }
                 else { try launch(.button) }
@@ -265,6 +272,14 @@ final class ScanCoordinator {
         } catch { policy.failed(); update("Epson-Dienste bleiben pausiert. " + error.localizedDescription) }
     }
     func checkDeadline() {
+        if collecting, feedingTransfer, finishReason == nil,
+           let feedingProgressDeadline, now() >= feedingProgressDeadline {
+            finishReason = .noProgress; self.feedingProgressDeadline = nil; idleSince = nil
+            deadline = now() + 12; helper?.finish()
+            diagnostics.record("feeding_no_progress", values: ["pages": collectionPages])
+            update("Einzug ohne Fortschritt – Sammlung wird beendet …")
+            return
+        }
         if collecting, feedingReady, !feedingEnded, finishReason == nil, !feedingTransfer,
            let idleSince, case .feeding(let job)? = role,
            job.settings.feedingTimeoutSeconds > 0, now() - idleSince >= Double(job.settings.feedingTimeoutSeconds) {

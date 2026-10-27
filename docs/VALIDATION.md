@@ -371,3 +371,30 @@ returned upright. Colored playing cards sometimes remain inverted, and AFM image
 of this test card are darker than ordinary ICA images. These observed image-quality
 limits are stated in the user instructions; no extra tone-matching feature was
 added. This is a local beta acceptance, not general production certification.
+
+### Issue #3: pickup / empty Stop correction (local build 12)
+
+The user reported a non-feeding medium followed by physical Stop. Local evidence
+showed normal ICA duplex/per-card PDF, no image files, nil-error completion into
+`ScanStorage.complete`, and app-generated generic worker failure -201. No driver
+error -201 was established. The metadata-only job was retained; no image output
+from that failed attempt existed.
+
+Regression tests first reproduced empty completion, missing short progress
+cancellation, invalid empty protocol values and missing user notice. Additional
+RED tests reproduced cancellation-notification ordering that could otherwise
+publish an interrupted job, repeated notifications extending cancellation wait,
+and contradictory output after an empty completion. The correction keeps empty
+jobs until confirmed close, rejects any unexpected/partial files, distinguishes
+only ICErrorDomain/-9924 as documented cancellation, and rearms only after
+confirmed release and successful process exit. A 15s no-validated-page guard
+requests cancellation (12s acknowledgement); continuous waiting between batches
+is excluded. Existing progressing-page and partial-duplex retention checks pass.
+
+Verification: 67 native Swift tests and the compiled Epson callback harness pass;
+26 Node and 38 Python legacy tests pass (131 software tests total). Restricted
+runs could not access compiler caches / legacy AppleScript I/O; the same tests
+passed with normal local execution permissions. Release build, Epson module
+compatibility check, plist lint and strict code-signature validation pass.
+Build 12 installation and physical-device acceptance are pending; software tests
+alone do not establish motor-stop timing or actual hardware recovery.

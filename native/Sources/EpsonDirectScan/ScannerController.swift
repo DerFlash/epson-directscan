@@ -21,6 +21,10 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
     private var scanner: ICScannerDevice?
     private var job: ScanJob?
     private var pages = 0
+    private(set) var emptyResult: EmptyScanReason?
+    private var progressDeadline: TimeInterval?
+    private var noProgressStop = false
+    private var cancellationReported = false
     private var selectedReady = false
     private var closing = false
     private var releaseFailed = false
@@ -78,7 +82,7 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
     }
     func pause() {
         desiredActive = false; resumeAfterClose = false; selectedReady = false
-        if job != nil { diagnostics.record("scan_interrupted_files_retained"); scanner?.cancelScan() }
+        if job != nil && policy.phase == .scanning { diagnostics.record("scan_interrupted_files_retained"); scanner?.cancelScan() }
         if releaseFailed { policy.failed() } else { policy.pause() }
         closeSession()
         if closing && !releaseFailed { update("Scanner wird freigegeben …") }
@@ -98,8 +102,19 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
         else { finishCloseConfirmed() }
     }
     private func finishCloseConfirmed() {
-        let resume = resumeAfterClose && !releaseFailed
+        var resume = resumeAfterClose && !releaseFailed
         resumeAfterClose = false
+        // Even a zero-page manifest may have an incomplete driver file. Cleanup is
+        // permitted only after a confirmed close, and only for metadata-only jobs.
+        if let job, emptyResult != nil {
+            do { try storage.discardEmpty(job: job) }
+            catch {
+                policy.failed(); desiredActive = false; resume = false
+                diagnostics.record("empty_scan_files_retained")
+                update("Scan beendet – unvollständige Dateien bleiben zur Prüfung erhalten.")
+            }
+        }
+        progressDeadline = nil
         scanner?.delegate = nil; scanner = nil; selectedReady = false; closing = false; opening = false; deadline = nil
         browser?.stop(); browser?.delegate = nil; browser = nil; job = nil
         releaseFailed = false
@@ -129,6 +144,13 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
         closeSession()
     }
     func checkDeadline() {
+        if !closing, policy.phase == .scanning, let progressDeadline, now() >= progressDeadline {
+            self.progressDeadline = nil; noProgressStop = true; deadline = now() + 12
+            diagnostics.record("pickup_no_progress", values: ["pages": pages])
+            update("Einzug ohne Fortschritt – Scan wird gestoppt …")
+            scanner?.cancelScan()
+            return
+        }
         guard let deadline, now() >= deadline else { return }
         self.deadline = nil
         if closing { closeFailed(code: "session_close_timeout"); return }
@@ -200,12 +222,13 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
         guard desiredActive, selectedReady, !closing, let s = scanner, s.hasOpenSession,
               let feeder = s.selectedFunctionalUnit as? ICScannerFunctionalUnitDocumentFeeder,
               policy.phase == .ready else { return }
-        guard feeder.documentLoaded else { onScanFinished?(0); return }
+        guard feeder.documentLoaded else { emptyResult = .noPaper; onScanFinished?(0); return }
         guard policy.buttonPressed() else { return }
         do {
             let snapshot = settings()
             try configure(feeder, settings: snapshot)
             let next = try storage.beginJob(settings: snapshot); job = next; pages = 0
+            emptyResult = nil; noProgressStop = false; cancellationReported = false; progressDeadline = now() + 15
             s.transferMode = .fileBased; s.downloadsDirectory = next.directory
             s.documentName = "scan"; s.documentUTI = "public.jpeg"
             deadline = now() + 120
@@ -246,12 +269,26 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
             try storage.stage(source: url, job: job, sheet: job.settings.duplex ? (index+1)/2 : index,
                               side: job.settings.duplex && index % 2 == 0 ? .back : .front)
             pages = index
+            if !noProgressStop && !cancellationReported { progressDeadline = now() + 15 }
             diagnostics.record("page_staged", values: ["page": pages]); update("\(pages) Seite(n) übernommen – Scan läuft …")
         } catch { fail(error.localizedDescription, code: "publish_failed", error: error) }
     }
     func scannerDevice(_ scanner: ICScannerDevice, didCompleteScanWithError error: Error?) {
         guard scanner === self.scanner, policy.phase == .scanning, let job else { return }
-        if let error { fail("Scan abgebrochen oder fehlgeschlagen. Bitte Scanner und zurückgehaltene Dateien prüfen.", code: "scan_failed", error: error); return }
+        let cancelled = cancellationReported || Self.isCancellation(error)
+        progressDeadline = nil
+        if let error, !Self.isCancellation(error) { fail("Scan fehlgeschlagen. Bitte Scanner und zurückgehaltene Dateien prüfen.", code: "scan_failed", error: error); return }
+        if pages == 0 {
+            emptyResult = noProgressStop ? .noProgress : (cancelled ? .cancelled : .noImages)
+            deadline = nil; policy.completed()
+            diagnostics.record("scan_empty", values: ["reason": emptyResult!.rawValue])
+            update(emptyResult!.message); onScanFinished?(0)
+            return
+        }
+        if cancelled || noProgressStop {
+            fail("Scan gestoppt – vorhandene Seiten bleiben zur Prüfung erhalten.", code: "scan_stopped_with_pages", error: error)
+            return
+        }
         do {
             try storage.complete(job: job, reason: .completed)
             let outputs = try storage.export(job: job)
@@ -266,7 +303,19 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
     }
     func device(_ device: ICDevice, didEncounterError error: Error?) {
         guard device === scanner, let error, !closing else { return }
+        if policy.phase == .scanning, Self.isCancellation(error) {
+            // Wait for the scan-completion callback before classifying files.
+            if !cancellationReported && !noProgressStop { deadline = now() + 12 }
+            cancellationReported = true; progressDeadline = nil
+            diagnostics.record("scan_cancellation_reported")
+            return
+        }
         fail("Der Scanner meldet einen Fehler. Bitte Scanner und Dateien prüfen.", code: "device_error", error: error)
+    }
+    private static func isCancellation(_ error: Error?) -> Bool {
+        guard let error = error as NSError? else { return false }
+        // ImageCaptureConstants.h: ICReturnScanOperationCanceled = -9924.
+        return error.domain == ICErrorDomain && error.code == -9924
     }
     func device(_ device: ICDevice, didCloseSessionWithError error: Error?) {
         guard device === scanner else { return }
