@@ -23,6 +23,8 @@
 - (void)setAutoCroppingEnabled:(BOOL)value; - (BOOL)autoCroppingEnabled;
 - (void)setSkewCorrectionEnabled:(BOOL)value; - (BOOL)skewCorrectionEnabled;
 - (void)setScanAreaInPixel:(CGRect)value; - (void)setAutoFeedingModeTimeout:(NSUInteger)value;
+- (CGSize)maxScanSize; - (void)setScanArea:(CGRect)value; - (CGRect)scanAreaInPixel;
+- (NSUInteger)xResolution; - (NSUInteger)yResolution;
 - (int)startScanningInAFM; - (int)stopScanningInAutoFeedingMode;
 - (BOOL)isScanning; - (unsigned char)jobMode;
 @end
@@ -83,6 +85,27 @@ static int claimLease(NSString *root) {
 }
 
 static BOOL exact(Class cls,NSString *name,const char *encoding){Method m=class_getInstanceMethod(cls,NSSelectorFromString(name));return m && strcmp(method_getTypeEncoding(m),encoding)==0;}
+static BOOL configureFixedArea(id<FeedingScanner> scanner,NSDictionary *settings){
+ NSNumber *width=settings[@"profileWidthMM"],*height=settings[@"profileHeightMM"];
+ if(!width&&!height)return YES;
+ if(![width isKindOfClass:NSNumber.class]||![height isKindOfClass:NSNumber.class]||[settings[@"crop"] boolValue])return NO;
+ double w=width.doubleValue,h=height.doubleValue;
+ if(!isfinite(w)||!isfinite(h)||w<50.8||w>215.9||h<50.8||h>297)return NO;
+ Class c=[scanner class];
+ if(!exact(c,@"xResolution","Q16@0:8")||!exact(c,@"yResolution","Q16@0:8")||[scanner xResolution]!=300||[scanner yResolution]!=300)return NO;
+ if(!exact(c,@"maxScanSize","{CGSize=dd}16@0:8")||!exact(c,@"setScanArea:","v48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16")||!exact(c,@"scanAreaInPixel","{CGRect={CGPoint=dd}{CGSize=dd}}16@0:8"))return NO;
+ CGSize maximum=[scanner maxScanSize];
+ if(!isfinite(maximum.width)||!isfinite(maximum.height)||maximum.width<=0||maximum.height<=0)return NO;
+ // The maximum and setter use the same native unit. Read its pixel extent,
+ // then convert the user's physical mm using the confirmed300dpi resolution.
+ [scanner setScanArea:CGRectMake(0,0,maximum.width,maximum.height)];
+ CGRect bounds=[scanner scanAreaInPixel];
+ double pw=round(w*300/25.4),ph=round(h*300/25.4);
+ if(!isfinite(bounds.origin.x)||!isfinite(bounds.origin.y)||!isfinite(bounds.size.width)||!isfinite(bounds.size.height)||bounds.size.width<pw||bounds.size.height<ph)return NO;
+ CGRect requested=CGRectMake(bounds.origin.x+round((bounds.size.width-pw)/2),bounds.origin.y,pw,ph);
+ [scanner setScanAreaInPixel:requested];CGRect actual=[scanner scanAreaInPixel];
+ return fabs(actual.origin.x-requested.origin.x)<=1&&fabs(actual.origin.y-requested.origin.y)<=1&&fabs(actual.size.width-pw)<=1&&fabs(actual.size.height-ph)<=1;
+}
 static BOOL compatible(void){
  NSBundle *b=[NSBundle bundleWithPath:@"/Library/Image Capture/Support/EPSON/Epson Scan 2/Core/Scanner.framework"];
  if(![[b objectForInfoDictionaryKey:@"CFBundleShortVersionString"] isEqual:@"6.7.84"] || ![b load])return NO;
@@ -163,6 +186,7 @@ int main(int argc,char **argv){@autoreleasepool{
   int status=[scanner open];opened=[scanner isOpened];if(status||!opened){emit(@"error",-304);return 1;}
   if(![scanner autoFeedingModeSupported]||![[scanner supportedColorFormats] containsIndex:1800]||![[scanner supportedImageFormats] containsIndex:1]||(receiver.duplex&&![scanner duplexSupported])||([settings[@"crop"] boolValue]&&![scanner autoCroppingSupported])||([settings[@"deskew"] boolValue]&&![scanner skewCorrectionSupported])){emit(@"error",-305);return 1;}
   [scanner setXResolution:300];[scanner setYResolution:300];[scanner setColorFormat:1800];[scanner setImageFormat:1];[scanner setDuplexEnabled:receiver.duplex];[scanner setAutoCroppingEnabled:[settings[@"crop"] boolValue]];[scanner setSkewCorrectionEnabled:[settings[@"deskew"] boolValue]];[scanner setScanAreaInPixel:CGRectMake(0,0,1748,2480)];
+  if(!configureFixedArea(scanner,settings)){emit(@"error",-315);return 1;}
   // Parent measures inactivity after a processed batch, excluding active transfer.
   [scanner setAutoFeedingModeTimeout:0];
   if([scanner colorFormat]!=1800||[scanner imageFormat]!=1||[scanner duplexEnabled]!=receiver.duplex||[scanner autoCroppingEnabled]!=[settings[@"crop"] boolValue]||[scanner skewCorrectionEnabled]!=[settings[@"deskew"] boolValue]){emit(@"error",-306);return 1;}

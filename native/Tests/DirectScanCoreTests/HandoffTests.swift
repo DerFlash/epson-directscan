@@ -61,6 +61,68 @@ private final class HandoffClock { var time: TimeInterval = 0 }
     deinit { try? FileManager.default.removeItem(at: root) }
 }
 @Suite @MainActor struct HandoffTests {
+    @Test func cancellingExportAfterScannerReleaseDoesNotInventADeviceReleaseFailure() throws {
+        let f = try HandoffFixture(), image = try StorageTests()
+        f.settings.value.automaticFeeding=true
+        let p=ScanProfile(name:"Karte");f.settings.value.profiles=[p];f.settings.value.activeProfileID=p.id
+        f.trigger()
+        guard case .feeding(let job) = f.factory.roles.last else {Issue.record("Expected feeding");return}
+        let feed=f.factory.helpers[1];feed.emit("ready",1)
+        try image.jpeg(job.directory.appendingPathComponent("a.jpg"))
+        feed.onEvent?(HelperEvent(event:"page",value:1,file:"a.jpg",sheet:1,side:0))
+        feed.emit("end",0);feed.emit("closed",0);feed.exit()
+        guard case .export = f.factory.roles.last else {Issue.record("Expected export");return}
+        let exporter=try #require(f.factory.helpers.last)
+        f.controller.pause();#expect(exporter.cancelled)
+        exporter.exit(15) // SIGTERM needs no device close: feeding already confirmed it.
+        #expect(f.controller.policy.phase == .paused && !f.controller.busy && f.controller.sessionReleased)
+        #expect(!f.services.paused && !f.controller.listening)
+        let pending = try f.storage.hasUnfinishedJobs()
+        #expect(f.factory.roles.count == 3 && pending)
+    }
+    @Test func profileCollectionProcessesOnlyAfterScannerCloseAndPreservesReadyNotice() throws {
+        let f = try HandoffFixture(), image = try StorageTests()
+        f.settings.value.automaticFeeding = true;f.settings.value.duplex = true
+        var profile = ScanProfile(name:"Karte");profile.orientation = .vision;profile.frontRotation = 90;profile.backRotation = 270
+        f.settings.value.profiles = [profile];f.settings.value.activeProfileID = profile.id
+        f.trigger()
+        guard case .feeding(let job) = f.factory.roles.last else { Issue.record("Expected feeding");return }
+        let worker = f.factory.helpers[1];worker.emit("ready",1);worker.emit("batchBegin",1)
+        for i in 1...2 {let name = "\(i).jpg";try image.jpeg(job.directory.appendingPathComponent(name),width:80,height:40);worker.onEvent?(HelperEvent(event:"page",value:i,file:name,sheet:1,side:i-1))}
+        worker.emit("batchEnd",1);worker.emit("end",0);worker.emit("closed",0)
+        #expect(f.factory.roles.count == 2)
+        worker.exit()
+        guard case .export = f.factory.roles.last else { Issue.record("Missing isolated export worker");return }
+        #expect(f.controller.busy)
+        #expect(try FileManager.default.contentsOfDirectory(atPath:job.destination.path).isEmpty)
+        let exporter = try #require(f.factory.helpers.last)
+        let result = ExportWorkerMain.run(["app","--export-worker",f.storage.root.path,job.id.uuidString,String(getppid())],emit:{ exporter.onEvent?($0) })
+        #expect(result == 0)
+        exporter.exit()
+        #expect(try !f.storage.hasUnfinishedJobs())
+        #expect(f.factory.roles.last == .button && f.controller.lastFile?.pathExtension == "pdf")
+        f.factory.helpers.last?.emit("ready",1)
+        #expect(f.controller.message.contains("feste Ausrichtung"))
+    }
+    @Test func invalidExportProgressAndCancelCannotPublishOrRestart() throws {
+        let f = try HandoffFixture(), image = try StorageTests()
+        f.settings.value.automaticFeeding = true
+        let profile = ScanProfile(name:"Karte");f.settings.value.profiles = [profile];f.settings.value.activeProfileID = profile.id
+        f.trigger()
+        guard case .feeding(let job) = f.factory.roles.last else { Issue.record("Expected feeding");return }
+        let worker = f.factory.helpers[1];worker.emit("ready",1)
+        try image.jpeg(job.directory.appendingPathComponent("a.jpg"))
+        worker.onEvent?(HelperEvent(event:"page",value:1,file:"a.jpg",sheet:1,side:0))
+        worker.emit("end",0);worker.emit("closed",0);worker.exit()
+        guard case .export = f.factory.roles.last else { Issue.record("Missing export worker");return }
+        let exporter = try #require(f.factory.helpers.last)
+        exporter.emit("processing",99)
+        #expect(exporter.cancelled && f.controller.policy.phase == .error)
+        exporter.emit("closed",0);exporter.exit(1)
+        #expect(f.factory.roles.count == 3 && !f.controller.listening)
+        #expect(try f.storage.hasUnfinishedJobs())
+        #expect(try FileManager.default.contentsOfDirectory(atPath:job.destination.path).isEmpty)
+    }
     @Test func scannerFaultRemainsVisibleWithPaperPathAndRecoveryHint() throws {
         let f = try HandoffFixture(); f.trigger()
         _ = try f.storage.beginJob(settings: f.settings.value)

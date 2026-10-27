@@ -32,7 +32,8 @@ extension ScanStorage {
     }
 
     public func prepareImages(job: ScanJob, analyze: (URL) throws -> [OrientationEvidence] = VisionOrientation.analyze,
-                              onProgress: (Int) throws -> Void = { _ in }) throws {
+                              onProgress: (Int) throws -> Void = { _ in }, isCancelled: () -> Bool = { false }) throws {
+        guard !isCancelled() else { throw CocoaError(.userCancelled) }
         guard job.settings.requiresImageProcessing, let profile = job.settings.activeProfile else { return }
         var record = try record(job)
         if try checkedProcessing(record,job:job) != nil { return }
@@ -42,6 +43,7 @@ extension ScanStorage {
         let groups = Dictionary(grouping:manifest.pages,by:\.sheet).sorted { $0.key < $1.key }
         for (_,group) in groups {
             try autoreleasepool {
+                guard !isCancelled() else { throw CocoaError(.userCancelled) }
                 for raw in group {
                     let source = job.directory.appendingPathComponent(raw.sourceName)
                     try localSource(source,job:job)
@@ -57,6 +59,7 @@ extension ScanStorage {
                     else if let front {
                         do {
                             let a = try analyze(job.directory.appendingPathComponent(front.sourceName))
+                            guard !isCancelled() else { throw CocoaError(.userCancelled) }
                             let b = try back.map { try analyze(job.directory.appendingPathComponent($0.sourceName)) }
                             let decision = OrientationDecision.resolve(front:a,back:b,mapping:mapping,
                                 fallbackFront:profile.frontRotation,fallbackBack:profile.backRotation,printedOffset:profile.printedBackOffset)
@@ -66,6 +69,7 @@ extension ScanStorage {
                     }
                 }
                 for raw in group {
+                    guard !isCancelled() else { throw CocoaError(.userCancelled) }
                     let source = job.directory.appendingPathComponent(raw.sourceName)
                     try localSource(source,job:job)
                     let originalDigest = try fingerprint(source).2
@@ -84,6 +88,7 @@ extension ScanStorage {
             }
         }
         results.sort { $0.page.index < $1.page.index }
+        guard !isCancelled() else { throw CocoaError(.userCancelled) }
         record.processing = ProcessingRecord(pages:results,notices:notices.sorted { $0.rawValue < $1.rawValue })
         try write(record,to:job.directory.appendingPathComponent("job.json"))
         _ = try checkedProcessing(record,job:job)

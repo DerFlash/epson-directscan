@@ -7,6 +7,14 @@ private final class WorkerServices: EpsonServices {
     func acquire() throws {}
     func restore() throws {}
 }
+private final class WorkerCancellation {
+    private let lock = NSLock()
+    private var value = false
+    var cancelled: Bool {
+        get {lock.lock();defer{lock.unlock()};return value}
+        set {lock.lock();value=newValue;lock.unlock()}
+    }
+}
 
 enum ScanWorkerMain {
     private static func emit(_ event: HelperEvent) {
@@ -21,11 +29,11 @@ enum ScanWorkerMain {
               (try? settings.validate()) != nil, !settings.paused,
               let parent = Int32(arguments[4]), parent == getppid() else { return 2 }
         let app = NSApplication.shared; app.setActivationPolicy(.prohibited)
-        var cancelled = false
+        let cancellation = WorkerCancellation()
         signal(SIGTERM, SIG_IGN); signal(SIGINT, SIG_IGN)
-        let termination = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
-        let interrupt = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
-        termination.setEventHandler { cancelled = true }; interrupt.setEventHandler { cancelled = true }
+        let termination = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .global(qos:.userInitiated))
+        let interrupt = DispatchSource.makeSignalSource(signal: SIGINT, queue: .global(qos:.userInitiated))
+        termination.setEventHandler { cancellation.cancelled = true }; interrupt.setEventHandler { cancellation.cancelled = true }
         termination.resume(); interrupt.resume()
         defer { termination.cancel(); interrupt.cancel() }
         do {
@@ -39,14 +47,17 @@ enum ScanWorkerMain {
             try FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
             let controller = ScannerController(storage: storage, diagnostics: Diagnostics(root: logs),
                 settings: { settings }, services: WorkerServices(), conflictingApps: { false })
+            controller.processingCancelled = {cancellation.cancelled || getppid() != parent}
             var outcome: Int?
             var sentFiles = 0
+            var sentNotice = false
             var requested = false
             var stopping = false
             var failed = false
             var closeDeadline: TimeInterval?
             let deadline = ProcessInfo.processInfo.systemUptime + 130
             controller.onChange = {
+                if controller.orientationFallback && !sentNotice { sentNotice = true;emit(HelperEvent(event:"notice",value:1)) }
                 if controller.imagesSaved > sentFiles, let file = controller.lastFile {
                     sentFiles = controller.imagesSaved
                     emit(HelperEvent(event: "file", value: sentFiles, file: file.lastPathComponent))
@@ -61,8 +72,8 @@ enum ScanWorkerMain {
             while true {
                 RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
                 let now = ProcessInfo.processInfo.systemUptime
-                if getppid() != parent || now >= deadline { cancelled = true }
-                if cancelled && !stopping {
+                if getppid() != parent || now >= deadline { cancellation.cancelled = true }
+                if cancellation.cancelled && !stopping {
                     failed = true; stopping = true; closeDeadline = now + 6
                     controller.pause()
                 }

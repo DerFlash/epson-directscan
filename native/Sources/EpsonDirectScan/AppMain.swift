@@ -5,6 +5,9 @@ import Darwin
 @main
 enum DirectScanMain {
     static func main() {
+        if CommandLine.arguments.dropFirst().first == "--export-worker" {
+            exit(ExportWorkerMain.run(CommandLine.arguments))
+        }
         if CommandLine.arguments.dropFirst().first == "--scan-worker" {
             exit(ScanWorkerMain.run(CommandLine.arguments))
         }

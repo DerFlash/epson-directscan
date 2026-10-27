@@ -150,8 +150,8 @@ public final class ScanStorage {
         return value.0 == receipt.inode && value.1 == receipt.device && value.2 == receipt.digest
     }
     /// Reentrant export: a receipt identifies the actual renamed inode, including a crash before acknowledgement.
-    public func export(job: ScanJob, allowInterrupted: Bool = false, asCollection: Bool = false) throws -> [URL] {
-        try prepareImages(job:job)
+    public func export(job: ScanJob, allowInterrupted: Bool = false, asCollection: Bool = false, isCancelled: () -> Bool = { false }) throws -> [URL] {
+        try prepareImages(job:job,isCancelled:isCancelled)
         var record = try record(job)
         guard let manifest = try checkedProcessing(record,job:job) ?? record.manifest, let reason = manifest.endReason, !manifest.pages.isEmpty,
               reason != .interrupted || allowInterrupted else { throw ScanFailure.unfinishedPages }
@@ -174,6 +174,7 @@ public final class ScanStorage {
         else { groups = manifest.pages.map { [$0] } }
         var outputs: [URL] = []
         for group in groups {
+            guard !isCancelled() else { throw CocoaError(.userCancelled) }
             let number = String(format: "%04d", group[0].sheet)
             let name: String
             if collection { name = job.fileStem + "_Sammlung.pdf" }
@@ -188,6 +189,7 @@ public final class ScanStorage {
                     guard !receipt.published else { throw ScanFailure.invalidSource }
                     let temp = job.destination.appendingPathComponent(receipt.temporaryName)
                     guard try matches(temp, receipt) else { throw ScanFailure.unfinishedPages }
+                    guard !isCancelled() else { throw CocoaError(.userCancelled) }
                     guard renamex_np(temp.path, target.path, UInt32(RENAME_EXCL)) == 0 else {
                         if errno == EEXIST { throw ScanFailure.collision }
                         throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
@@ -210,12 +212,14 @@ public final class ScanStorage {
                     try Data(contentsOf: source).write(to: temporary)
                 }
                 let handle = try FileHandle(forWritingTo: temporary); try handle.synchronize(); try handle.close()
+                guard !isCancelled() else { throw CocoaError(.userCancelled) }
                 let value = try fingerprint(temporary)
                 guard value.0 != 0 else { throw ScanFailure.invalidSource }
                 var receipt = ExportReceipt(sources: sources, targetName: name, temporaryName: temporary.lastPathComponent,
                     inode: value.0, device: value.1, digest: value.2, published: false)
                 if record.receipts == nil { record.receipts = [] }; record.receipts!.append(receipt)
                 try write(record, to: job.directory.appendingPathComponent("job.json")); journaled = true
+                guard !isCancelled() else { throw CocoaError(.userCancelled) }
                 guard renamex_np(temporary.path, target.path, UInt32(RENAME_EXCL)) == 0 else {
                     if errno == EEXIST { throw ScanFailure.collision }
                     throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)

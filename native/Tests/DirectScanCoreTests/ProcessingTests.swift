@@ -126,6 +126,16 @@ import Testing
         let box = try #require(doc.page(at:1)).getBoxRect(.mediaBox)
         #expect(abs(box.width-9.6) < 0.0001 && abs(box.height-19.2) < 0.0001)
     }
+    @Test func cancelledProcessingCannotPublishAndCanLaterRecoverFromOriginals() throws {
+        let f = try StorageTests(), store = try f.store(), output = try f.destination()
+        let job = try store.beginJob(settings:settings(output)), source = job.directory.appendingPathComponent("a.jpg")
+        try f.jpeg(source,width:80,height:40);try store.stage(source:source,job:job,sheet:1,side:.front);try store.complete(job:job,reason:.completed)
+        try store.prepareImages(job:job)
+        #expect(throws:(any Error).self) {try store.export(job:job,isCancelled:{true})}
+        #expect(try FileManager.default.contentsOfDirectory(atPath:output.path).isEmpty)
+        #expect(FileManager.default.fileExists(atPath:source.path))
+        #expect(try store.export(job:job).count == 1)
+    }
     @Test(.enabled(if: ProcessInfo.processInfo.environment["DIRECTSCAN_ORIENTATION_SAMPLES"] != nil))
     func productionAnalyzerReproducesPrivateSampleMatrix() throws {
         let path = try #require(ProcessInfo.processInfo.environment["DIRECTSCAN_ORIENTATION_SAMPLES"])

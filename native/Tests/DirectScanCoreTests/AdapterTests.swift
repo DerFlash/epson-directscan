@@ -54,6 +54,15 @@ private final class FakeBrowser: ICDeviceBrowser {
     override func stop() {}
 }
 private final class TestClock { var time: TimeInterval = 0 }
+private final class AreaFeeder: ICScannerFunctionalUnitDocumentFeeder {
+    var unit: ICScannerMeasurementUnit = .inches
+    var rectangle = CGRect.zero
+    var rejectUnit = false, rejectArea = false
+    override var supportedMeasurementUnits: IndexSet { IndexSet(integer:Int(ICScannerMeasurementUnit.centimeters.rawValue)) }
+    override var measurementUnit: ICScannerMeasurementUnit { get {unit} set {if !rejectUnit {unit=newValue}} }
+    override var physicalSize: CGSize {CGSize(width:21.6,height:29.7)}
+    override var scanArea: CGRect {get {rectangle} set {if !rejectArea {rectangle=newValue}}}
+}
 @MainActor private final class AdapterFixture {
     let root: URL
     let services = FakeServices()
@@ -81,6 +90,17 @@ private final class TestClock { var time: TimeInterval = 0 }
     deinit { try? FileManager.default.removeItem(at: root) }
 }
 @Suite @MainActor struct AdapterTests {
+    @Test func fixedAreaUsesConfirmedUnitsAndRejectsDriverChanges() throws {
+        var settings=ScanSettings();var p=ScanProfile(name:"Karte");p.area=ScanArea(widthMM:63,heightMM:88)
+        settings.profiles=[p];settings.activeProfileID=p.id
+        let feeder=AreaFeeder()
+        try ScannerController.configureArea(feeder,settings:settings)
+        #expect(feeder.rectangle == CGRect(x:7.65,y:0,width:6.3,height:8.8))
+        feeder.unit = .inches;feeder.rejectUnit=true
+        #expect(throws:(any Error).self) {try ScannerController.configureArea(feeder,settings:settings)}
+        feeder.rejectUnit=false;feeder.rejectArea=true;feeder.rectangle = .zero
+        #expect(throws:(any Error).self) {try ScannerController.configureArea(feeder,settings:settings)}
+    }
     @Test func actualScannerFaultAfterWatchdogIsNotSuppressed() throws {
         let f = try AdapterFixture(loaded: true)
         var completed: Int?

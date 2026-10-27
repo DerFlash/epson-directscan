@@ -11,9 +11,9 @@ public enum DriverConfigurationFailure: Error, LocalizedError {
 }
 
 public func validateDriverCorrections(settings: ScanSettings, actual: [String: Int]) throws {
-    let expected = ["VF_AUTOCROP": settings.crop ? 1 : 0,
+    let expected = ["VF_AUTOCROP": settings.driverCrop ? 1 : 0,
                     "VF_DESKEW": settings.deskew ? 1 : 0,
-                    "VF_AUTOROTATE": settings.rotate ? 1 : 0]
+                    "VF_AUTOROTATE": settings.driverRotate ? 1 : 0]
     for (key, value) in expected {
         guard let readback = actual[key] else {
             if value != 0 { throw DriverConfigurationFailure.unavailable }

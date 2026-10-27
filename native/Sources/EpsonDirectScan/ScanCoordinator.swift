@@ -36,11 +36,18 @@ final class ScanCoordinator {
     private var idleSince: TimeInterval?
     private var finishReason: JobEndReason?
     private var pauseAfterCollection = false
+    private var exportPages = 0
+    private var exportProgress = 0
+    private var pauseAfterExport = false
+    private var lastOrientationFallback = false
     private(set) var collectionPages = 0
     private(set) var lastCollectionIncomplete = false
     var collecting: Bool { if case .feeding? = role { return policy.phase == .scanning && !stopping }; return false }
     private var deadline: TimeInterval?
     private var timer: Timer?
+    private var outputSettings: ScanSettings? {
+        switch role { case .scan(let s)?: return s;case .export(let job)?: return job.settings;default:return nil }
+    }
     var busy: Bool { policy.phase == .scanning || stopping || releaseFailed }
     var listening: Bool { desiredActive }
     var sessionReleased: Bool { helper == nil && !releaseFailed }
@@ -85,6 +92,7 @@ final class ScanCoordinator {
         helper = process; role = next; closed = false; closeReported = false; files = 0; complete = nil; empty = false
         feedingReady = false; feedingArmed = false; feedingEnded = false; feedingTransfer = false; idleSince = nil; finishReason = nil; collectionPages = 0; pauseAfterCollection = false
         feedingProgressDeadline = nil
+        exportProgress = 0
         process.onEvent = { [weak self, weak process] event in
             guard let self, let process, self.helper === process else { return }
             self.receive(event)
@@ -96,6 +104,7 @@ final class ScanCoordinator {
         deadline = now() + (next == .button ? 20 : 140)
         if case .feeding = next { deadline = now() + 25 }
         update(next == .button ? "Verbinde Epson-Tastenempfänger …" : "Taste erkannt – Direktscan wird gestartet …")
+        if case .export = next { update("Ausrichtung wird geprüft – Scans werden gespeichert …") }
         do { try process.start() }
         catch { helper = nil; role = nil; deadline = nil; throw error }
     }
@@ -111,6 +120,15 @@ final class ScanCoordinator {
         }
         guard !stopping, desiredActive else { return }
         switch (role, event.event) {
+        case (.export?, "processing"):
+            guard let value = event.value, value > exportProgress, value <= exportPages, complete == nil else {
+                fail("Ungültiger Verarbeitungsfortschritt. Die Originalseiten bleiben erhalten.",code:"processing_progress_invalid");return
+            }
+            exportProgress = value;deadline = now()+20
+            update("Ausrichtung wird geprüft · \(value)/\(exportPages) Seiten")
+        case (.scan?, "notice"), (.export?, "notice"):
+            guard event.value == 1, complete == nil, !lastOrientationFallback else { fail("Ungültiger Ausrichtungshinweis.",code:"processing_notice_invalid");return }
+            lastOrientationFallback = true;diagnostics.record("orientation_fixed_fallback")
         case (.feeding?, "ready"):
             guard !feedingReady else { fail("Doppelte Einzugsbereitschaft.", code: "feeding_duplicate_ready"); return }
             feedingReady = true
@@ -152,25 +170,29 @@ final class ScanCoordinator {
         case (.button?, "ready"):
             guard policy.phase == .searching else { return }
             policy.sessionReady(); deadline = nil
-            diagnostics.record("button_receiver_ready"); update("Bereit – Epson-Taste drücken" + (lastScanNotice.map { " · " + $0.message } ?? "") + (lastCollectionIncomplete ? " · Letzte Karte unvollständig; vorhandene Seiten im PDF" : ""))
+            diagnostics.record("button_receiver_ready"); update("Bereit – Epson-Taste drücken" + (lastScanNotice.map { " · " + $0.message } ?? "") + (lastCollectionIncomplete ? " · Letzte Karte unvollständig; vorhandene Seiten im PDF" : "") + (lastOrientationFallback ? " · feste Ausrichtung verwendet" : ""))
         case (.button?, "button"):
             guard event.value == 1, policy.buttonPressed() else { return }
             buttonEvents += 1; frozenSettings = settings()
             lastScanNotice = nil; lastCollectionIncomplete = false
+            lastOrientationFallback = false
             diagnostics.record("scan_button", values: ["count": buttonEvents, "source": 4])
             deadline = now() + 8
             update("Epson-Taste erkannt – Scanner wird übergeben …")
-        case (.scan(let snapshot)?, "file"):
+        case (.scan?, "file"), (.export?, "file"):
+            guard let snapshot = outputSettings else { fail("Ausgabeeinstellungen fehlen.",code:"worker_settings_missing");return }
             guard policy.phase == .scanning, !empty, complete == nil, let name = event.file,
                   !name.isEmpty, name == URL(fileURLWithPath: name).lastPathComponent,
-                  name.lowercased().hasSuffix(snapshot.outputFormat == .pdf ? ".pdf" : ".jpg"), event.value == files + 1,
+                  name.lowercased().hasSuffix(snapshot.automaticFeeding || snapshot.outputFormat == .pdf ? ".pdf" : ".jpg"), event.value == files + 1,
                   let destination = snapshot.destination else {
                 fail("Unerwartete Scandatei. Zurückgehaltene Dateien bitte prüfen.", code: "worker_file_invalid"); return
             }
-            files += 1; imagesSaved += 1
+            files += 1
+            if case .scan? = role { imagesSaved += 1 }
+            deadline = now()+20
             lastFile = URL(fileURLWithPath: destination, isDirectory: true).appendingPathComponent(name)
             diagnostics.record("output_published", values: ["file": files]); update("\(files) Datei(en) gespeichert – Scan läuft …")
-        case (.scan?, "complete"):
+        case (.scan?, "complete"), (.export?, "complete"):
             guard !empty, complete == nil, let count = event.value, count > 0, count == files else {
                 fail("Scanabschluss konnte nicht bestätigt werden.", code: "worker_complete_invalid"); return
             }
@@ -194,7 +216,12 @@ final class ScanCoordinator {
     }
     private func exited(_ status: Int32) {
         let previous = role
+        let wasStopping = stopping
         helper = nil; role = nil; stopping = false; deadline = nil
+        // This worker is launched only after the capture worker confirmed device
+        // closure. Its confirmed OS exit releases just a local file lease; it
+        // cannot leave a scanner session open when deliberately terminated.
+        if case .export? = previous, wasStopping, status != 0 { closed = true }
         guard closed else {
             releaseFailed = true; desiredActive = false; resumeAfterClose = false; policy.failed()
             diagnostics.record("helper_release_unconfirmed", values: ["status": Int(status)])
@@ -219,12 +246,24 @@ final class ScanCoordinator {
                 diagnostics.record("scan_completed", values: ["pages": files])
                 policy.completed(); policy.disconnected(); frozenSettings = nil
                 try launch(.button)
+            case .export?:
+                guard complete == files, files > 0, try !storage.hasUnfinishedJobs() else { throw ScanFailure.unfinishedPages }
+                imagesSaved += exportPages;exportPages = 0
+                diagnostics.record("collection_completed")
+                policy.completed();policy.disconnected();frozenSettings = nil
+                if pauseAfterExport { pauseAfterExport = false;desiredActive = false;policy.pause();restoreServices() }
+                else { try launch(.button) }
             case .feeding(let job)?:
                 guard feedingReady, feedingEnded, let finishReason else { throw ScanFailure.unfinishedPages }
                 if collectionPages == 0 { try storage.discardEmpty(job: job) }
                 else {
                     try storage.complete(job: job, reason: finishReason)
                     lastCollectionIncomplete = try storage.manifest(job: job).hasIncompleteSheet
+                    if job.settings.requiresImageProcessing {
+                        exportPages = collectionPages;pauseAfterExport = pauseAfterCollection
+                        if finishReason == .noProgress { lastScanNotice = .noProgress }
+                        try launch(.export(job));return
+                    }
                     let outputs = try storage.export(job: job)
                     lastFile = outputs.last; imagesSaved += collectionPages
                     try storage.finish(job: job)

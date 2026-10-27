@@ -9,7 +9,7 @@ struct HelperEvent: Codable {
     var sheet: Int? = nil
     var side: Int? = nil
 }
-enum HelperRole: Equatable { case button, scan(ScanSettings), feeding(ScanJob) }
+enum HelperRole: Equatable { case button, scan(ScanSettings), feeding(ScanJob), export(ScanJob) }
 protocol NativeHelper: AnyObject {
     var onEvent: ((HelperEvent) -> Void)? { get set }
     var onExit: ((Int32) -> Void)? { get set }
@@ -41,10 +41,25 @@ final class NativeProcess: NativeHelper {
             let data = try JSONEncoder().encode(settings)
             self.init(executable: executable, arguments: ["--scan-worker", root.path, data.base64EncodedString(), String(getpid())])
         case .feeding(let job):
-            let data = try JSONEncoder().encode(job.settings)
+            let data = try Self.feedingPayload(job.settings)
             self.init(executable: Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/EpsonFeedingWorker"),
                       arguments: [root.path, job.directory.path, data.base64EncodedString(), String(getpid())])
+        case .export(let job):
+            guard let executable = Bundle.main.executableURL else { throw CocoaError(.fileNoSuchFile) }
+            self.init(executable:executable,arguments:["--export-worker",root.path,job.id.uuidString,String(getpid())])
         }
+    }
+    static func feedingPayload(_ settings: ScanSettings) throws -> Data {
+        try settings.validate()
+        var payload = try JSONSerialization.jsonObject(with:JSONEncoder().encode(settings)) as! [String:Any]
+        payload["crop"] = settings.driverCrop;payload["rotate"] = settings.driverRotate
+        if let area = settings.activeProfile?.area, !area.isAutomatic {
+            // Width-only needs a separate hardware acceptance and must not silently
+            // turn into a smaller automatically cropped inner card.
+            guard let width = area.widthMM, let height = area.heightMM else { throw ScanFailure.unsupportedProfile }
+            payload["profileWidthMM"] = width;payload["profileHeightMM"] = height
+        }
+        return try JSONSerialization.data(withJSONObject:payload)
     }
     func start() throws {
         try process.run()

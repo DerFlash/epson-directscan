@@ -3,6 +3,8 @@ import ImageCaptureCore
 import DirectScanCore
 
 final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDeviceDelegate {
+    private(set) var orientationFallback = false
+    var processingCancelled: () -> Bool = { false }
     let storage: ScanStorage
     let diagnostics: Diagnostics
     let mode: EpsonServices
@@ -241,22 +243,38 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
         feeder.resolution = 300; feeder.pixelDataType = .RGB
         guard let depth = ICScannerBitDepth(rawValue: 8), feeder.supportedBitDepths.contains(8) else { throw DriverConfigurationFailure.unavailable }
         feeder.bitDepth = depth; try Self.configureDuplex(feeder, enabled: settings.duplex)
-        let size = feeder.documentSize; feeder.scanArea = CGRect(x: 0, y: 0, width: size.width, height: size.height)
+        try Self.configureArea(feeder,settings:settings)
         let features = feeder.vendorFeatures ?? []; var actual: [String: Int] = [:]
         if let f = features.first(where: { $0.internalName == "VF_AUTOCROP" }) as? ICScannerFeatureEnumeration {
-            let requested = settings.crop ? 1 : 0
+            let requested = settings.driverCrop ? 1 : 0
             guard let option = f.values.first(where: { $0.intValue == requested }) else { throw DriverConfigurationFailure.unavailable }
             f.currentValue = option
             guard let value = f.currentValue as? NSNumber else { throw DriverConfigurationFailure.rejected }
             actual["VF_AUTOCROP"] = value.intValue
         }
-        for (key, requested) in [("VF_DESKEW", settings.deskew), ("VF_AUTOROTATE", settings.rotate)] {
+        for (key, requested) in [("VF_DESKEW", settings.deskew), ("VF_AUTOROTATE", settings.driverRotate)] {
             if let f = features.first(where: { $0.internalName == key }) as? ICScannerFeatureBoolean {
                 f.value = requested; actual[key] = f.value ? 1 : 0
             }
         }
         try validateDriverCorrections(settings: settings, actual: actual)
         guard feeder.resolution == 300, feeder.pixelDataType == .RGB, feeder.duplexScanningEnabled == settings.duplex else { throw DriverConfigurationFailure.rejected }
+    }
+    static func configureArea(_ feeder: ICScannerFunctionalUnitDocumentFeeder, settings: ScanSettings) throws {
+        if let area = settings.activeProfile?.area, !area.isAutomatic {
+            guard feeder.supportedMeasurementUnits.contains(Int(ICScannerMeasurementUnit.centimeters.rawValue)) else { throw ScanFailure.unsupportedProfile }
+            feeder.measurementUnit = .centimeters
+            guard feeder.measurementUnit == .centimeters else { throw DriverConfigurationFailure.rejected }
+            let size = feeder.physicalSize
+            let rect = try area.rectangle(maximumMM:CGSize(width:size.width*10,height:size.height*10))
+            let requested = CGRect(x:rect.minX/10,y:rect.minY/10,width:rect.width/10,height:rect.height/10)
+            feeder.scanArea = requested
+            let actual = feeder.scanArea
+            guard zip([requested.minX,requested.minY,requested.width,requested.height],[actual.minX,actual.minY,actual.width,actual.height])
+                .allSatisfy({ abs($0-$1) <= 0.01 }) else { throw DriverConfigurationFailure.rejected }
+        } else {
+            let size = feeder.documentSize; feeder.scanArea = CGRect(x: 0, y: 0, width: size.width, height: size.height)
+        }
     }
     static func configureDuplex(_ feeder: ICScannerFunctionalUnitDocumentFeeder, enabled: Bool) throws {
         guard !enabled || feeder.supportsDuplexScanning else { throw DriverConfigurationFailure.unavailable }
@@ -292,7 +310,8 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
         }
         do {
             try storage.complete(job: job, reason: .completed)
-            let outputs = try storage.export(job: job)
+            let outputs = try storage.export(job: job,isCancelled:processingCancelled)
+            orientationFallback = try !storage.processingNotice(job:job).isEmpty
             for target in outputs {
                 imagesSaved += 1; lastFile = target
                 update("\(imagesSaved) Datei(en) gespeichert")
