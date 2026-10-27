@@ -24,6 +24,8 @@ trap 'rm -rf -- "$TEMP"' EXIT
 /usr/bin/osacompile -s -o "$TEMP/ScanSmart AutoSave Beta.app" "$ROOT/src/helper.applescript"
 BUNDLE="$TEMP/ScanSmart AutoSave Beta.app"
 mkdir -p "$BUNDLE/Contents/Resources"
+cp "$ROOT/LICENSE" "$BUNDLE/Contents/Resources/LICENSE.txt"
+cp "$ROOT/LICENSING.md" "$BUNDLE/Contents/Resources/LICENSING.md"
 for file in core.js runtime.js native-click.js; do
   /bin/cp "$ROOT/src/$file" "$BUNDLE/Contents/Resources/$file"
 done

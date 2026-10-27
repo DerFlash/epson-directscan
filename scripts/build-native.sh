@@ -14,7 +14,7 @@ mkdir -p "$ROOT/build"
 TASK_BUILD="$(mktemp -d "$ROOT/build/.native-build.XXXXXX")"
 trap 'rm -rf -- "$TASK_BUILD"' EXIT
 BUNDLE="$TASK_BUILD/Epson DirectScan Beta.app"
-mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Helpers"
+mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Helpers" "$BUNDLE/Contents/Resources"
 cp "$BIN/EpsonDirectScan" "$BUNDLE/Contents/MacOS/"
 # Remove private compiler/AST debug paths before signing a distributable app.
 /usr/bin/strip -S "$BUNDLE/Contents/MacOS/EpsonDirectScan"
@@ -27,6 +27,8 @@ clang -fobjc-arc -mmacosx-version-min=13.0 -framework AppKit -framework IOKit -f
 "$BUNDLE/Contents/Helpers/EpsonFeedingWorker" --check
 codesign --force --sign - "$BUNDLE/Contents/Helpers/EpsonFeedingWorker"
 cp "$ROOT/native/Resources/Info.plist" "$BUNDLE/Contents/Info.plist"
+cp "$ROOT/LICENSE" "$BUNDLE/Contents/Resources/LICENSE.txt"
+cp "$ROOT/LICENSING.md" "$BUNDLE/Contents/Resources/LICENSING.md"
 plutil -lint "$BUNDLE/Contents/Info.plist"
 codesign --force --sign - "$BUNDLE"
 codesign --verify --strict "$BUNDLE"

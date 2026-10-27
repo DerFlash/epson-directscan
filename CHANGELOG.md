@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- License the project under PolyForm Strict 1.0.0; modifications and redistribution
+  require separate permission. Commercial use outside
+  its express permissions requires separate prior written permission from
+  Björn Teichmann; no commercial license or software purchase is offered for sale.
+- Include the license and licensing/contact notice in native and legacy app
+  bundles and native DMGs. Refuse packages with missing or stale bundled notices.
+
 ## 0.3.0-beta.2 — 2026-10-27
 
 - Rename the repository to `DerFlash/epson-directscan`, retaining issues,
