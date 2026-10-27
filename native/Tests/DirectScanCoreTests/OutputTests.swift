@@ -40,6 +40,24 @@ import Foundation
         context.drawPDFPage(first)
         #expect(context.makeImage() != nil)
     }
+    @Test func croppedCardPixelDimensionsProduceFourReadablePDFPages() throws {
+        let dimensions = [(741,1033),(740,1030),(749,1037),(744,1034)]
+        var pages: [URL] = []
+        for (index,size) in dimensions.enumerated() {
+            let file = fixture.root.appendingPathComponent("card\(index).jpg")
+            try fixture.jpeg(file, width: size.0, height: size.1); pages.append(file)
+        }
+        let output = fixture.root.appendingPathComponent("collection.pdf")
+        try PDFOutput.write(pages: pages, to: output, dpi: 300)
+        let pdf = try #require(CGPDFDocument(output as CFURL))
+        #expect(pdf.numberOfPages == 4)
+        for (index,size) in dimensions.enumerated() {
+            let page = try #require(pdf.page(at: index+1))
+            let box = page.getBoxRect(.mediaBox)
+            #expect(abs(box.width - Double(size.0)*72/300) < 0.0001)
+            #expect(abs(box.height - Double(size.1)*72/300) < 0.0001)
+        }
+    }
 
     @Test func duplexPDFRequiresBothSidesAndPublishesOnce() throws {
         let store = try fixture.store(), output = try fixture.destination()

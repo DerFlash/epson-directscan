@@ -37,7 +37,14 @@ public enum PDFOutput {
             context.closePDF()
             guard let document = CGPDFDocument(output as CFURL), document.numberOfPages == pages.count else { throw ScanFailure.invalidPDF }
             for index in geometry.indices {
-                guard let page = document.page(at: index+1), page.getBoxRect(.mediaBox) == geometry[index] else { throw ScanFailure.invalidPDF }
+                guard let page = document.page(at: index+1) else { throw ScanFailure.invalidPDF }
+                let actual = page.getBoxRect(.mediaBox), expected = geometry[index]
+                // Quartz may return 177.60000000000002 for a written 177.6pt box.
+                // Tolerance is below 1/2000 of a 300dpi pixel, while still rejecting
+                // a genuinely different page size or origin.
+                guard zip([actual.minX,actual.minY,actual.width,actual.height],
+                          [expected.minX,expected.minY,expected.width,expected.height])
+                    .allSatisfy({ abs($0 - $1) < 0.0001 }) else { throw ScanFailure.invalidPDF }
             }
         } catch {
             context.closePDF()
