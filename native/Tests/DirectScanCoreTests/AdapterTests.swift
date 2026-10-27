@@ -25,6 +25,16 @@ private final class FakeDevice: ICScannerDevice {
 private final class EmptyFeeder: ICScannerFunctionalUnitDocumentFeeder {
     override var documentLoaded: Bool { false }
 }
+private final class DuplexFeeder: ICScannerFunctionalUnitDocumentFeeder {
+    var supported = true
+    var reject = false
+    var enabled = false
+    override var supportsDuplexScanning: Bool { supported }
+    override var duplexScanningEnabled: Bool {
+        get { enabled }
+        set { if !reject { enabled = newValue } }
+    }
+}
 private final class FakeBrowser: ICDeviceBrowser {
     let device = FakeDevice()
     override var devices: [ICDevice]? { [device] }
@@ -55,6 +65,17 @@ private final class TestClock { var time: TimeInterval = 0 }
     deinit { try? FileManager.default.removeItem(at: root) }
 }
 @Suite @MainActor struct AdapterTests {
+    @Test func duplexRequiresSupportAndMatchingReadback() throws {
+        let feeder = DuplexFeeder()
+        try ScannerController.configureDuplex(feeder, enabled: true)
+        #expect(feeder.enabled)
+        try ScannerController.configureDuplex(feeder, enabled: false)
+        #expect(!feeder.enabled)
+        feeder.supported = false
+        #expect(throws: (any Error).self) { try ScannerController.configureDuplex(feeder, enabled: true) }
+        feeder.supported = true; feeder.reject = true
+        #expect(throws: (any Error).self) { try ScannerController.configureDuplex(feeder, enabled: true) }
+    }
     @Test func authorizedWorkerCannotScanBeforeReadyOrWithoutPaper() throws {
         let f = try AdapterFixture()
         var completed: Int?

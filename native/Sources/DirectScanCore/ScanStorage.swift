@@ -3,7 +3,7 @@ import ImageIO
 import Darwin
 import CryptoKit
 
-public struct ScanJob: Codable {
+public struct ScanJob: Codable, Equatable {
     public let id: UUID
     public let directory: URL
     public let destination: URL
@@ -218,6 +218,13 @@ public final class ScanStorage {
             _ = try self.record(record.job)
             return record.job
         }
+    }
+    public func discardEmpty(job: ScanJob) throws {
+        let record = try record(job)
+        guard (record.manifest?.pages ?? []).isEmpty, record.publishedSources.isEmpty,
+              (record.receipts ?? []).isEmpty,
+              try fm.contentsOfDirectory(atPath: job.directory.path) == ["job.json"] else { throw ScanFailure.unfinishedPages }
+        try fm.removeItem(at: job.directory)
     }
     /// Explicit user action only; never invoked on launch or scanner reconnection.
     public func recoverCollection(job: ScanJob) throws -> [URL] {

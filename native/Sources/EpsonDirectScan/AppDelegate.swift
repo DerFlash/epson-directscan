@@ -78,10 +78,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         image?.isTemplate = true; button.image = image
         button.toolTip = "Epson DirectScan – " + controller.message
         statusText?.stringValue = controller.message
-        countsText?.stringValue = "Tastendrücke: \(controller.buttonEvents) · Gespeicherte JPGs: \(controller.imagesSaved)"
+        countsText?.stringValue = "Tastendrücke: \(controller.buttonEvents) · Gespeichert: \(controller.imagesSaved)"
         folderText?.stringValue = "Ordner: " + (settings.destination.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "noch nicht gewählt")
-        connectButton?.title = controller.listening ? "Pausieren und freigeben" : "Mit Epson verbinden"
-        connectButton?.isEnabled = !controller.busy && folderPanel == nil
+        connectButton?.title = controller.collecting ? "Sammlung beenden und speichern" : controller.listening ? "Pausieren und freigeben" : "Mit Epson verbinden"
+        connectButton?.isEnabled = (controller.collecting || !controller.busy) && folderPanel == nil
         folderButton?.isEnabled = !controller.busy && folderPanel == nil
     }
     private func add(_ title: String, _ action: Selector? = nil, enabled: Bool = true, checked: Bool? = nil, value: String? = nil) {
@@ -95,24 +95,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add("Epson DirectScan Beta", enabled: false)
         add(controller.message, enabled: false)
         add("Status anzeigen …", #selector(showStatus))
-        add("Tastendrücke: \(controller.buttonEvents) · JPGs: \(controller.imagesSaved)", enabled: false)
+        add("Tastendrücke: \(controller.buttonEvents) · Gespeichert: \(controller.imagesSaved)", enabled: false)
         menu.addItem(.separator())
         add(controller.listening ? "Pausieren und Scanner freigeben" : "Mit Epson verbinden", #selector(toggleListening), enabled: !controller.busy && folderPanel == nil)
+        if controller.collecting { add("Sammlung beenden und speichern", #selector(finishCollection)) }
         add("Ablageordner wählen …", #selector(chooseFolder), enabled: !controller.busy && folderPanel == nil)
         add("Ablageordner öffnen", #selector(openFolder), enabled: settings.destination != nil)
         if let path = settings.destination { add("Ordner: " + URL(fileURLWithPath: path).lastPathComponent, enabled: false) }
         menu.addItem(.separator())
-        add("JPG · 300 dpi · einseitig", enabled: false)
+        let editable = !controller.busy && folderPanel == nil
+        add("300 dpi · Farbe", enabled: false)
+        add("Doppelseitig scannen", #selector(toggleCorrection(_:)), enabled: editable, checked: settings.duplex, value: "duplex")
+        addChoices("Ausgabe: " + (settings.automaticFeeding ? "Sammlungs-PDF" : settings.outputFormat == .jpg ? "JPG" : "PDF pro Karte"),
+            options: [("JPG – jede Seite einzeln", "jpg"),("PDF – eine Datei pro Karte", "pdf")],
+            selected: settings.outputFormat.rawValue, action: #selector(changeFormat(_:)), enabled: editable && !settings.automaticFeeding)
+        add("Kontinuierlicher Scan (Sammlungs-PDF)", #selector(toggleCorrection(_:)), enabled: editable, checked: settings.automaticFeeding, value: "automaticFeeding")
+        addChoices("Wartezeit: " + (settings.feedingTimeoutSeconds == 0 ? "unbegrenzt" : "\(settings.feedingTimeoutSeconds) Sekunden"),
+            options: [("30 Sekunden", "30"),("60 Sekunden", "60"),("120 Sekunden", "120"),("300 Sekunden", "300"),("Unbegrenzt – mit Stop beenden", "0")],
+            selected: String(settings.feedingTimeoutSeconds), action: #selector(changeTimeout(_:)), enabled: editable && settings.automaticFeeding)
         add("Automatischer Zuschnitt", #selector(toggleCorrection(_:)), enabled: !controller.busy && folderPanel == nil, checked: settings.crop, value: "crop")
         add("Schräglagenkorrektur", #selector(toggleCorrection(_:)), enabled: !controller.busy && folderPanel == nil, checked: settings.deskew, value: "deskew")
         add("Automatische Drehung", #selector(toggleCorrection(_:)), enabled: !controller.busy && folderPanel == nil, checked: settings.rotate, value: "rotate")
         menu.addItem(.separator())
-        add("Letztes JPG anzeigen", #selector(showLastFile), enabled: controller.lastFile != nil)
+        add("Letzte Datei anzeigen", #selector(showLastFile), enabled: controller.lastFile != nil)
         add("Zurückgehaltene Scans und Protokoll öffnen", #selector(openRecovery))
+        add("Zurückgehaltene Seiten als PDF sichern …", #selector(exportRecovery), enabled: editable && needsRecovery)
         add("Fehler zurücksetzen und neu verbinden …", #selector(recover), enabled: !controller.busy && folderPanel == nil && needsRecovery)
         add("Über diese App …", #selector(about))
         menu.addItem(.separator())
         add("Beenden", #selector(quit))
+    }
+    private func addChoices(_ title: String, options: [(String,String)], selected: String, action: Selector, enabled: Bool) {
+        let parent = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        let choices = NSMenu()
+        for (label,value) in options {
+            let item = NSMenuItem(title: label, action: action, keyEquivalent: "")
+            item.target = self; item.representedObject = value; item.state = value == selected ? .on : .off; item.isEnabled = enabled
+            choices.addItem(item)
+        }
+        choices.autoenablesItems = false; parent.submenu = choices; parent.isEnabled = enabled; menu.addItem(parent)
     }
     private func persist(_ next: ScanSettings) -> Bool {
         do { try storage.saveSettings(next); settings = next; return true }
@@ -129,7 +150,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let panel = NSOpenPanel(); folderPanel = panel
         panel.canChooseDirectories = true; panel.canChooseFiles = false
         panel.allowsMultipleSelection = false; panel.canCreateDirectories = true
-        panel.title = "Ablageordner für JPG-Scans wählen"; panel.prompt = "Ordner verwenden"
+        panel.title = "Ablageordner für Scans wählen"; panel.prompt = "Ordner verwenden"
         if let path = settings.destination { panel.directoryURL = URL(fileURLWithPath: path) }
         refreshIcon()
         panel.begin { [weak self] response in
@@ -160,6 +181,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if recovery { controller.recover() } else { controller.start() }
     }
     @objc private func toggleListening() {
+        if controller.collecting { controller.finishCollection(); return }
         guard !controller.busy, folderPanel == nil else { return }
         if controller.listening {
             var next = settings; next.paused = true
@@ -172,8 +194,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func toggleCorrection(_ sender: NSMenuItem) {
         guard !controller.busy, folderPanel == nil, let key = sender.representedObject as? String else { return }
         var next = settings
-        switch key { case "crop": next.crop.toggle(); case "deskew": next.deskew.toggle(); case "rotate": next.rotate.toggle(); default: return }
+        switch key {
+        case "crop": next.crop.toggle(); case "deskew": next.deskew.toggle(); case "rotate": next.rotate.toggle()
+        case "duplex": next.duplex.toggle(); case "automaticFeeding": next.automaticFeeding.toggle()
+        default: return
+        }
         _ = persist(next); refreshIcon()
+    }
+    @objc private func changeFormat(_ sender: NSMenuItem) {
+        guard !controller.busy, !settings.automaticFeeding, let raw = sender.representedObject as? String, let value = OutputFormat(rawValue: raw) else { return }
+        var next = settings; next.outputFormat = value; _ = persist(next); refreshIcon()
+    }
+    @objc private func changeTimeout(_ sender: NSMenuItem) {
+        guard !controller.busy, let raw = sender.representedObject as? String, let value = Int(raw) else { return }
+        var next = settings; next.feedingTimeoutSeconds = value; _ = persist(next); refreshIcon()
+    }
+    @objc private func finishCollection() { controller.finishCollection() }
+    @objc private func exportRecovery() {
+        guard !controller.busy else { return }
+        let alert = NSAlert(); alert.messageText = "Zurückgehaltene Seiten als PDF sichern?"
+        alert.informativeText = "Vollständig geprüfte Seiten werden im ursprünglichen Ablageordner gesichert. Bereits begonnene Ausgaben werden nur anhand ihres gespeicherten Nachweises bestätigt. Es wird kein Scan erneut ausgeführt. Unbestätigte Dateien bleiben zur manuellen Prüfung erhalten."
+        alert.addButton(withTitle: "Seiten sichern"); alert.addButton(withTitle: "Abbrechen")
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        controller.pause()
+        do {
+            for job in try storage.pendingJobs() {
+                do { _ = try storage.recoverCollection(job: job) }
+                catch { _ = try storage.export(job: job, allowInterrupted: true) }
+                try storage.finish(job: job)
+            }
+            refreshIcon(); showStatus()
+        } catch { showError(error.localizedDescription) }
     }
     @objc private func openFolder() { if let path = settings.destination { NSWorkspace.shared.open(URL(fileURLWithPath: path)) } }
     @objc private func showLastFile() { if let url = controller.lastFile { NSWorkspace.shared.activateFileViewerSelecting([url]) } }
@@ -228,7 +280,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
     @objc private func about() {
         let alert = NSAlert(); alert.messageText = "Epson DirectScan 0.2 Beta"
-        alert.informativeText = "Unabhängige Mac-App für ES-C320W über USB. JPG, 300 dpi und die drei Bildkorrekturen verwenden den installierten Epson-Treiber. Keine Bedienungshilfen, kein Upload. Gerätetaste noch in Erprobung. Zum Start bei Anmeldung kannst du die App nach erfolgreichem Test in den macOS-Anmeldeobjekten hinzufügen."
+        alert.informativeText = "Unabhängige Mac-App für ES-C320W über USB. Ein- oder doppelseitig, JPG/PDF und kontinuierlicher Einzug. Die Bildkorrekturen verwenden den installierten Epson-Treiber 6.7.84. Die Drehung benötigt erkennbaren Text und ist bei Spielkarten nicht zuverlässig. Keine Bedienungshilfen, kein Upload. Beta – Hardwaretests siehe Anleitung."
         alert.addButton(withTitle: "OK"); NSApp.activate(ignoringOtherApps: true); alert.runModal()
     }
     private func showError(_ text: String) {
@@ -239,6 +291,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func quit() { NSApp.terminate(nil) }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         if quitting { return .terminateNow }
+        if controller.collecting {
+            let alert = NSAlert(); alert.messageText = "Sammlung vor dem Beenden speichern?"
+            alert.informativeText = "Du kannst die fertigen Seiten als PDF speichern oder sie für die spätere Wiederherstellung zurückhalten."
+            alert.addButton(withTitle: "Speichern und beenden"); alert.addButton(withTitle: "Zurückhalten und beenden"); alert.addButton(withTitle: "Abbrechen")
+            NSApp.activate(ignoringOtherApps: true)
+            let choice = alert.runModal()
+            if choice == .alertThirdButtonReturn { return .terminateCancel }
+            if choice == .alertFirstButtonReturn {
+                quitting = true; terminationReplyPending = true
+                controller.finishCollection(pauseAfter: true)
+                DispatchQueue.main.asyncAfter(deadline: .now()+30) { [weak self] in
+                    guard let self, self.terminationReplyPending else { return }
+                    self.terminationReplyPending = false; self.controller.pause()
+                    NSApp.reply(toApplicationShouldTerminate: true)
+                }
+                return .terminateLater
+            }
+        }
         quitting = true; controller.pause()
         if controller.busy {
             terminationReplyPending = true

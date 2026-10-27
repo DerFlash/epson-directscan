@@ -19,6 +19,11 @@ cp "$BIN/EpsonDirectScan" "$BUNDLE/Contents/MacOS/"
 clang -fobjc-arc -mmacosx-version-min=13.0 -framework AppKit -framework IOKit \
   "$ROOT/native/Helpers/EpsonButtonReceiver.m" -o "$BUNDLE/Contents/Helpers/EpsonButtonReceiver"
 codesign --force --sign - "$BUNDLE/Contents/Helpers/EpsonButtonReceiver"
+clang -fobjc-arc -mmacosx-version-min=13.0 -framework AppKit -framework IOKit -framework ImageIO \
+  "$ROOT/native/Helpers/EpsonFeedingWorker.m" "$ROOT/native/Sources/EpsonImageProcessing/EpsonImageProcessing.m" \
+  -o "$BUNDLE/Contents/Helpers/EpsonFeedingWorker"
+"$BUNDLE/Contents/Helpers/EpsonFeedingWorker" --check
+codesign --force --sign - "$BUNDLE/Contents/Helpers/EpsonFeedingWorker"
 cp "$ROOT/native/Resources/Info.plist" "$BUNDLE/Contents/Info.plist"
 plutil -lint "$BUNDLE/Contents/Info.plist"
 codesign --force --sign - "$BUNDLE"

@@ -6,15 +6,19 @@ struct HelperEvent: Codable {
     let event: String
     var value: Int? = nil
     var file: String? = nil
+    var sheet: Int? = nil
+    var side: Int? = nil
 }
-enum HelperRole: Equatable { case button, scan(ScanSettings) }
+enum HelperRole: Equatable { case button, scan(ScanSettings), feeding(ScanJob) }
 protocol NativeHelper: AnyObject {
     var onEvent: ((HelperEvent) -> Void)? { get set }
     var onExit: ((Int32) -> Void)? { get set }
     func start() throws
     func cancel()
     func forceStop()
+    func finish()
 }
+extension NativeHelper { func finish() {} }
 
 // Pipe events and process exit are delivered in order on the main queue.
 final class NativeProcess: NativeHelper {
@@ -35,6 +39,10 @@ final class NativeProcess: NativeHelper {
             guard let executable = Bundle.main.executableURL else { throw CocoaError(.fileNoSuchFile) }
             let data = try JSONEncoder().encode(settings)
             self.init(executable: executable, arguments: ["--scan-worker", root.path, data.base64EncodedString(), String(getpid())])
+        case .feeding(let job):
+            let data = try JSONEncoder().encode(job.settings)
+            self.init(executable: Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/EpsonFeedingWorker"),
+                      arguments: [root.path, job.directory.path, data.base64EncodedString(), String(getpid())])
         }
     }
     func start() throws {
@@ -78,4 +86,5 @@ final class NativeProcess: NativeHelper {
     }
     func cancel() { if process.isRunning { process.terminate() } }
     func forceStop() { if process.isRunning { _ = kill(process.processIdentifier, SIGKILL) } }
+    func finish() { if process.isRunning { _ = kill(process.processIdentifier, SIGUSR1) } }
 }

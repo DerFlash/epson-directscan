@@ -216,7 +216,7 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
         guard feeder.supportedResolutions.contains(300) else { throw DriverConfigurationFailure.unavailable }
         feeder.resolution = 300; feeder.pixelDataType = .RGB
         guard let depth = ICScannerBitDepth(rawValue: 8), feeder.supportedBitDepths.contains(8) else { throw DriverConfigurationFailure.unavailable }
-        feeder.bitDepth = depth; feeder.duplexScanningEnabled = false
+        feeder.bitDepth = depth; try Self.configureDuplex(feeder, enabled: settings.duplex)
         let size = feeder.documentSize; feeder.scanArea = CGRect(x: 0, y: 0, width: size.width, height: size.height)
         let features = feeder.vendorFeatures ?? []; var actual: [String: Int] = [:]
         if let f = features.first(where: { $0.internalName == "VF_AUTOCROP" }) as? ICScannerFeatureEnumeration {
@@ -232,23 +232,36 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
             }
         }
         try validateDriverCorrections(settings: settings, actual: actual)
-        guard feeder.resolution == 300, feeder.pixelDataType == .RGB, !feeder.duplexScanningEnabled else { throw DriverConfigurationFailure.rejected }
+        guard feeder.resolution == 300, feeder.pixelDataType == .RGB, feeder.duplexScanningEnabled == settings.duplex else { throw DriverConfigurationFailure.rejected }
+    }
+    static func configureDuplex(_ feeder: ICScannerFunctionalUnitDocumentFeeder, enabled: Bool) throws {
+        guard !enabled || feeder.supportsDuplexScanning else { throw DriverConfigurationFailure.unavailable }
+        feeder.duplexScanningEnabled = enabled
+        guard feeder.duplexScanningEnabled == enabled else { throw DriverConfigurationFailure.rejected }
     }
     func scannerDevice(_ scanner: ICScannerDevice, didScanTo url: URL) {
         guard scanner === self.scanner, let job, policy.phase == .scanning else { return }
         do {
-            let target = try storage.publish(source: url, job: job, page: pages + 1)
-            pages += 1; imagesSaved += 1; lastFile = target
-            diagnostics.record("jpeg_published", values: ["page": pages]); update("\(pages) JPG gespeichert – Scan läuft …")
+            let index = pages + 1
+            try storage.stage(source: url, job: job, sheet: job.settings.duplex ? (index+1)/2 : index,
+                              side: job.settings.duplex && index % 2 == 0 ? .back : .front)
+            pages = index
+            diagnostics.record("page_staged", values: ["page": pages]); update("\(pages) Seite(n) übernommen – Scan läuft …")
         } catch { fail(error.localizedDescription, code: "publish_failed", error: error) }
     }
     func scannerDevice(_ scanner: ICScannerDevice, didCompleteScanWithError error: Error?) {
         guard scanner === self.scanner, policy.phase == .scanning, let job else { return }
         if let error { fail("Scan abgebrochen oder fehlgeschlagen. Bitte Scanner und zurückgehaltene Dateien prüfen.", code: "scan_failed", error: error); return }
         do {
+            try storage.complete(job: job, reason: .completed)
+            let outputs = try storage.export(job: job)
+            for target in outputs {
+                imagesSaved += 1; lastFile = target
+                update("\(imagesSaved) Datei(en) gespeichert")
+            }
             try storage.finish(job: job); self.job = nil; deadline = nil; policy.completed()
-            diagnostics.record("scan_completed", values: ["pages": pages]); update("Bereit – \(pages) JPG gespeichert")
-            onScanFinished?(pages)
+            diagnostics.record("scan_completed", values: ["pages": pages]); update("Bereit – \(outputs.count) Datei(en) gespeichert")
+            onScanFinished?(outputs.count)
         } catch { fail(error.localizedDescription, code: "completion_unconfirmed", error: error) }
     }
     func device(_ device: ICDevice, didEncounterError error: Error?) {
