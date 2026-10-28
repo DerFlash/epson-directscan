@@ -143,12 +143,13 @@ import Testing
         let f = try StorageTests()
         for sample in samples {
             let input = URL(fileURLWithPath:try #require(sample["path"] as? String))
+            let baseCorrection = sample["baseCorrection"] as? Int ?? 0
             for angle in [0,90,180,270] {
                 let variant = f.root.appendingPathComponent(UUID().uuidString+".jpg")
                 try PageRotation.write(input:input,output:variant,degrees:angle)
                 let scores = try VisionOrientation.analyze(variant)
                 let result = OrientationDecision.resolve(front:scores,back:nil,mapping:nil,fallbackFront:0,fallbackBack:0)
-                if sample["side"] as? String == "front" { #expect(result.front == (360-angle)%360 && result.notice == nil) }
+                if sample["side"] as? String == "front" { #expect(result.front == (baseCorrection-angle+360)%360 && result.notice == nil) }
                 else { #expect(result.notice == .uncertain) }
             }
         }

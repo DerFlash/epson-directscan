@@ -55,7 +55,10 @@ public enum VisionOrientation {
                 let request = VNRecognizeTextRequest()
                 request.recognitionLevel = .fast
                 request.recognitionLanguages = ["de-DE","en-US"]
-                request.usesLanguageCorrection = false;request.minimumTextHeight = 0.008
+                // Raw fast OCR assigns similar confidence to upright words and
+                // upside-down character noise. Let Vision's language model
+                // assess the text before applying the unchanged decision gates.
+                request.usesLanguageCorrection = true;request.minimumTextHeight = 0.008
                 let cancel = DispatchWorkItem { request.cancel() }
                 DispatchQueue.global(qos:.utility).asyncAfter(deadline:.now()+max(0,deadline-ProcessInfo.processInfo.systemUptime),execute:cancel)
                 defer { cancel.cancel() }

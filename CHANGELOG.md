@@ -10,6 +10,10 @@
   hardware-verified side mapping for each capture path. No such calibration is
   claimed by this software-only implementation. Width with automatic height also
   remains explicitly unavailable pending device verification.
+- Enable Vision language correction before orientation scoring. A new physical
+  card exposed nearly equal raw OCR scores for upright text and upside-down
+  noise. The unchanged confidence gates now distinguish all tested rotations of
+  that card; private regression images remain outside the repository.
 - Preserve original page bytes; journal processed copies before atomic export so
   retries cannot apply a rotation twice. Keep collection processing outside the
   menu UI, honor cancellation before publication and retain recoverable originals.

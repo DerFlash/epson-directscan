@@ -560,3 +560,34 @@ assistive-technology flow, or actual hung-Vision cancellation latency/large-job
 throughput. Those broader guarantees are not claimed by this beta. Installation,
 new release distribution and physical acceptance remain separate from this local
 implementation check.
+
+### Orientation — physical acceptance in progress, 2026-10-28
+
+Build16 was installed locally with verified application/data backups. With Epson
+driver rotation disabled and both fixed output rotations at zero, three physical
+duplex scans produced six valid300dpi JPGs: portrait, a clockwise quarter-turn,
+and portrait with the card faces exchanged. Each returned to ready/listening with
+an empty Pending directory. Visual inspection and reference-image correlation
+established the ICA relationship `back = -front (mod360)`: the quarter-turn
+required corrections270°/90°, while both portrait cases required0°/0°.
+This does not establish the separate direct-feeding relationship.
+
+The new card also exposed a limitation in the original raw fast OCR score:
+upside-down noise could score as highly as real words, including an incorrect
+raw maximum on the physical quarter-turn. The conservative decision correctly
+declined those cases. Enabling Vision's own language correction, rather than
+lowering the decision gates or adding a spell-checking service, corrected the
+sample. The existing production-analyzer regression failed with seven issues
+before the change and passed afterward. The expanded private matrix now covers
+five front inputs from three distinct cards (including actual swapped-face and
+quarter-turn captures), in four digital rotations each; all20 decisions match
+the expected correction. Four back-only variants remain undecided. The complete
+98-test native suite and callback/geometry harness pass. Existing private spike
+originals retain their recorded hashes and modification times.
+
+Build17 contains this small OCR correction and is installed with another verified
+app/data backup. The measured ICA mapping and macOS automatic orientation are
+enabled in the private calibration profile. Automatic physical output, the
+remaining direct-feeding geometry and fixed card/holder outside dimensions are
+still under acceptance. The development candidate remains unpublished; these
+results are a small controlled sample, not a general orientation accuracy claim.
