@@ -672,3 +672,40 @@ to another model or driver. Build19 is installed with another verified app/data
 backup; the final continuous fixed-frame test uses69×94mm with more reserve,
 local automatic orientation and physical Stop. That final image result remains
 pending and is not established by the software tests.
+
+**Final local acceptance, build19:** a physical lower-edge-first card with its
+blue back facing the user produced two815×1110px native fixed-area originals and
+two identically sized processed pages. After physical Stop, the912,244-byte PDF
+has two195.6×266.4pt pages (69×94mm at300dpi with whole-pixel rounding). Both
+pages rendered successfully at300dpi and were visually inspected: blue back on
+page1, readable printed face on page2, both upright. Thus the readable face was
+actually on channelB in this final direct-feeding case. Both original-to-output
+digests changed, there are no processing notices, capture/processing revisions
+are1, the final PDF digest matches its receipt, and the app returned to
+ready/listening with Pending empty. The fixed native area was actually delivered,
+not just echoed by a setter. This accepts the demonstrated duplex orientation,
+dimensions, PDF export and physical Stop workflow on the tested device.
+
+The leading-edge boundary may remain flush with the card; these samples do not
+establish arbitrary overscan or guaranteed entire outer borders for all insertions.
+No thick-holder feed was performed, automatic height remains unavailable, and
+the previously observed darker direct-feeding color remains outside this change.
+This pass did not repeat a jam, forced mid-image stop, inactivity timeout,
+sleep/wake or unplug test; earlier evidence and software guards remain separate.
+
+Final installed bytes match the verified build19 manifest.104 native,26 Node
+and42 Python tests pass (172 total), plus the native callback/geometry harness.
+The package tests also exercise actual DMG/ZIP behavior. New source/runtime and
+private card evidence stay separate; no real scan or OCR text entered Git.
+The normal destination and PDF-per-card/duplex preferences were restored through
+the UI, automatic feeding is off by default, and its stored timeout is again120s.
+The active profile uses69×94mm/local automatic orientation; a measured77×102mm
+holder profile is retained inactive. The owned temporary calibration profile was
+removed with backups retained. The login item readback after build19 remains
+enabled/allowed at the `/Applications` app path; no real logout/login was needed.
+This completes the authorized local installation and the demonstrated scanner
+tests, with the explicit media/image-quality limits above. Publication remains
+separate from this local acceptance.
+Finally the status window was closed. A process readback confirmed the installed
+main application and its parent-bound button receiver still running in the
+background; the app was left ready for the physical scan button.
