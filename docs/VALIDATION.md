@@ -633,3 +633,42 @@ backup. The card profile remains active at63×88mm; an inactive77×102mm holder
 profile uses the user's measured outside size. The actual corrected fixed-frame
 scan and holder mechanical suitability/border retention remain pending. No new
 scan after this installation is counted as accepted until its images are checked.
+
+The corrected physical ICA63×88mm scan delivered two744×1039px JPGs from the
+selected A6 capture1240×1748px. Both capture/processing revision markers are1,
+receipt digests match and there are no orientation notices. Both sides are
+visibly upright; the rear outside edge is tight against the exact-size boundary,
+so full-border retention is not claimed for that template. A65×90mm area with
+reserve and duplex PDF is the next acceptance case. A thick rigid holder was
+not fed: its reported dimensions/thickness are outside the confirmed
+[Epson ISO ID-1 plastic-card specification](https://download4.epson.biz/sec_pubs/es-c320w/useg/en/GUID-A2F939AF-072A-4C13-9BE1-5E6AAD23B6BF.htm).
+
+The subsequent ICA65×90mm duplex PDF has two pages,184.32×255.12pt from
+768×1063px at300dpi (physical dimensions rounded to whole pixels). Poppler read
+and300dpi rendering of both pages succeeded, and the receipt digest matches the
+913,064-byte final file. Both sides stand upright with no processing notices.
+The front is complete; the rear outside edge remains tight, so this is format
+and orientation acceptance, not a general whole-border guarantee. The app
+returned to ready/listening with Pending empty. Direct-feeding calibration is
+now prepared separately with automatic area and fixed0°/0° output; no direct
+mapping is enabled until actual geometry is measured.
+
+Direct feeding was then measured independently with native rotation disabled:
+normal portrait required0°/0°, and the clockwise quarter-turn required270°/90°.
+Visual inspection, local OCR and a reference-back comparison agree on
+`back = -front (mod360)`. Four staged originals were privately snapshotted and
+hash-verified before physical Stop. Stop produced one1,365,431-byte four-page PDF
+with a matching receipt and returned to ready/listening with Pending empty.
+The readable face remained on channelA in these captures; physical swapped-face
+acceptance on this path is still a separate final case, despite the insertion
+instruction. Do not count it as demonstrated from the user's description alone.
+
+Build19 includes both measured ES-C320W/driver6.7.84 mappings in newly created
+profiles. An uncalibrated legacy/explicitly missing mapping still falls back.
+The new-profile consumer regression failed before the change;104 native tests
+now pass, including the private orientation matrix. Both native helpers already
+restrict USB product400 and driver6.7.84, so these defaults do not extend support
+to another model or driver. Build19 is installed with another verified app/data
+backup; the final continuous fixed-frame test uses69×94mm with more reserve,
+local automatic orientation and physical Stop. That final image result remains
+pending and is not established by the software tests.

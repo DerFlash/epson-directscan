@@ -117,6 +117,8 @@ aktiviert; Schema 1/2 wird mit einer unveränderten privaten Sicherung übernomm
   und die gelieferte Bildgröße geprüft. Automatischer Randzuschnitt und
   Treiber-Schrägkorrektur sind bei festen Außenmaßen aus. Bitte die Vorlage
   mittig und gerade führen; die Maße enthalten keinen zusätzlichen Sicherheitsrand.
+  Liegt der Kartenrand direkt an der Bildkante, etwas größere Maße als Reserve
+  wählen. Eine feste Größe richtet eine schief eingelegte Vorlage nicht gerade.
   Für einen Toploader sind dessen komplette Außenmaße anzugeben. Der transparente
   Rand bleibt Bestandteil des angeforderten Scanbereichs. Das innere Kartenmotiv
   wird nicht ausgeschnitten und das Bild wird nicht auf andere Proportionen gedehnt.
@@ -131,9 +133,11 @@ aktiviert; Schema 1/2 wird mit einer unveränderten privaten Sicherung übernomm
   werden beide Seiten eines Blatts gemeinsam beurteilt; die lesbare Fläche darf
   auf jeder Scannerseite liegen. Unklare oder widersprüchliche Ergebnisse verwenden
   die festen Ersatzdrehungen und hinterlassen einen Hinweis, keinen Gerätefehler.
-- **Vor dem gemeinsamen Duplex-Betrieb muss die Rückseitenlage für jeden der beiden
-  Scanwege am Epson nachgewiesen werden.** Bis dahin gelten die festen Ersatzwerte;
-  das Profilfenster zeigt dies an. Es wird keine ungeprüfte Zuordnung geraten.
+- **Die Rückseitenlage wurde für ES-C320W und Treiber6.7.84 auf beiden Scanwegen
+  separat am Gerät gemessen.** Neue Profile enthalten diese Zuordnung.
+  Ältere oder ausdrücklich unkalibrierte Profile ohne Zuordnung verwenden die
+  festen Ersatzwerte; das Profilfenster zeigt dies an. Andere Modelle und
+  Treiberversionen sind durch diese Prüfung nicht freigegeben.
 - **Automatisch – Epson (bisher)** bleibt bei automatischer Scanfläche verfügbar.
   Für feste Außenmaße bitte feste Drehung oder macOS-Automatik wählen.
   Die neue feste/macOS-Drehung

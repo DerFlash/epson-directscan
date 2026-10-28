@@ -4,6 +4,18 @@ import Testing
 @testable import DirectScanCore
 
 @Suite struct ProfileTests {
+    @Test func newProfilesCanOrientEitherReadableFaceOnBothMeasuredCapturePaths() {
+        let p=ScanProfile(name:"Neues Profil")
+        func evidence(_ angle:Int?) -> [OrientationEvidence] {
+            [0,90,180,270].map{OrientationEvidence(rotation:$0,score:$0 == angle ? 60 : 0,lines:$0 == angle ? 4 : 0)}
+        }
+        for mapping in [p.icaMapping,p.feedingMapping] {
+            let a=OrientationDecision.resolve(front:evidence(270),back:evidence(nil),mapping:mapping,fallbackFront:0,fallbackBack:0)
+            #expect(a.front == 270 && a.back == 90 && a.notice == nil)
+            let b=OrientationDecision.resolve(front:evidence(nil),back:evidence(90),mapping:mapping,fallbackFront:0,fallbackBack:0)
+            #expect(b.front == 270 && b.back == 90 && b.notice == nil)
+        }
+    }
     @Test func fixedFrameCannotUseDriverRotationBeforeFraming() throws {
         let f=try StorageTests(),store=try f.store(),out=try f.destination()
         var p=ScanProfile(name:"Hülle");p.area=ScanArea(widthMM:77,heightMM:102);p.orientation = .epson

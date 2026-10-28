@@ -7,9 +7,9 @@
   Fixed areas disable automatic cropping, retaining transparent holder margins.
 - Add local Apple Vision fast orientation scoring with conservative fixed fallback.
   Joint duplex inference can use either readable face; it stays gated on a
-  hardware-verified side mapping for each capture path. No such calibration is
-  claimed by this software-only implementation. Width with automatic height also
-  remains explicitly unavailable pending device verification.
+  hardware-verified side mapping for each capture path. Both mappings are now
+  physically measured on ES-C320W/driver6.7.84 and included in new profiles.
+  Width with automatic height remains explicitly unavailable pending verification.
 - Enable Vision language correction before orientation scoring. A new physical
   card exposed nearly equal raw OCR scores for upright text and upside-down
   noise. The unchanged confidence gates now distinguish all tested rotations of

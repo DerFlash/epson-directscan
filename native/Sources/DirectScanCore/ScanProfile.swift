@@ -39,10 +39,16 @@ public struct ScanProfile: Codable, Equatable, Identifiable {
     public var frontRotation = 0
     public var backRotation = 0
     public var printedBackOffset = 0
-    // Nil until the corresponding raw driver path has passed physical calibration.
+    // Missing legacy/explicitly uncalibrated values retain conservative fallback.
     public var icaMapping: DuplexMapping?
     public var feedingMapping: DuplexMapping?
-    public init(id: UUID = UUID(), name: String) { self.id = id; self.name = name }
+    public init(id: UUID = UUID(), name: String) {
+        self.id = id; self.name = name
+        // Both paths physically measured on ES-C320W/driver6.7.84. Native
+        // helpers already reject other USB products and driver revisions.
+        icaMapping=DuplexMapping(sign:-1,offset:0)
+        feedingMapping=DuplexMapping(sign:-1,offset:0)
+    }
     public func validate() throws {
         try area.validate()
         guard !name.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty, name.count <= 60,

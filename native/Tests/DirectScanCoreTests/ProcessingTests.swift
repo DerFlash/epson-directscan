@@ -183,6 +183,7 @@ import Testing
     @Test func uncalibratedPairFallsBackWithNoticeAndDoesNotCallOCR() throws {
         let f = try StorageTests(), store = try f.store(), output = try f.destination()
         var s = settings(output,duplex:true);s.profiles[0].orientation = .vision
+        s.profiles[0].icaMapping=nil;s.profiles[0].feedingMapping=nil
         let job = try store.beginJob(settings:s)
         for (n,side) in [("a.jpg",PageSide.front),("b.jpg",.back)] { let u = job.directory.appendingPathComponent(n);try f.jpeg(u,width:80,height:40);try store.stage(source:u,job:job,sheet:1,side:side) }
         try store.complete(job:job,reason:.completed)
