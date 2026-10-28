@@ -17,8 +17,9 @@ public struct ScanSettings: Codable, Equatable {
     public var activeProfileID: UUID?
     public var activeProfile: ScanProfile? { profiles.first { $0.id == activeProfileID } }
     public var driverCrop: Bool { activeProfile.map { $0.area.isAutomatic && crop } ?? crop }
+    public var driverDeskew: Bool { activeProfile.map { $0.area.isAutomatic && deskew } ?? deskew }
     public var driverRotate: Bool { activeProfile.map { $0.orientation == .epson } ?? rotate }
-    public var requiresImageProcessing: Bool { activeProfile.map { $0.orientation != .epson } ?? false }
+    public var requiresImageProcessing: Bool { activeProfile.map { $0.orientation != .epson || !$0.area.isAutomatic } ?? false }
     public init(destination: String? = nil) { self.destination = destination }
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, destination, paused, crop, deskew, rotate, duplex, outputFormat, automaticFeeding, feedingTimeoutSeconds, profiles, activeProfileID
@@ -56,7 +57,7 @@ public struct ScanSettings: Codable, Equatable {
 }
 
 public enum ScanFailure: String, Error, LocalizedError {
-    case invalidSettings, invalidDestination, invalidJPEG, invalidSource, collision, unfinishedPages, invalidPDF, incompletePair, unsupportedProfile
+    case invalidSettings, invalidDestination, invalidJPEG, invalidSource, collision, unfinishedPages, invalidPDF, incompletePair, unsupportedProfile, unverifiedFraming
     public var errorDescription: String? {
         switch self {
         case .invalidSettings: return "Die Einstellungen konnten nicht gelesen werden. Bitte die Einstellungen prüfen."
@@ -68,6 +69,7 @@ public enum ScanFailure: String, Error, LocalizedError {
         case .invalidPDF: return "Das PDF konnte nicht vollständig geprüft werden. Die gescannten Seiten bleiben erhalten."
         case .incompletePair: return "Zu einer Karte fehlt eine Seite. Die vorhandenen Seiten bleiben erhalten."
         case .unsupportedProfile: return "Diese Scanfläche wird nicht unterstützt. Bitte Breite und Höhe innerhalb der Scannergrenzen angeben; automatische Höhe ist noch nicht abgenommen."
+        case .unverifiedFraming: return "Diese zurückgehaltenen Scans stammen aus einer Version ohne geprüfte Außenmaße. Die Originale bleiben erhalten. Bitte die zurückgehaltenen Dateien prüfen."
         }
     }
 }

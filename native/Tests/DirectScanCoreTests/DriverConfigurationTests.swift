@@ -7,20 +7,25 @@ import Foundation
     @Test func activeProfileRequiresExplicitDisabledCorrectionReadbacks() throws {
         var s=ScanSettings();var p=ScanProfile(name:"Hülle");p.area=ScanArea(widthMM:76,heightMM:102);p.orientation = .vision
         s.profiles=[p];s.activeProfileID=p.id
-        for actual in [["VF_DESKEW":1],["VF_DESKEW":1,"VF_AUTOCROP":0],["VF_DESKEW":1,"VF_AUTOROTATE":0]] {
+        for actual in [["VF_DESKEW":0],["VF_DESKEW":0,"VF_AUTOCROP":0],["VF_DESKEW":0,"VF_AUTOROTATE":0],["VF_AUTOCROP":0,"VF_AUTOROTATE":0], ["VF_DESKEW":1,"VF_AUTOCROP":0,"VF_AUTOROTATE":0]] {
             #expect(throws:(any Error).self) {try validateDriverCorrections(settings:s,actual:actual)}
         }
-        try validateDriverCorrections(settings:s,actual:["VF_DESKEW":1,"VF_AUTOCROP":0,"VF_AUTOROTATE":0])
+        try validateDriverCorrections(settings:s,actual:["VF_DESKEW":0,"VF_AUTOCROP":0,"VF_AUTOROTATE":0])
     }
     @Test func profileDisablesConflictingDriverCorrectionsInBothPayloads() throws {
         var s = ScanSettings();var p = ScanProfile(name:"Hülle")
         p.area = ScanArea(widthMM:76,heightMM:102);p.orientation = .vision
         s.profiles = [p];s.activeProfileID = p.id
-        try validateDriverCorrections(settings:s,actual:["VF_AUTOCROP":0,"VF_DESKEW":1,"VF_AUTOROTATE":0])
+        try validateDriverCorrections(settings:s,actual:["VF_AUTOCROP":0,"VF_DESKEW":0,"VF_AUTOROTATE":0])
         let bytes = try NativeProcess.feedingPayload(s)
         let payload = try #require(JSONSerialization.jsonObject(with:bytes) as? [String:Any])
         #expect(payload["crop"] as? Bool == false && payload["rotate"] as? Bool == false)
+        #expect(payload["deskew"] as? Bool == false)
         #expect(payload["profileWidthMM"] as? Double == 76 && payload["profileHeightMM"] as? Double == 102)
+        #expect(s.deskew)
+        s.activeProfileID=nil
+        let legacy=try #require(JSONSerialization.jsonObject(with:NativeProcess.feedingPayload(s)) as? [String:Any])
+        #expect(legacy["deskew"] as? Bool == true)
     }
     @Test func enabledCorrectionsMustExistAndMatchReadback() throws {
         let settings = ScanSettings()

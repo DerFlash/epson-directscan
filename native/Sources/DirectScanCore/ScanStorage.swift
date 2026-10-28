@@ -9,6 +9,7 @@ public struct ScanJob: Codable, Equatable {
     public let destination: URL
     public let fileStem: String
     public let settings: ScanSettings
+    public let fixedFrameCaptureRevision: Int?
     public func outputURL(page: Int) -> URL {
         destination.appendingPathComponent(String(format: "%@_%04d.jpg", fileStem, page))
     }
@@ -86,6 +87,7 @@ public final class ScanStorage {
     }
     public func beginJob(settings: ScanSettings) throws -> ScanJob {
         try settings.validate()
+        try settings.activeProfile?.validateForCapture()
         guard try !hasUnfinishedJobs() else { throw ScanFailure.unfinishedPages }
         let destination = try validateDestination(settings.destination)
         let id = UUID()
@@ -95,7 +97,9 @@ public final class ScanStorage {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyyMMdd_HHmmss_SSS"
         let stem = "Karte_" + formatter.string(from: Date()) + "_" + id.uuidString
-        let job = ScanJob(id: id, directory: directory, destination: destination, fileStem: stem, settings: settings)
+        let fixedFrame = settings.activeProfile.map {!$0.area.isAutomatic} ?? false
+        let job = ScanJob(id: id, directory: directory, destination: destination, fileStem: stem, settings: settings,
+                          fixedFrameCaptureRevision:fixedFrame ? 1 : nil)
         try write(JobRecord(job: job, manifest: PageManifest(duplex: settings.duplex)), to: directory.appendingPathComponent("job.json"))
         return job
     }

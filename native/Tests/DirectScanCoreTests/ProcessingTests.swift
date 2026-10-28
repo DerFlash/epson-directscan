@@ -5,6 +5,93 @@ import Testing
 @testable import DirectScanCore
 
 @Suite struct ProcessingTests {
+    @Test func legacyFixedCapturesAndUnstampedProcessedCopiesCannotPublishOrDeleteOriginals() throws {
+        for legacyCapture in [true,false] {
+            let f=try StorageTests(),store=try f.store(),out=try f.destination()
+            var s=settings(out);s.profiles[0].area=ScanArea(widthMM:50.8,heightMM:76.2)
+            let job=try store.beginJob(settings:s),source=job.directory.appendingPathComponent("original.jpg")
+            try f.jpeg(source,width:800,height:1200)
+            try store.stage(source:source,job:job,sheet:1,side:.front);try store.complete(job:job,reason:.completed)
+            try store.prepareImages(job:job)
+            let journal=job.directory.appendingPathComponent("job.json")
+            var record=try #require(JSONSerialization.jsonObject(with:Data(contentsOf:journal)) as? [String:Any])
+            if legacyCapture {
+                var saved=try #require(record["job"] as? [String:Any])
+                saved.removeValue(forKey:"fixedFrameCaptureRevision");record["job"]=saved
+                record.removeValue(forKey:"processing")
+            } else {
+                var processing=try #require(record["processing"] as? [String:Any])
+                processing.removeValue(forKey:"fixedFrameRevision")
+                var pages=try #require(processing["pages"] as? [[String:Any]])
+                var page=try #require(pages[0]["page"] as? [String:Any])
+                let file=job.directory.appendingPathComponent(try #require(page["sourceName"] as? String))
+                //A self-consistent pre-framing A5/preset processed copy must not
+                //authorize publication just because its own hash/size match.
+                try f.jpeg(file,width:1200,height:800)
+                page["width"]=1200;page["height"]=800;pages[0]["page"]=page
+                pages[0]["digest"]=try store.fingerprint(file).2
+                processing["pages"]=pages;record["processing"]=processing
+            }
+            try JSONSerialization.data(withJSONObject:record).write(to:journal)
+            let retained=try #require(store.pendingJobs().first)
+            #expect(throws:(any Error).self) {try store.export(job:retained)}
+            #expect(throws:(any Error).self) {try store.finish(job:retained)}
+            #expect(try FileManager.default.contentsOfDirectory(atPath:out.path).isEmpty)
+            #expect(FileManager.default.fileExists(atPath:source.path))
+            #expect(try store.hasUnfinishedJobs())
+        }
+    }
+    @Test func fixedICAAreaFramesBeforeOCRAndRotationAndCanRetry() throws {
+        let f=try StorageTests(),store=try f.store(),out=try f.destination()
+        var s=settings(out);s.profiles[0].area=ScanArea(widthMM:50.8,heightMM:76.2);s.profiles[0].orientation = .vision
+        let job=try store.beginJob(settings:s),source=job.directory.appendingPathComponent("page.jpg")
+        //800×1200 preset frame: the requested600×900 starts at x100/y0.
+        //Red marks its upper-left; blue outside must never be scaled into it.
+        let bytes=(0..<800*1200).flatMap { i -> [UInt8] in
+            let x=i%800,y=i/800
+            if x>=100 && x<700 && y<900 {return x<200 && y<100 ? [255,0,0,255] : [0,255,0,255]}
+            return [0,0,255,255]
+        }
+        let provider=try #require(CGDataProvider(data:Data(bytes) as CFData))
+        let image=try #require(CGImage(width:800,height:1200,bitsPerComponent:8,bitsPerPixel:32,bytesPerRow:3200,space:CGColorSpaceCreateDeviceRGB(),bitmapInfo:CGBitmapInfo(rawValue:CGImageAlphaInfo.last.rawValue),provider:provider,decode:nil,shouldInterpolate:false,intent:.defaultIntent))
+        let writer=try #require(CGImageDestinationCreateWithURL(source as CFURL,"public.jpeg" as CFString,1,nil))
+        CGImageDestinationAddImage(writer,image,[kCGImageDestinationLossyCompressionQuality:1] as CFDictionary)
+        #expect(CGImageDestinationFinalize(writer))
+        let original=try Data(contentsOf:source)
+        try store.stage(source:source,job:job,sheet:1,side:.front);try store.complete(job:job,reason:.completed)
+        try store.prepareImages(job:job,analyze:{ url in
+            let frame=try JPEGInput.decode(url)
+            #expect(frame.width == 600 && frame.height == 900)
+            return [0,90,180,270].map{OrientationEvidence(rotation:$0,score:$0 == 90 ? 60 : 0,lines:$0 == 90 ? 4 : 0)}
+        })
+        let files=try store.export(job:job),result=try JPEGInput.decode(files[0])
+        #expect(result.width == 900 && result.height == 600)
+        let marker=try #require(result.cropping(to:CGRect(x:850,y:50,width:1,height:1)))
+        var pixel=[UInt8](repeating:0,count:4)
+        let context=try #require(CGContext(data:&pixel,width:1,height:1,bitsPerComponent:8,bytesPerRow:4,space:CGColorSpaceCreateDeviceRGB(),bitmapInfo:CGImageAlphaInfo.noneSkipLast.rawValue))
+        context.draw(marker,in:CGRect(x:0,y:0,width:1,height:1))
+        #expect(pixel[0]>220 && pixel[1]<35 && pixel[2]<35)
+        let published=try Data(contentsOf:files[0])
+        #expect(try store.export(job:job) == files)
+        #expect(try Data(contentsOf:files[0]) == published)
+        #expect(try Data(contentsOf:source) == original)
+        try store.finish(job:job)
+        #expect(try !store.hasUnfinishedJobs())
+    }
+    @Test func undersizedFixedCaptureAndUnexpectedFeedingFrameRemainRecoverable() throws {
+        for (feeding,width,height) in [(false,500,1200),(false,800,700),(true,800,1200)] {
+            let f=try StorageTests(),store=try f.store(),out=try f.destination()
+            var s=settings(out);s.automaticFeeding=feeding;s.profiles[0].area=ScanArea(widthMM:50.8,heightMM:76.2)
+            let job=try store.beginJob(settings:s),source=job.directory.appendingPathComponent("page.jpg")
+            try f.jpeg(source,width:width,height:height)
+            let original=try Data(contentsOf:source)
+            try store.stage(source:source,job:job,sheet:1,side:.front);try store.complete(job:job,reason:.completed)
+            #expect(throws:(any Error).self) {try store.export(job:job)}
+            #expect(try FileManager.default.contentsOfDirectory(atPath:out.path).isEmpty)
+            #expect(try Data(contentsOf:source) == original)
+            #expect(try store.hasUnfinishedJobs())
+        }
+    }
     func settings(_ destination: URL, duplex: Bool = false) -> ScanSettings {
         var s = ScanSettings(destination:destination.path), p = ScanProfile(name:"Test")
         p.frontRotation = 90; p.backRotation = 270

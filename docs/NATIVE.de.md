@@ -111,7 +111,12 @@ aktiviert; Schema 1/2 wird mit einer unveränderten privaten Sicherung übernomm
 
 - **Feste Außenmaße:** Breite quer zum Einzug und Höhe in Einzugsrichtung in
   Millimetern, also vor einer Drehung. Dezimalkomma und Dezimalpunkt sind möglich.
-  Die Fläche wird mittig erfasst; der automatische Randzuschnitt ist dabei aus.
+  Beim normalen Scan erfasst macOS ein ausreichend großes Papierformat; die App
+  schneidet daraus die feste Fläche mittig und ab der Einzugskante aus. Beim
+  kontinuierlichen Scan wird die feste Fläche direkt im Epson-Treiber gesetzt
+  und die gelieferte Bildgröße geprüft. Automatischer Randzuschnitt und
+  Treiber-Schrägkorrektur sind bei festen Außenmaßen aus. Bitte die Vorlage
+  mittig und gerade führen; die Maße enthalten keinen zusätzlichen Sicherheitsrand.
   Für einen Toploader sind dessen komplette Außenmaße anzugeben. Der transparente
   Rand bleibt Bestandteil des angeforderten Scanbereichs. Das innere Kartenmotiv
   wird nicht ausgeschnitten und das Bild wird nicht auf andere Proportionen gedehnt.
@@ -129,13 +134,17 @@ aktiviert; Schema 1/2 wird mit einer unveränderten privaten Sicherung übernomm
 - **Vor dem gemeinsamen Duplex-Betrieb muss die Rückseitenlage für jeden der beiden
   Scanwege am Epson nachgewiesen werden.** Bis dahin gelten die festen Ersatzwerte;
   das Profilfenster zeigt dies an. Es wird keine ungeprüfte Zuordnung geraten.
-- **Automatisch – Epson (bisher)** bleibt verfügbar. Die neue feste/macOS-Drehung
+- **Automatisch – Epson (bisher)** bleibt bei automatischer Scanfläche verfügbar.
+  Für feste Außenmaße bitte feste Drehung oder macOS-Automatik wählen.
+  Die neue feste/macOS-Drehung
   schaltet Epsons automatische Drehung aus, damit das Bild nicht doppelt gedreht wird.
 
 Feste Breite mit automatisch erkannter Höhe ist noch nicht freigegeben. Insbesondere
 die transparente Endkante einer Hülle ist nicht durch den inneren Kartenrand ersetzbar.
-Die vollständigen Außenränder und Zentrierung sowie die Schräglagenkorrektur bei festen
-Formaten sind noch physisch zu prüfen. Eine Größenvorgabe ändert nicht die mechanischen
+Die vollständigen Außenränder und Zentrierung sind noch physisch zu prüfen.
+Zurückgehaltene Aufträge aus älteren Versionen ohne geprüfte Rahmung bleiben
+lesbar und erhalten, werden aber nicht als maßgerecht exportiert oder entfernt.
+Eine Größenvorgabe ändert nicht die mechanischen
 Einzugsgrenzen des Geräts.
 
 Empfangene Originalseiten bleiben bis zum geprüften Export erhalten. Gedrehte Kopien

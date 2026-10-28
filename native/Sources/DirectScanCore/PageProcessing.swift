@@ -15,12 +15,20 @@ struct ProcessedPage: Codable {
 struct ProcessingRecord: Codable {
     let pages: [ProcessedPage]
     let notices: [OrientationNotice]
+    let fixedFrameRevision: Int?
 }
 
 extension ScanStorage {
     public func processingNotice(job: ScanJob) throws -> [OrientationNotice] { try record(job).processing?.notices ?? [] }
 
     func checkedProcessing(_ record: JobRecord, job: ScanJob, isCancelled: () -> Bool = {false}, onCheckpoint: () throws -> Void = {}) throws -> PageManifest? {
+        if job.settings.activeProfile?.area.isAutomatic == false {
+            // Legacy capture could have used destructive driver deskew, and its
+            // old processed copies may still describe the larger paper preset.
+            // Keep them readable, but never publish/delete them as newly framed.
+            guard job.fixedFrameCaptureRevision == 1,
+                  record.processing == nil || record.processing?.fixedFrameRevision == 1 else {throw ScanFailure.unverifiedFraming}
+        }
         guard let processed = record.processing, let original = record.manifest,
               processed.pages.count == original.pages.count else {
             if record.processing != nil { throw ScanFailure.invalidSource };return nil
@@ -43,6 +51,7 @@ extension ScanStorage {
                               onProgress: (Int) throws -> Void = { _ in }, isCancelled: () -> Bool = { false }, onCheckpoint: () throws -> Void = {}) throws {
         try processingCheckpoint(isCancelled,onCheckpoint)
         guard job.settings.requiresImageProcessing, let profile = job.settings.activeProfile else { return }
+        try profile.validateForCapture()
         var record = try record(job)
         if try checkedProcessing(record,job:job,isCancelled:isCancelled,onCheckpoint:onCheckpoint) != nil { return }
         guard let manifest = record.manifest, manifest.endReason != nil, !manifest.pages.isEmpty,
@@ -52,12 +61,22 @@ extension ScanStorage {
         for (_,group) in groups {
             try autoreleasepool {
                 guard !isCancelled() else { throw CocoaError(.userCancelled) }
+                var inputs: [PageSide:URL] = [:]
                 for raw in group {
                     try processingCheckpoint(isCancelled,onCheckpoint)
                     let source = job.directory.appendingPathComponent(raw.sourceName)
                     try localSource(source,job:job)
                     let image = try JPEGInput.decode(source)
                     guard image.width == raw.width, image.height == raw.height else { throw ScanFailure.invalidSource }
+                    if !profile.area.isAutomatic {
+                        let name="framed-"+UUID().uuidString+".jpg",framed=job.directory.appendingPathComponent(name)
+                        if record.processingArtifacts == nil {record.processingArtifacts=[]}
+                        record.processingArtifacts!.append(name)
+                        try write(record,to:job.directory.appendingPathComponent("job.json"))
+                        try PageRotation.write(input:source,output:framed,degrees:0,fixedArea:profile.area,allowLargerFrame:!job.settings.automaticFeeding)
+                        inputs[raw.side]=framed
+                        try processingCheckpoint(isCancelled,onCheckpoint)
+                    } else {inputs[raw.side]=source}
                 }
                 let front = group.first { $0.side == .front }, back = group.first { $0.side == .back }
                 var angles: [PageSide:Int] = [.front:profile.frontRotation,.back:profile.backRotation]
@@ -67,9 +86,9 @@ extension ScanStorage {
                     else if job.settings.duplex && mapping == nil { notices.insert(.uncalibrated) }
                     else if let front {
                         do {
-                            let a = try analyze(job.directory.appendingPathComponent(front.sourceName))
+                            let a = try analyze(inputs[front.side]!)
                             guard !isCancelled() else { throw CocoaError(.userCancelled) }
-                            let b = try back.map { try analyze(job.directory.appendingPathComponent($0.sourceName)) }
+                            let b = try back.map { try analyze(inputs[$0.side]!) }
                             let decision = OrientationDecision.resolve(front:a,back:b,mapping:mapping,
                                 fallbackFront:profile.frontRotation,fallbackBack:profile.backRotation,printedOffset:profile.printedBackOffset)
                             angles[.front] = decision.front;angles[.back] = decision.back ?? profile.backRotation
@@ -88,7 +107,7 @@ extension ScanStorage {
                     if record.processingArtifacts == nil { record.processingArtifacts = [] }
                     record.processingArtifacts!.append(name)
                     try write(record,to:job.directory.appendingPathComponent("job.json"))
-                    try PageRotation.write(input:source,output:output,degrees:angles[raw.side]!)
+                    try PageRotation.write(input:inputs[raw.side]!,output:output,degrees:angles[raw.side]!)
                     let image = try JPEGInput.decode(output)
                     let page = ValidatedPage(index:raw.index,sheet:raw.sheet,side:raw.side,sourceName:name,width:image.width,height:image.height)
                     results.append(ProcessedPage(originalName:raw.sourceName,originalDigest:originalDigest,page:page,digest:try fingerprint(output,isCancelled:isCancelled,onCheckpoint:onCheckpoint).2))
@@ -98,7 +117,7 @@ extension ScanStorage {
         }
         results.sort { $0.page.index < $1.page.index }
         guard !isCancelled() else { throw CocoaError(.userCancelled) }
-        record.processing = ProcessingRecord(pages:results,notices:notices.sorted { $0.rawValue < $1.rawValue })
+        record.processing = ProcessingRecord(pages:results,notices:notices.sorted { $0.rawValue < $1.rawValue },fixedFrameRevision:profile.area.isAutomatic ? nil : 1)
         try write(record,to:job.directory.appendingPathComponent("job.json"))
         _ = try checkedProcessing(record,job:job,isCancelled:isCancelled,onCheckpoint:onCheckpoint)
     }

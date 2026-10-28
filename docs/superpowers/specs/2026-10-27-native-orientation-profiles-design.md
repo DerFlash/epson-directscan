@@ -196,6 +196,33 @@ Anmeldestart werden durch diese Funktion nicht geändert.
 6. Erst nach Implementierung, passenden Tests und separatem Auftrag lokal installieren
    bzw. veröffentlichen. Der Machbarkeitstest ändert die installierte Beta nicht.
 
+## Präzisierung aus der Geräteprüfung am 28.10.2026
+
+Der ICA-Einzug bestätigte einen freien Bereich von63×88mm in `scanArea`, lieferte
+aber tatsächlich das gewählte A5-Papierformat (1748×2480px bei300dpi). Seine
+verfügbaren Dokumenttypen enthalten nur feste Papierformate. Daher wählt dieser
+Adapter nun ein ausreichend großes Papierformat und erzeugt die feste mittige,
+an der Einzugskante beginnende Fläche erst in der gesicherten Bildverarbeitung,
+vor Texterkennung und Drehung. Das ist ein geometrischer Ausschnitt ohne
+Motiverkennung und ohne Skalierung. Der direkte kontinuierliche Treiberweg
+behält seine native Flächenvorgabe und muss die tatsächlichen Bildmaße bestätigen.
+
+Die vorhandene Aufnahme zeigte zudem bereits im unbeschnittenen Rückseitenbild
+eine schiefe und am oberen Rand unvollständige Karte bei aktivierter Treiber-
+Schrägkorrektur ohne Autocrop. Diese Kombination ist nicht als randerhaltend
+abgenommen. Bei festen Maßen bleibt die Treiber-Schrägkorrektur deshalb aus;
+die UI zeigt das an. Epson-Automatik ist nur bei automatischer Fläche zulässig,
+weil eine feste Rahmung vor der Drehentscheidung erfolgen muss. Die gespeicherte
+allgemeine Korrekturpräferenz bleibt für automatische Flächen erhalten.
+
+Historische Profile und Scanaufträge bleiben lesbar. Eine getrennte Prüfung
+blockiert lediglich neue Aufnahmen/Verarbeitung mit nicht unterstützten Optionen.
+Feste Aufnahmen und verarbeitete Kopien erhalten eine Versionskennung; ältere
+Aufträge ohne diese Kennung werden zur manuellen Prüfung behalten, damit weder
+unpassende Papierformate exportiert noch möglicherweise angeschnittene Originale
+nachträglich als korrekt eingerahmt behandelt werden. Die physische Abnahme der
+korrigierten festen Flächen folgt auf den erneuten lokalen Softwaretest.
+
 ## Quellen
 
 - Bestehender Code: `ScannerController.swift`, `EpsonFeedingWorker.m`,

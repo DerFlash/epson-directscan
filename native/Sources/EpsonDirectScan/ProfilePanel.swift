@@ -71,7 +71,7 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
         let mode=OrientationMode.allCases[max(0,orientation.indexOfSelectedItem)]
         front.isEnabled=mode != .epson;back.isEnabled=mode != .epson;offset.isEnabled=mode == .vision
         removeButton.isEnabled=snapshot.profiles.contains(where:{$0.id==current.id})
-        var text="Außenmaße vor der Drehung. Bei fester Fläche bleibt die ganze Hülle im Bild; automatischer Randzuschnitt ist aus. Breite mit automatischer Höhe ist noch nicht freigegeben."
+        var text="Außenmaße vor der Drehung. Beim Einzelscan schneidet die App die feste Fläche mittig aus dem Papierformat aus; automatischer Randzuschnitt ist aus. Epson-Drehung nur bei automatischer Fläche. Automatische Höhe ist noch nicht freigegeben."
         if mode == .vision && snapshot.duplex && (snapshot.automaticFeeding ? current.feedingMapping : current.icaMapping) == nil {
             text += "\nDie Duplex-Zuordnung dieses Scanwegs ist noch nicht kalibriert. Bis zur Geräteprüfung gelten die festen Ersatzdrehungen."
         } else if mode == .vision {text += "\nBei unsicherer Erkennung gelten die festen Ersatzdrehungen. Vorne/hinten bezeichnet die Scannerseite."}
@@ -88,7 +88,7 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
         var next=snapshot
         if let index=next.profiles.firstIndex(where:{$0.id==p.id}) {next.profiles[index]=p} else {next.profiles.append(p)}
         next.activeProfileID=p.id
-        do {try next.validate();finish(next)} catch {showError("Bitte Profilnamen, Drehungen und Maße prüfen. Breite:50,8–215,9mm, Höhe:50,8–297mm.")}
+        do {try p.validateForCapture();try next.validate();finish(next)} catch {showError("Bitte Profilnamen, Drehungen und Maße prüfen. Breite:50,8–215,9mm, Höhe:50,8–297mm. Bei fester Fläche bitte feste Drehung oder Automatisch – macOS wählen.")}
     }
     @objc private func removeProfile() {
         var next=snapshot;next.profiles.removeAll{$0.id==current.id}

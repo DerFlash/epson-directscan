@@ -125,7 +125,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             options: [("30 Sekunden", "30"),("60 Sekunden", "60"),("120 Sekunden", "120"),("300 Sekunden", "300"),("Unbegrenzt – mit Stop beenden", "0")],
             selected: String(settings.feedingTimeoutSeconds), action: #selector(changeTimeout(_:)), enabled: editable && settings.automaticFeeding)
         add("Automatischer Zuschnitt", #selector(toggleCorrection(_:)), enabled: editable && (settings.activeProfile?.area.isAutomatic ?? true), checked: settings.driverCrop, value: "crop")
-        add("Schräglagenkorrektur", #selector(toggleCorrection(_:)), enabled: !controller.busy && !editorOpen, checked: settings.deskew, value: "deskew")
+        add(settings.activeProfile?.area.isAutomatic == false ? "Schräglagenkorrektur – bei festen Maßen aus" : "Schräglagenkorrektur", #selector(toggleCorrection(_:)), enabled: editable && (settings.activeProfile?.area.isAutomatic ?? true), checked: settings.driverDeskew, value: "deskew")
         add("Automatische Drehung (bisher)", #selector(toggleCorrection(_:)), enabled: editable && settings.activeProfile == nil, checked: settings.driverRotate, value: "rotate")
         menu.addItem(.separator())
         add("Letzte Datei anzeigen", #selector(showLastFile), enabled: controller.lastFile != nil)

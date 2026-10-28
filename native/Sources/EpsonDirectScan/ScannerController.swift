@@ -253,7 +253,7 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
             guard let value = f.currentValue as? NSNumber else { throw DriverConfigurationFailure.rejected }
             actual["VF_AUTOCROP"] = value.intValue
         }
-        for (key, requested) in [("VF_DESKEW", settings.deskew), ("VF_AUTOROTATE", settings.driverRotate)] {
+        for (key, requested) in [("VF_DESKEW", settings.driverDeskew), ("VF_AUTOROTATE", settings.driverRotate)] {
             if let f = features.first(where: { $0.internalName == key }) as? ICScannerFeatureBoolean {
                 f.value = requested; actual[key] = f.value ? 1 : 0
             }
@@ -262,13 +262,29 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
         guard feeder.resolution == 300, feeder.pixelDataType == .RGB, feeder.duplexScanningEnabled == settings.duplex else { throw DriverConfigurationFailure.rejected }
     }
     static func configureArea(_ feeder: ICScannerFunctionalUnitDocumentFeeder, settings: ScanSettings) throws {
+        try settings.activeProfile?.validateForCapture()
         if let area = settings.activeProfile?.area, !area.isAutomatic {
             guard feeder.supportedMeasurementUnits.contains(Int(ICScannerMeasurementUnit.centimeters.rawValue)) else { throw ScanFailure.unsupportedProfile }
             feeder.measurementUnit = .centimeters
             guard feeder.measurementUnit == .centimeters else { throw DriverConfigurationFailure.rejected }
-            let size = feeder.physicalSize
-            let rect = try area.rectangle(maximumMM:CGSize(width:size.width*10,height:size.height*10))
-            let requested = CGRect(x:rect.minX/10,y:rect.minY/10,width:rect.width/10,height:rect.height/10)
+            guard let w=area.widthMM,let h=area.heightMM else {throw ScanFailure.unsupportedProfile}
+            // ICA document feeders obey documentType even when scanArea echoes
+            // a custom rectangle. Select the smallest containing paper preset;
+            // the immutable processing step frames the requested outside size.
+            var best: (type:ICScannerDocumentType,size:CGSize)?
+            for value in feeder.supportedDocumentTypes {
+                guard let type=ICScannerDocumentType(rawValue:UInt(value)) else {continue}
+                feeder.documentType=type
+                guard feeder.documentType == type else {throw DriverConfigurationFailure.rejected}
+                let size=feeder.documentSize
+                guard size.width.isFinite,size.height.isFinite,size.width*10>=w,size.height*10>=h else {continue}
+                if best == nil || size.width*size.height < best!.size.width*best!.size.height {best=(type,size)}
+            }
+            guard let best else {throw ScanFailure.unsupportedProfile}
+            feeder.documentType=best.type
+            let size=feeder.documentSize
+            guard feeder.documentType == best.type,abs(size.width-best.size.width)<=0.01,abs(size.height-best.size.height)<=0.01 else {throw DriverConfigurationFailure.rejected}
+            let requested = CGRect(origin:.zero,size:size)
             feeder.scanArea = requested
             let actual = feeder.scanArea
             guard zip([requested.minX,requested.minY,requested.width,requested.height],[actual.minX,actual.minY,actual.width,actual.height])

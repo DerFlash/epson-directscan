@@ -591,3 +591,45 @@ enabled in the private calibration profile. Automatic physical output, the
 remaining direct-feeding geometry and fixed card/holder outside dimensions are
 still under acceptance. The development candidate remains unpublished; these
 results are a small controlled sample, not a general orientation accuracy claim.
+
+Two subsequent physical ICA scans with automatic processing enabled passed:
+an upside-down card, then a quarter-turn with the card faces exchanged. Both
+published two visibly upright JPGs without processing notices and returned to
+ready/listening with Pending empty. The second case changed the raw landscape
+dimensions1045×740/1040×741 to portrait740×1045/741×1040, demonstrating actual
+pixel rotation on both scanner channels. The first case used a different printed
+card from the raw calibration captures, broadening the physical sample. Receipt
+digests match all four final files. The macOS login item was also retargeted from
+the older user-local copy to the installed application in `/Applications`; both
+System Settings selection and enabled/allowed record readback were verified.
+An actual logout/login was not performed during scanner acceptance.
+
+The first physical63×88mm attempt exposed an ICA limitation: the driver echoed
+the custom `scanArea`, but delivered the A5 preset1748×2480px. Its original rear
+also showed a tilted/clipped leading edge with deskew enabled and autocrop off.
+This attempt is a failed fixed-area acceptance, despite successful file saving.
+
+Build18 intentionally changes ICA framing: select the smallest containing paper
+preset, then frame its centered/leading-edge physical region before OCR/rotation.
+There is no stretching or content-edge search. Fixed profiles require disabled
+crop, deskew and vendor rotation; legacy/automatic-area deskew preferences remain.
+Direct feeding still requires matching actual native dimensions. Fixed-area
+Epson-rotation profiles remain decodable but cannot start a new capture. Older
+fixed raw/processed jobs without verified capture/processing revisions remain
+readable and retained, and cannot authorize publication or original deletion.
+
+103 native tests pass, including the private orientation matrix and native harness.
+Tests cover actual crop pixels before OCR/rotation, exact output dimensions,
+repeat export without reprocessing, undersized capture retention, rejected
+oversized direct-feeding frames, old inactive-profile/settings/job readability,
+and failed export/cleanup of legacy fixed captures and stale oversized copies.
+Each new defect was reproduced before its guard was implemented. Scoped
+independent review identified the decoder and stale-processing reuse problems;
+both were resolved with focused regressions, with no remaining Critical or
+Important finding. That review did not certify physical framing or rerun tests.
+
+Build18 builds and verifies, and is installed locally with verified app/data
+backup. The card profile remains active at63×88mm; an inactive77×102mm holder
+profile uses the user's measured outside size. The actual corrected fixed-frame
+scan and holder mechanical suitability/border retention remain pending. No new
+scan after this installation is counted as accepted until its images are checked.

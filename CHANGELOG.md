@@ -3,7 +3,7 @@
 ## 0.4.0-beta.1-dev — unreleased
 
 - Add editable scan profiles with complete physical outside dimensions in mm,
-  centered capture areas and fixed clockwise rotations for each scanner side.
+  centered output areas and fixed clockwise rotations for each scanner side.
   Fixed areas disable automatic cropping, retaining transparent holder margins.
 - Add local Apple Vision fast orientation scoring with conservative fixed fallback.
   Joint duplex inference can use either readable face; it stays gated on a
@@ -14,6 +14,11 @@
   card exposed nearly equal raw OCR scores for upright text and upside-down
   noise. The unchanged confidence gates now distinguish all tested rotations of
   that card; private regression images remain outside the repository.
+- Correct fixed-size ICA output: acquire a containing paper preset and frame
+  the exact physical center/leading-edge region before OCR and rotation, without
+  scaling or content-based cropping. Disable driver deskew for fixed dimensions;
+  restrict Epson autorotation to automatic areas. Preserve historical profiles
+  and fail closed on unstamped old fixed captures/processed copies during recovery.
 - Preserve original page bytes; journal processed copies before atomic export so
   retries cannot apply a rotation twice. Keep collection processing outside the
   menu UI, honor cancellation before publication and retain recoverable originals.

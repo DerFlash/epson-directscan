@@ -18,18 +18,37 @@ public enum PageRotation {
         guard let result = context.makeImage() else { throw ScanFailure.invalidJPEG }
         return result
     }
-    public static func write(input: URL, output: URL, degrees: Int) throws {
+    public static func write(input: URL, output: URL, degrees: Int, fixedArea: ScanArea? = nil, allowLargerFrame: Bool = false) throws {
         guard [0,90,180,270].contains(degrees), !FileManager.default.fileExists(atPath:output.path),
               let source = CGImageSourceCreateWithURL(input as CFURL,nil) else { throw ScanFailure.invalidSource }
         let original = try JPEGInput.decode(input)
         guard original.width <= 10000, original.height <= 10000, original.width*original.height <= 16_000_000 else { throw ScanFailure.invalidJPEG }
         let props = CGImageSourceCopyPropertiesAtIndex(source,0,nil) as? [String:Any] ?? [:]
         let orientation = (props[kCGImagePropertyOrientation as String] as? NSNumber)?.intValue ?? 1
-        if degrees == 0 && orientation == 1 {
+        var normalized = original
+        if orientation != 1 {
+            guard let transformed = CGImageSourceCreateThumbnailAtIndex(source,0,[kCGImageSourceCreateThumbnailFromImageAlways:true,
+                kCGImageSourceCreateThumbnailWithTransform:true,kCGImageSourceThumbnailMaxPixelSize:max(original.width,original.height)] as CFDictionary) else { throw ScanFailure.invalidJPEG }
+            normalized = transformed
+        }
+        var framed = false
+        if let area = fixedArea, !area.isAutomatic {
+            try area.validate()
+            guard let mmWidth=area.widthMM, let mmHeight=area.heightMM else {throw ScanFailure.unsupportedProfile}
+            let width=Int((mmWidth*300/25.4).rounded()),height=Int((mmHeight*300/25.4).rounded())
+            guard allowLargerFrame || (abs(normalized.width-width)<=1 && abs(normalized.height-height)<=1),
+                  normalized.width>=width,normalized.height>=height else {throw ScanFailure.unsupportedProfile}
+            if normalized.width != width || normalized.height != height {
+                // ICA's feeder obeys its paper preset. Frame by physical size,
+                // centered across the feed and aligned to its leading edge.
+                // Never detect an inner card edge or scale the captured pixels.
+                guard let cropped=normalized.cropping(to:CGRect(x:(normalized.width-width)/2,y:0,width:width,height:height)) else {throw ScanFailure.invalidJPEG}
+                normalized=cropped;framed=true
+            }
+        }
+        if degrees == 0 && orientation == 1 && !framed {
             try Data(contentsOf:input).write(to:output,options:.withoutOverwriting)
         } else {
-            guard let normalized = CGImageSourceCreateThumbnailAtIndex(source,0,[kCGImageSourceCreateThumbnailFromImageAlways:true,
-                kCGImageSourceCreateThumbnailWithTransform:true,kCGImageSourceThumbnailMaxPixelSize:max(original.width,original.height)] as CFDictionary) else { throw ScanFailure.invalidJPEG }
             let image = try rotated(normalized,degrees:degrees)
             let data = NSMutableData()
             guard let writer = CGImageDestinationCreateWithData(data,"public.jpeg" as CFString,1,nil) else { throw ScanFailure.invalidJPEG }

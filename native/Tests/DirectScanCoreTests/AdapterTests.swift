@@ -63,6 +63,16 @@ private final class AreaFeeder: ICScannerFunctionalUnitDocumentFeeder {
     var unit: ICScannerMeasurementUnit = .inches
     var rectangle = CGRect.zero
     var rejectUnit = false, rejectArea = false
+    var paper = ICScannerDocumentType(rawValue:1)!
+    override var supportedDocumentTypes: IndexSet {IndexSet([1,5,23])}
+    override var documentType: ICScannerDocumentType {get {paper} set {paper=newValue}}
+    override var documentSize: CGSize {
+        switch paper.rawValue {
+        case 5: return CGSize(width:14.8,height:21)
+        case 23: return CGSize(width:5.2,height:7.4)
+        default: return CGSize(width:21,height:29.7)
+        }
+    }
     override var supportedMeasurementUnits: IndexSet { IndexSet(integer:Int(ICScannerMeasurementUnit.centimeters.rawValue)) }
     override var measurementUnit: ICScannerMeasurementUnit { get {unit} set {if !rejectUnit {unit=newValue}} }
     override var physicalSize: CGSize {CGSize(width:21.6,height:29.7)}
@@ -112,7 +122,10 @@ private final class AreaFeeder: ICScannerFunctionalUnitDocumentFeeder {
         settings.profiles=[p];settings.activeProfileID=p.id
         let feeder=AreaFeeder()
         try ScannerController.configureArea(feeder,settings:settings)
-        #expect(feeder.rectangle == CGRect(x:7.65,y:0,width:6.3,height:8.8))
+        // Real ICA ADF capture obeys the paper preset, not a cached custom
+        // scanArea. Acquire a containing preset; processing frames the output.
+        #expect(feeder.documentType.rawValue == 5)
+        #expect(feeder.rectangle == CGRect(x:0,y:0,width:14.8,height:21))
         feeder.unit = .inches;feeder.rejectUnit=true
         #expect(throws:(any Error).self) {try ScannerController.configureArea(feeder,settings:settings)}
         feeder.rejectUnit=false;feeder.rejectArea=true;feeder.rectangle = .zero

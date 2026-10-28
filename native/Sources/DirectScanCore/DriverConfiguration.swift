@@ -12,12 +12,12 @@ public enum DriverConfigurationFailure: Error, LocalizedError {
 
 public func validateDriverCorrections(settings: ScanSettings, actual: [String: Int]) throws {
     let expected = ["VF_AUTOCROP": settings.driverCrop ? 1 : 0,
-                    "VF_DESKEW": settings.deskew ? 1 : 0,
+                    "VF_DESKEW": settings.driverDeskew ? 1 : 0,
                     "VF_AUTOROTATE": settings.driverRotate ? 1 : 0]
     for (key, value) in expected {
         guard let readback = actual[key] else {
             let profileNeedsConfirmation = settings.activeProfile.map {
-                key == "VF_AUTOROTATE" || (key == "VF_AUTOCROP" && !$0.area.isAutomatic)
+                key == "VF_AUTOROTATE" || (["VF_AUTOCROP","VF_DESKEW"].contains(key) && !$0.area.isAutomatic)
             } ?? false
             if value != 0 || profileNeedsConfirmation { throw DriverConfigurationFailure.unavailable }
             continue

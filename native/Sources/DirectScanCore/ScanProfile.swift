@@ -49,4 +49,10 @@ public struct ScanProfile: Codable, Equatable, Identifiable {
               [frontRotation,backRotation,printedBackOffset].allSatisfy({ [0,90,180,270].contains($0) }),
               icaMapping?.isValid ?? true, feedingMapping?.isValid ?? true else { throw ScanFailure.invalidSettings }
     }
+    /// Historical profiles remain decodable. Enforce new operational limits at
+    /// capture/processing boundaries, without hiding old settings or originals.
+    public func validateForCapture() throws {
+        try validate()
+        guard area.isAutomatic || orientation != .epson else {throw ScanFailure.unsupportedProfile}
+    }
 }
