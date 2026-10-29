@@ -18,7 +18,7 @@ public enum PageRotation {
         guard let result = context.makeImage() else { throw ScanFailure.invalidJPEG }
         return result
     }
-    public static func write(input: URL, output: URL, degrees: Int, fixedArea: ScanArea? = nil, allowLargerFrame: Bool = false) throws {
+    public static func write(input: URL, output: URL, degrees: Int, fixedArea: ScanArea? = nil, allowLargerFrame: Bool = false, transparentCanvas: Bool = false) throws {
         guard [0,90,180,270].contains(degrees), !FileManager.default.fileExists(atPath:output.path),
               let source = CGImageSourceCreateWithURL(input as CFURL,nil) else { throw ScanFailure.invalidSource }
         let original = try JPEGInput.decode(input)
@@ -36,6 +36,20 @@ public enum PageRotation {
             try area.validate()
             guard let mmWidth=area.widthMM, let mmHeight=area.heightMM else {throw ScanFailure.unsupportedProfile}
             let width=Int((mmWidth*300/25.4).rounded()),height=Int((mmHeight*300/25.4).rounded())
+            if transparentCanvas {
+                // The native laminated capture adds0.20in on each side. A
+                // fixed output may remove this margin, never protected content.
+                guard width>=normalized.width-120,height>=normalized.height-120 else {throw ScanFailure.frameTooSmall}
+                if normalized.width != width || normalized.height != height {
+                    guard let c=CGContext(data:nil,width:width,height:height,bitsPerComponent:8,bytesPerRow:0,
+                        space:CGColorSpaceCreateDeviceRGB(),bitmapInfo:CGImageAlphaInfo.noneSkipLast.rawValue) else {throw ScanFailure.invalidJPEG}
+                    c.setFillColor(CGColor(gray:1,alpha:1));c.fill(CGRect(x:0,y:0,width:width,height:height))
+                    // Integer translation only; preserve the original pixel grid.
+                    c.draw(normalized,in:CGRect(x:(width-normalized.width)/2,y:(height-normalized.height)/2,width:normalized.width,height:normalized.height))
+                    guard let result=c.makeImage() else {throw ScanFailure.invalidJPEG}
+                    normalized=result;framed=true
+                }
+            } else {
             guard allowLargerFrame || (abs(normalized.width-width)<=1 && abs(normalized.height-height)<=1),
                   normalized.width>=width,normalized.height>=height else {throw ScanFailure.unsupportedProfile}
             if normalized.width != width || normalized.height != height {
@@ -44,6 +58,7 @@ public enum PageRotation {
                 // Never detect an inner card edge or scale the captured pixels.
                 guard let cropped=normalized.cropping(to:CGRect(x:(normalized.width-width)/2,y:0,width:width,height:height)) else {throw ScanFailure.invalidJPEG}
                 normalized=cropped;framed=true
+            }
             }
         }
         if degrees == 0 && orientation == 1 && !framed {

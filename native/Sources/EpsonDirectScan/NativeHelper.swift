@@ -55,6 +55,8 @@ final class NativeProcess: NativeHelper {
         var payload = try JSONSerialization.jsonObject(with:JSONEncoder().encode(settings)) as! [String:Any]
         payload["crop"] = settings.driverCrop;payload["rotate"] = settings.driverRotate
         payload["deskew"] = settings.driverDeskew
+        payload["transparentOriginal"] = settings.transparentOriginal
+        payload["singleShot"] = !settings.automaticFeeding
         if let area = settings.activeProfile?.area, !area.isAutomatic {
             // Width-only needs a separate hardware acceptance and must not silently
             // turn into a smaller automatically cropped inner card.

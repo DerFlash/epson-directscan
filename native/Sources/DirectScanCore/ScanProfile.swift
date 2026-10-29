@@ -39,6 +39,9 @@ public struct ScanProfile: Codable, Equatable, Identifiable {
     public var frontRotation = 0
     public var backRotation = 0
     public var printedBackOffset = 0
+    // Optional for compatibility with profiles and pending jobs from build19.
+    public var transparentOriginal: Bool?
+    public var isTransparentOriginal: Bool { transparentOriginal == true }
     // Missing legacy/explicitly uncalibrated values retain conservative fallback.
     public var icaMapping: DuplexMapping?
     public var feedingMapping: DuplexMapping?
@@ -60,5 +63,6 @@ public struct ScanProfile: Codable, Equatable, Identifiable {
     public func validateForCapture() throws {
         try validate()
         guard area.isAutomatic || orientation != .epson else {throw ScanFailure.unsupportedProfile}
+        guard !isTransparentOriginal || orientation != .epson else {throw ScanFailure.unsupportedProfile}
     }
 }

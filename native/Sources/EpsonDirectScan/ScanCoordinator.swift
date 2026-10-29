@@ -43,7 +43,8 @@ final class ScanCoordinator {
     private var lastOrientationFallback = false
     private(set) var collectionPages = 0
     private(set) var lastCollectionIncomplete = false
-    var collecting: Bool { if case .feeding? = role { return policy.phase == .scanning && !stopping }; return false }
+    private var directCaptureActive: Bool { if case .feeding? = role { return policy.phase == .scanning && !stopping };return false }
+    var collecting: Bool { if case .feeding(let job)? = role { return job.settings.automaticFeeding && directCaptureActive }; return false }
     private var deadline: TimeInterval?
     private var timer: Timer?
     private var outputSettings: ScanSettings? {
@@ -140,26 +141,31 @@ final class ScanCoordinator {
         case (.scan?, "notice"), (.export?, "notice"):
             guard event.value == 1, complete == nil, !lastOrientationFallback else { fail("Ungültiger Ausrichtungshinweis.",code:"processing_notice_invalid");return }
             lastOrientationFallback = true;diagnostics.record("orientation_fixed_fallback")
-        case (.feeding?, "ready"):
+        case (.feeding(let job)?, "ready"):
             guard !feedingReady else { fail("Doppelte Einzugsbereitschaft.", code: "feeding_duplicate_ready"); return }
             feedingReady = true
             if finishReason != nil {
                 deadline = now() + 20; helper?.finish(); update("Sammlung wird beendet …")
             } else {
-                feedingArmed = true; idleSince = now(); deadline = nil; helper?.arm()
-                update("Sammlung aktiv – Karten nachlegen · 0 Seiten")
+                feedingArmed = true; idleSince = now(); deadline = job.settings.automaticFeeding ? nil : now()+130
+                if !job.settings.automaticFeeding {feedingProgressDeadline=now()+15}
+                helper?.arm()
+                update(job.settings.automaticFeeding ? "Sammlung aktiv – Karten nachlegen · 0 Seiten" : "Toploader wird gescannt …")
             }
         case (.feeding?, "batchBegin"):
             guard feedingArmed, !feedingEnded, !feedingTransfer else { fail("Unerwarteter Einzugsstart.", code: "feeding_batch_invalid"); return }
             feedingTransfer = true; idleSince = nil
             if finishReason == nil { deadline = now() + 130; feedingProgressDeadline = now() + 15 }
-            update("Sammlung – Karte wird gescannt · \(collectionPages) Seiten")
-        case (.feeding?, "batchEnd"):
+            update(collecting ? "Sammlung – Karte wird gescannt · \(collectionPages) Seiten" : "Toploader wird gescannt …")
+        case (.feeding(let job)?, "batchEnd"):
             guard feedingArmed, !feedingEnded else { fail("Unerwarteter Einzugsabschluss.", code: "feeding_batch_invalid"); return }
             feedingTransfer = false
             feedingProgressDeadline = nil
-            if finishReason == nil { idleSince = now(); deadline = nil }
-            update("Sammlung aktiv – Karten nachlegen · \(collectionPages) Seiten")
+            if finishReason == nil {
+                if job.settings.automaticFeeding {idleSince=now();deadline=nil}
+                else {finishReason = .completed;idleSince=nil;deadline=now()+15}
+            }
+            update(job.settings.automaticFeeding ? "Sammlung aktiv – Karten nachlegen · \(collectionPages) Seiten" : "Scan wird abgeschlossen …")
         case (.feeding(let job)?, "page"):
             guard feedingArmed, !feedingEnded, event.value == collectionPages + 1,
                   let name = event.file, !name.isEmpty, name == URL(fileURLWithPath: name).lastPathComponent,
@@ -170,14 +176,14 @@ final class ScanCoordinator {
                 try storage.stage(source: job.directory.appendingPathComponent(name), job: job, sheet: sheet, side: side == 0 ? .front : .back)
                 collectionPages += 1; files = collectionPages
                 if feedingTransfer && finishReason == nil { deadline = now() + 130; feedingProgressDeadline = now() + 15 }
-                update("Sammlung – \(collectionPages) Seiten übernommen")
+                update(job.settings.automaticFeeding ? "Sammlung – \(collectionPages) Seiten übernommen" : "\(collectionPages) Seite(n) übernommen")
             } catch { fail(error.localizedDescription, code: "feeding_stage_failed") }
-        case (.feeding?, "end"):
+        case (.feeding(let job)?, "end"):
             guard feedingReady, !feedingEnded, event.value == 0 else { fail("Sammlungsabschluss nicht bestätigt.", code: "feeding_end_invalid"); return }
             feedingEnded = true; feedingTransfer = false; idleSince = nil; feedingProgressDeadline = nil
-            if finishReason == nil { finishReason = .stop }
+            if finishReason == nil { finishReason = job.settings.automaticFeeding ? .stop : .completed }
             deadline = now() + 15
-            update("Sammlung wird abgeschlossen …")
+            update(job.settings.automaticFeeding ? "Sammlung wird abgeschlossen …" : "Scan wird abgeschlossen …")
         case (.button?, "ready"):
             guard policy.phase == .searching else { return }
             policy.sessionReady(); deadline = nil
@@ -208,7 +214,7 @@ final class ScanCoordinator {
                 fail("Scanabschluss konnte nicht bestätigt werden.", code: "worker_complete_invalid"); return
             }
             complete = count
-        case (.scan?, "empty"):
+        case (.scan?, "empty"), (.feeding?, "empty"):
             guard files == 0, complete == nil, !empty, let value = event.value,
                   let reason = EmptyScanReason(rawValue: value) else { fail("Unerwarteter Scanabschluss.", code: "worker_empty_invalid"); return }
             empty = true; lastScanNotice = reason
@@ -249,7 +255,7 @@ final class ScanCoordinator {
             case .button?:
                 guard policy.phase == .scanning, let snapshot = frozenSettings else { throw ScanFailure.invalidSettings }
                 try snapshot.validate(); _ = try storage.validateDestination(snapshot.destination)
-                if snapshot.automaticFeeding { try launch(.feeding(storage.beginJob(settings: snapshot))) }
+                if snapshot.usesDirectCapture { try launch(.feeding(storage.beginJob(settings: snapshot))) }
                 else { try launch(.scan(snapshot)) }
             case .scan?:
                 guard complete == files && files > 0 || empty && files == 0,
@@ -328,12 +334,12 @@ final class ScanCoordinator {
         } catch { policy.failed(); update("Epson-Dienste bleiben pausiert. " + error.localizedDescription) }
     }
     func checkDeadline() {
-        if collecting, feedingTransfer, finishReason == nil,
+        if directCaptureActive, (feedingTransfer || !collecting), finishReason == nil,
            let feedingProgressDeadline, now() >= feedingProgressDeadline {
             finishReason = .noProgress; self.feedingProgressDeadline = nil; idleSince = nil
             deadline = now() + 12; helper?.finish()
             diagnostics.record("feeding_no_progress", values: ["pages": collectionPages])
-            update("Einzug ohne Fortschritt – Sammlung wird beendet …")
+            update(collecting ? "Einzug ohne Fortschritt – Sammlung wird beendet …" : "Einzug ohne Fortschritt – Scan wird beendet …")
             return
         }
         if collecting, feedingReady, !feedingEnded, finishReason == nil, !feedingTransfer,

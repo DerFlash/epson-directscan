@@ -7,6 +7,10 @@
 @property CGRect area;
 @property BOOL reject;
 @property NSUInteger dpi;
+@property unsigned char laminate;
+@property float margin;
+@property BOOL overscan;
+@property BOOL rejectMedia;
 @end
 @implementation AreaFixture
 - (CGSize)maxScanSize{return CGSizeMake(8.5,11.7);}
@@ -15,6 +19,15 @@
 - (void)setScanArea:(CGRect)value{self.area=CGRectMake(value.origin.x*300,value.origin.y*300,value.size.width*300,value.size.height*300);}
 - (CGRect)scanAreaInPixel{return self.area;}
 - (void)setScanAreaInPixel:(CGRect)value{if(!self.reject)self.area=value;}
+- (NSIndexSet*)supportedLaminatedPaperModes{return [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0,2)];}
+- (NSArray*)supportedCroppingSizes{return @[@0.2f];}
+- (BOOL)autoCroppingEnabled{return YES;}
+- (void)setLaminatedPaperMode:(unsigned char)value{if(!self.rejectMedia)self.laminate=value;}
+- (unsigned char)laminatedPaperMode{return self.laminate;}
+- (void)setCroppingSize:(float)value{if(!self.rejectMedia)self.margin=value;}
+- (float)croppingSize{return self.margin;}
+- (void)setOverScanEnabled:(BOOL)value{self.overscan=value;}
+- (BOOL)overScanEnabled{return self.overscan;}
 @end
 
 int main(void) { @autoreleasepool {
@@ -27,6 +40,11 @@ int main(void) { @autoreleasepool {
     if(configureFixedArea((id<FeedingScanner>)area,@{@"profileWidthMM":@76,@"crop":@NO})||configureFixedArea((id<FeedingScanner>)area,@{@"profileWidthMM":@76,@"profileHeightMM":@102,@"crop":@YES})){fprintf(stderr,"Invalid profile area was accepted\n");return 4;}
     area.reject=NO;area.dpi=150;
     if(configureFixedArea((id<FeedingScanner>)area,settings)){fprintf(stderr,"Unconfirmed resolution was accepted\n");return 5;}
+    area.dpi=300;area.overscan=YES;
+    NSDictionary *holder=@{@"transparentOriginal":@YES,@"crop":@YES,@"profileWidthMM":@108,@"profileHeightMM":@83};
+    if(!configureFixedArea((id<FeedingScanner>)area,holder)||area.laminate!=1||fabs(area.margin-0.2)>0.00001||area.overscan||!CGRectEqualToRect(area.area,CGRectMake(0,0,2550,3510))){fprintf(stderr,"Transparent capture must acquire full sensor area with laminated mode, positive margin and overscan off\n");return 6;}
+    area.rejectMedia=YES;area.laminate=0;area.margin=0;
+    if(configureFixedArea((id<FeedingScanner>)area,holder)){fprintf(stderr,"Rejected transparent-media settings were accepted\n");return 7;}
     FeedingReceiver *receiver = [FeedingReceiver new];
     @try {
         // Scanner.framework calls this directly; respondsToSelector is not consulted.
@@ -36,6 +54,10 @@ int main(void) { @autoreleasepool {
             ((void(*)(id,SEL,id))objc_msgSend)(receiver,NSSelectorFromString(name),nil);
         }
         ((void(*)(id,SEL,id,long long))objc_msgSend)(receiver,NSSelectorFromString(@"scanner:didPressButton:"),nil,1);
+        receiver.stopRequested=NO;
+        [receiver setValue:@YES forKey:@"singleShot"];
+        ((void(*)(id,SEL,id))objc_msgSend)(receiver,NSSelectorFromString(@"scannerDidEndContinuousScanning:"),nil);
+        if(!receiver.stopRequested){fprintf(stderr,"A single-card capture must finish after its first complete physical batch\n");return 8;}
     } @catch (NSException *exception) {
         fprintf(stderr,"Feeding delegate contract failed: %s\n",exception.reason.UTF8String);
         return 1;

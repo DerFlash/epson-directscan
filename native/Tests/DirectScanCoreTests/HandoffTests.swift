@@ -73,6 +73,48 @@ private final class HandoffClock { var time: TimeInterval = 0 }
     deinit { try? FileManager.default.removeItem(at: root) }
 }
 @Suite @MainActor struct HandoffTests {
+    @Test func transparentSingleCardUsesNativeHelperButKeepsIndividualJPGOrCardPDF() throws {
+        for format in [OutputFormat.jpg,.pdf] {
+            let f=try HandoffFixture(),image=try StorageTests(),p=try transparentProfile()
+            f.settings.value.profiles=[p];f.settings.value.activeProfileID=p.id
+            f.settings.value.duplex=true;f.settings.value.outputFormat=format
+            f.trigger()
+            guard case .feeding(let job)=f.factory.roles.last else {Issue.record("Transparent single card must use native capture");return}
+            #expect(!f.controller.collecting && !job.settings.automaticFeeding)
+            let capture=f.factory.helpers[1];capture.emit("ready",1);capture.emit("batchBegin",1)
+            for i in 1...2 {
+                let name="holder-\(i).jpg";try image.jpeg(job.directory.appendingPathComponent(name),width:500,height:800)
+                capture.onEvent?(HelperEvent(event:"page",value:i,file:name,sheet:1,side:i-1))
+            }
+            capture.emit("batchEnd",1);capture.emit("end",0);capture.emit("closed",0)
+            #expect(f.factory.roles.count==2)
+            capture.exit()
+            #expect(try f.storage.manifest(job:job).endReason == .completed)
+            guard case .export=f.factory.roles.last else {Issue.record("Missing export worker");return}
+            let exporter=try #require(f.factory.helpers.last)
+            let status=ExportWorkerMain.run(["app","--export-worker",f.storage.root.path,job.id.uuidString,String(getppid())],emit:{exporter.onEvent?($0)})
+            #expect(status==0);exporter.exit()
+            let outputs=try FileManager.default.contentsOfDirectory(atPath:job.destination.path)
+            #expect(outputs.count == (format == .jpg ? 2:1))
+            #expect(outputs.allSatisfy{$0.hasSuffix(format == .jpg ? ".jpg":".pdf") && !$0.contains("Sammlung")})
+            #expect(f.controller.imagesSaved==2 && !f.controller.collecting)
+            #expect(try !f.storage.hasUnfinishedJobs() && f.factory.roles.last == .button)
+        }
+    }
+    @Test func transparentSingleCardStallIsBoundedEvenThoughItIsNotACollection() throws {
+        let f=try HandoffFixture(),p=try transparentProfile()
+        f.settings.value.profiles=[p];f.settings.value.activeProfileID=p.id;f.trigger()
+        guard case .feeding=f.factory.roles.last else {Issue.record("Expected native capture");return}
+        let capture=f.factory.helpers[1];capture.emit("ready",1);capture.emit("batchBegin",1)
+        #expect(!f.controller.collecting)
+        f.clock.time=14;f.controller.checkDeadline();#expect(!capture.finishRequested)
+        f.clock.time=15;f.controller.checkDeadline();#expect(capture.finishRequested && !capture.cancelled)
+        capture.emit("batchEnd",1);capture.emit("end",0);capture.emit("closed",0);capture.exit()
+        f.factory.helpers.last?.emit("ready",1)
+        #expect(f.controller.policy.phase == .ready && f.controller.imagesSaved==0)
+        #expect(try !f.storage.hasUnfinishedJobs())
+        #expect(f.controller.message.contains("Einzug"))
+    }
     @Test func parentLossDuringFinalExportCannotPublishOrRemoveOriginals() throws {
         let f=try HandoffFixture();let (job,_)=try f.profileExport()
         var alive=true,clock:Double=0,exportChecks=0

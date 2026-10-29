@@ -99,7 +99,7 @@ public final class ScanStorage {
         let stem = "Karte_" + formatter.string(from: Date()) + "_" + id.uuidString
         let fixedFrame = settings.activeProfile.map {!$0.area.isAutomatic} ?? false
         let job = ScanJob(id: id, directory: directory, destination: destination, fileStem: stem, settings: settings,
-                          fixedFrameCaptureRevision:fixedFrame ? 1 : nil)
+                          fixedFrameCaptureRevision:settings.transparentOriginal ? 2 : fixedFrame ? 1 : nil)
         try write(JobRecord(job: job, manifest: PageManifest(duplex: settings.duplex)), to: directory.appendingPathComponent("job.json"))
         return job
     }

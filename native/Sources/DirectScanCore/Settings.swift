@@ -16,8 +16,10 @@ public struct ScanSettings: Codable, Equatable {
     public var profiles: [ScanProfile] = []
     public var activeProfileID: UUID?
     public var activeProfile: ScanProfile? { profiles.first { $0.id == activeProfileID } }
-    public var driverCrop: Bool { activeProfile.map { $0.area.isAutomatic && crop } ?? crop }
-    public var driverDeskew: Bool { activeProfile.map { $0.area.isAutomatic && deskew } ?? deskew }
+    public var transparentOriginal: Bool { activeProfile?.isTransparentOriginal == true }
+    public var usesDirectCapture: Bool { automaticFeeding || transparentOriginal }
+    public var driverCrop: Bool { transparentOriginal || (activeProfile.map { $0.area.isAutomatic && crop } ?? crop) }
+    public var driverDeskew: Bool { !transparentOriginal && (activeProfile.map { $0.area.isAutomatic && deskew } ?? deskew) }
     public var driverRotate: Bool { activeProfile.map { $0.orientation == .epson } ?? rotate }
     public var requiresImageProcessing: Bool { activeProfile.map { $0.orientation != .epson || !$0.area.isAutomatic } ?? false }
     public init(destination: String? = nil) { self.destination = destination }
@@ -57,7 +59,7 @@ public struct ScanSettings: Codable, Equatable {
 }
 
 public enum ScanFailure: String, Error, LocalizedError {
-    case invalidSettings, invalidDestination, invalidJPEG, invalidSource, collision, unfinishedPages, invalidPDF, incompletePair, unsupportedProfile, unverifiedFraming
+    case invalidSettings, invalidDestination, invalidJPEG, invalidSource, collision, unfinishedPages, invalidPDF, incompletePair, unsupportedProfile, unverifiedFraming, frameTooSmall
     public var errorDescription: String? {
         switch self {
         case .invalidSettings: return "Die Einstellungen konnten nicht gelesen werden. Bitte die Einstellungen prüfen."
@@ -70,6 +72,7 @@ public enum ScanFailure: String, Error, LocalizedError {
         case .incompletePair: return "Zu einer Karte fehlt eine Seite. Die vorhandenen Seiten bleiben erhalten."
         case .unsupportedProfile: return "Diese Scanfläche wird nicht unterstützt. Bitte Breite und Höhe innerhalb der Scannergrenzen angeben; automatische Höhe ist noch nicht abgenommen."
         case .unverifiedFraming: return "Diese zurückgehaltenen Scans stammen aus einer Version ohne geprüfte Außenmaße. Die Originale bleiben erhalten. Bitte die zurückgehaltenen Dateien prüfen."
+        case .frameTooSmall: return "Die Hülle passt nicht vollständig in die gewählten Außenmaße. Bitte Breite oder Höhe vergrößern. Die Originale bleiben erhalten."
         }
     }
 }

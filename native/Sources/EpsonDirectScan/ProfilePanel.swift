@@ -11,15 +11,16 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
     private let name = NSTextField(), width = NSTextField(), height = NSTextField()
     private let hint = NSTextField(wrappingLabelWithString:"")
     private let removeButton = NSButton()
+    private let transparent = NSButton(checkboxWithTitle:"Transparente Hülle vollständig erfassen",target:nil,action:nil)
     init(settings: ScanSettings, completion: @escaping (ScanSettings?) -> Bool) {
         snapshot = settings;self.completion = completion
         if let selected = settings.activeProfile ?? settings.profiles.first { current = selected }
         else { var p = ScanProfile(name:"Karte");p.area = ScanArea(widthMM:63,heightMM:88);p.orientation = .vision;current = p }
-        let panel = NSPanel(contentRect:NSRect(x:0,y:0,width:560,height:580),styleMask:[.titled,.closable],backing:.buffered,defer:false)
+        let panel = NSPanel(contentRect:NSRect(x:0,y:0,width:560,height:720),styleMask:[.titled,.closable],backing:.buffered,defer:false)
         super.init(window:panel);panel.title = "Scanprofile";panel.isReleasedWhenClosed = false;panel.delegate = self
         let content = NSView(frame:panel.frame);panel.contentView = content
-        func label(_ text:String,_ y:CGFloat) { let v = NSTextField(labelWithString:text);v.frame=NSRect(x:20,y:y,width:200,height:24);content.addSubview(v) }
-        func field(_ v:NSView,_ y:CGFloat) {v.frame=NSRect(x:220,y:y,width:315,height:26);content.addSubview(v)}
+        func label(_ text:String,_ y:CGFloat) { let v = NSTextField(labelWithString:text);v.frame=NSRect(x:20,y:y+140,width:200,height:24);content.addSubview(v) }
+        func field(_ v:NSView,_ y:CGFloat) {v.frame=NSRect(x:220,y:y+140,width:315,height:26);content.addSubview(v)}
         label("Profil bearbeiten",530)
         for p in settings.profiles {profiles.addItem(withTitle:p.name);profiles.lastItem?.representedObject=p.id}
         profiles.addItem(withTitle:"Neues Kartenprofil");profiles.lastItem?.representedObject="card"
@@ -38,6 +39,7 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
         label("Vorne / feste Ersatzdrehung",284);field(front,284)
         label("Hinten / feste Ersatzdrehung",243);field(back,243)
         label("Druckversatz der Rückseite",202);field(offset,202)
+        transparent.frame=NSRect(x:20,y:301,width:520,height:26);transparent.target=self;transparent.action=#selector(updateControls);content.addSubview(transparent)
         hint.frame=NSRect(x:20,y:70,width:520,height:118);hint.font = .systemFont(ofSize:12);hint.textColor = .secondaryLabelColor;content.addSubview(hint)
         func button(_ title:String,_ x:CGFloat,_ w:CGFloat,_ action:Selector)->NSButton {
             let b=NSButton(title:title,target:self,action:action);b.bezelStyle = .rounded;b.frame=NSRect(x:x,y:20,width:w,height:32);content.addSubview(b);return b
@@ -56,12 +58,14 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
         height.stringValue=profile.area.heightMM.map{String(format:"%g",$0)} ?? ""
         orientation.selectItem(at:OrientationMode.allCases.firstIndex(of:profile.orientation) ?? 0)
         front.selectItem(at:profile.frontRotation/90);back.selectItem(at:profile.backRotation/90);offset.selectItem(at:profile.printedBackOffset/90)
+        transparent.state=profile.isTransparentOriginal ? .on : .off
         updateControls()
     }
     @objc private func selectProfile() {
         if let id=profiles.selectedItem?.representedObject as? UUID,let p=snapshot.profiles.first(where:{$0.id==id}) {load(p);return}
         let holder=profiles.selectedItem?.representedObject as? String == "holder"
         var p=ScanProfile(name:holder ? "Toploader" : "Karte");p.orientation = .vision
+        if holder {p.transparentOriginal=true}
         if !holder {p.area=ScanArea(widthMM:63,heightMM:88)}
         load(p)
         if holder {area.selectItem(at:1);updateControls()}
@@ -72,6 +76,9 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
         front.isEnabled=mode != .epson;back.isEnabled=mode != .epson;offset.isEnabled=mode == .vision
         removeButton.isEnabled=snapshot.profiles.contains(where:{$0.id==current.id})
         var text="Außenmaße vor der Drehung. Beim Einzelscan schneidet die App die feste Fläche mittig aus dem Papierformat aus; automatischer Randzuschnitt ist aus. Epson-Drehung nur bei automatischer Fläche. Automatische Höhe ist noch nicht freigegeben."
+        if transparent.state == .on {
+            text="Die Hülle wird mit transparenten Rändern erfasst. Feste Maße bestimmen die Ausgabegröße vor der Drehung, ohne Strecken. Bei zu kleiner Fläche bleiben die Originale erhalten. Bitte Automatisch – macOS oder feste Drehung wählen."
+        }
         if mode == .vision && snapshot.duplex && (snapshot.automaticFeeding ? current.feedingMapping : current.icaMapping) == nil {
             text += "\nDie Duplex-Zuordnung dieses Scanwegs ist noch nicht kalibriert. Bis zur Geräteprüfung gelten die festen Ersatzdrehungen."
         } else if mode == .vision {text += "\nBei unsicherer Erkennung gelten die festen Ersatzdrehungen. Vorne/hinten bezeichnet die Scannerseite."}
@@ -79,6 +86,7 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
     }
     @objc private func save() {
         var p=current;p.name=name.stringValue.trimmingCharacters(in:.whitespacesAndNewlines)
+        p.transparentOriginal=transparent.state == .on
         if area.indexOfSelectedItem==1 {
             guard let w=Double(width.stringValue.replacingOccurrences(of:",",with:".")),let h=Double(height.stringValue.replacingOccurrences(of:",",with:".")) else {showError("Bitte beide Außenmaße in Millimetern eingeben.");return}
             p.area=ScanArea(widthMM:w,heightMM:h)

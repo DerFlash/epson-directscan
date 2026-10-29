@@ -22,12 +22,13 @@ extension ScanStorage {
     public func processingNotice(job: ScanJob) throws -> [OrientationNotice] { try record(job).processing?.notices ?? [] }
 
     func checkedProcessing(_ record: JobRecord, job: ScanJob, isCancelled: () -> Bool = {false}, onCheckpoint: () throws -> Void = {}) throws -> PageManifest? {
-        if job.settings.activeProfile?.area.isAutomatic == false {
+        if job.settings.activeProfile?.area.isAutomatic == false || job.settings.transparentOriginal {
             // Legacy capture could have used destructive driver deskew, and its
             // old processed copies may still describe the larger paper preset.
             // Keep them readable, but never publish/delete them as newly framed.
-            guard job.fixedFrameCaptureRevision == 1,
-                  record.processing == nil || record.processing?.fixedFrameRevision == 1 else {throw ScanFailure.unverifiedFraming}
+            let revision=job.settings.transparentOriginal ? 2 : 1
+            guard job.fixedFrameCaptureRevision == revision,
+                  record.processing == nil || record.processing?.fixedFrameRevision == revision else {throw ScanFailure.unverifiedFraming}
         }
         guard let processed = record.processing, let original = record.manifest,
               processed.pages.count == original.pages.count else {
@@ -73,7 +74,7 @@ extension ScanStorage {
                         if record.processingArtifacts == nil {record.processingArtifacts=[]}
                         record.processingArtifacts!.append(name)
                         try write(record,to:job.directory.appendingPathComponent("job.json"))
-                        try PageRotation.write(input:source,output:framed,degrees:0,fixedArea:profile.area,allowLargerFrame:!job.settings.automaticFeeding)
+                        try PageRotation.write(input:source,output:framed,degrees:0,fixedArea:profile.area,allowLargerFrame:!job.settings.automaticFeeding,transparentCanvas:profile.isTransparentOriginal)
                         inputs[raw.side]=framed
                         try processingCheckpoint(isCancelled,onCheckpoint)
                     } else {inputs[raw.side]=source}
@@ -81,7 +82,7 @@ extension ScanStorage {
                 let front = group.first { $0.side == .front }, back = group.first { $0.side == .back }
                 var angles: [PageSide:Int] = [.front:profile.frontRotation,.back:profile.backRotation]
                 if profile.orientation == .vision {
-                    let mapping = job.settings.automaticFeeding ? profile.feedingMapping : profile.icaMapping
+                    let mapping = job.settings.usesDirectCapture ? profile.feedingMapping : profile.icaMapping
                     if job.settings.duplex && (front == nil || back == nil) { notices.insert(.missingPair) }
                     else if job.settings.duplex && mapping == nil { notices.insert(.uncalibrated) }
                     else if let front {
@@ -117,7 +118,7 @@ extension ScanStorage {
         }
         results.sort { $0.page.index < $1.page.index }
         guard !isCancelled() else { throw CocoaError(.userCancelled) }
-        record.processing = ProcessingRecord(pages:results,notices:notices.sorted { $0.rawValue < $1.rawValue },fixedFrameRevision:profile.area.isAutomatic ? nil : 1)
+        record.processing = ProcessingRecord(pages:results,notices:notices.sorted { $0.rawValue < $1.rawValue },fixedFrameRevision:profile.isTransparentOriginal ? 2 : profile.area.isAutomatic ? nil : 1)
         try write(record,to:job.directory.appendingPathComponent("job.json"))
         _ = try checkedProcessing(record,job:job,isCancelled:isCancelled,onCheckpoint:onCheckpoint)
     }
