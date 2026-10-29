@@ -5,8 +5,9 @@ import Testing
 
 private final class HandoffServices: EpsonServices {
     var paused = false
+    var restoreCalls = 0
     func acquire() throws { paused = true }
-    func restore() throws { paused = false }
+    func restore() throws { paused = false;restoreCalls += 1 }
 }
 private final class FakeHelper: NativeHelper {
     var onEvent: ((HelperEvent) -> Void)?
@@ -73,6 +74,39 @@ private final class HandoffClock { var time: TimeInterval = 0 }
     deinit { try? FileManager.default.removeItem(at: root) }
 }
 @Suite @MainActor struct HandoffTests {
+    @Test func errorAndRecoveryKeepEpsonButtonsUntilExplicitPause() throws {
+        let f=try HandoffFixture(),p=try transparentProfile()
+        f.settings.value.profiles=[p];f.settings.value.activeProfileID=p.id;f.trigger()
+        let capture=f.factory.helpers[1];capture.emit("ready",1)
+        capture.emit("error",394);capture.emit("closed",0);capture.exit(1)
+        #expect(f.services.paused && f.services.restoreCalls==0 && f.controller.ownsEpsonButtons)
+        #expect(!f.controller.listening && f.controller.policy.phase == .error)
+        #expect(try f.storage.hasUnfinishedJobs())
+        f.controller.recover()
+        #expect(f.services.paused && f.services.restoreCalls==0 && f.controller.ownsEpsonButtons)
+        #expect(try !f.storage.hasUnfinishedJobs())
+        #expect(f.factory.roles.count==3 && f.factory.roles.last == .button)
+        let receiver=f.factory.helpers.last!;receiver.emit("ready",1)
+        f.controller.pause();receiver.emit("closed",0);receiver.exit()
+        #expect(!f.services.paused && f.services.restoreCalls==1 && !f.controller.ownsEpsonButtons)
+    }
+    @Test func pendingJobBlocksTransportButKeepsRequestedButtonOwnership() throws {
+        let f=try HandoffFixture();f.button.emit("ready",1)
+        f.controller.pause();f.button.emit("closed",0);f.button.exit()
+        _=try f.storage.beginJob(settings:f.settings.value)
+        f.controller.start()
+        #expect(f.controller.policy.phase == .error && f.services.paused && f.controller.ownsEpsonButtons)
+        #expect(f.factory.roles.count==1)
+    }
+    @Test func internalSleepOrSettingsPauseKeepsVendorsStoppedAcrossResume() throws {
+        let f=try HandoffFixture();f.button.emit("ready",1)
+        f.controller.pause(releaseEpsonServices:false)
+        f.button.emit("closed",0);f.button.exit()
+        #expect(f.services.paused && f.services.restoreCalls==0)
+        #expect(f.controller.ownsEpsonButtons && f.controller.sessionReleased)
+        f.controller.start()
+        #expect(f.services.paused && f.services.restoreCalls==0 && f.factory.roles.last == .button)
+    }
     @Test func transparentSingleCardUsesNativeHelperButKeepsIndividualJPGOrCardPDF() throws {
         for format in [OutputFormat.jpg,.pdf] {
             let f=try HandoffFixture(),image=try StorageTests(),p=try transparentProfile()
@@ -229,7 +263,7 @@ private final class HandoffClock { var time: TimeInterval = 0 }
         #expect(f.controller.policy.phase == .error && !f.controller.listening)
         #expect(f.controller.message.contains("getrennt"))
         #expect(f.controller.message.contains("neu verbinden"))
-        #expect(f.factory.roles.count == 1 && !f.services.paused)
+        #expect(f.factory.roles.count == 1 && f.services.paused)
         #expect(f.controller.buttonEvents == 0)
     }
     @Test func emptyScanNoticeSurvivesRearmAndNeedsCloseAndExit() throws {
@@ -506,7 +540,7 @@ private final class HandoffClock { var time: TimeInterval = 0 }
         #expect(f.controller.policy.phase == .error)
         #expect(f.factory.roles.count == 2)
         #expect(try f.storage.hasUnfinishedJobs())
-        #expect(!f.services.paused)
+        #expect(f.services.paused)
     }
     @Test func timeoutCancelsAndNeverReplaysTheButton() throws {
         let f = try HandoffFixture()

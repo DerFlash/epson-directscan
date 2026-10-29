@@ -55,11 +55,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.mainMenu = mainMenu
         statusItem.button?.setAccessibilityLabel("Epson DirectScan")
         refreshIcon()
-        do { try controller.mode.restore() }
-        catch { showError("Epson-Dienste konnten nicht wiederhergestellt werden: " + error.localizedDescription) }
+        if settings.paused || !UserDefaults.standard.bool(forKey:"EpsonTakeoverAcknowledged") {
+            do {try controller.mode.restore()}
+            catch {showError("Epson-Dienste konnten nicht wiederhergestellt werden: " + error.localizedDescription)}
+        }
         let center = NSWorkspace.shared.notificationCenter
         center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
-            guard let self else { return }; self.sleepWasListening = self.controller.listening; self.controller.pause()
+            guard let self else { return }; self.sleepWasListening = self.controller.listening; self.controller.pause(releaseEpsonServices:false)
         }
         center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             guard let self, self.sleepWasListening, !self.settings.paused else { return }
@@ -87,7 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusText?.stringValue = recoveryProcessing ? "Zurückgehaltene Seiten werden verarbeitet und gesichert …" : controller.message
         countsText?.stringValue = "Tastendrücke: \(controller.buttonEvents) · Gespeichert: \(controller.imagesSaved)"
         folderText?.stringValue = "Ordner: " + (settings.destination.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "noch nicht gewählt")
-        connectButton?.title = controller.collecting ? "Sammlung beenden und speichern" : controller.listening ? "Pausieren und freigeben" : "Mit Epson verbinden"
+        connectButton?.title = controller.collecting ? "Sammlung beenden und speichern" : controller.ownsEpsonButtons ? "Pausieren und freigeben" : "Mit Epson verbinden"
         connectButton?.isEnabled = (controller.collecting || !controller.busy) && !editorOpen
         folderButton?.isEnabled = !controller.busy && !editorOpen
     }
@@ -104,7 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add("Status anzeigen …", #selector(showStatus))
         add("Tastendrücke: \(controller.buttonEvents) · Gespeichert: \(controller.imagesSaved)", enabled: false)
         menu.addItem(.separator())
-        add(controller.listening ? "Pausieren und Scanner freigeben" : "Mit Epson verbinden", #selector(toggleListening), enabled: !controller.busy && !editorOpen)
+        add(controller.ownsEpsonButtons ? "Pausieren und Scanner freigeben" : "Mit Epson verbinden", #selector(toggleListening), enabled: !controller.busy && !editorOpen)
         if controller.collecting { add("Sammlung beenden und speichern", #selector(finishCollection)) }
         add("Ablageordner wählen …", #selector(chooseFolder), enabled: !controller.busy && !editorOpen)
         add("Ablageordner öffnen", #selector(openFolder), enabled: settings.destination != nil)
@@ -156,7 +158,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func chooseFolder() {
         guard !controller.busy, !editorOpen else { return }
         let wasListening = controller.listening
-        if wasListening { controller.pause() }
+        if wasListening { controller.pause(releaseEpsonServices:false) }
         NSApp.activate(ignoringOtherApps: true)
         let panel = NSOpenPanel(); folderPanel = panel
         panel.canChooseDirectories = true; panel.canChooseFiles = false
@@ -194,7 +196,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func toggleListening() {
         if controller.collecting { controller.finishCollection(); return }
         guard !controller.busy, !editorOpen else { return }
-        if controller.listening {
+        if controller.listening || controller.ownsEpsonButtons {
             var next = settings; next.paused = true
             if persist(next) { controller.pause() }
             return
@@ -220,7 +222,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func editProfiles() {
         guard !controller.busy,!editorOpen else{return}
         let wasListening=controller.listening
-        if wasListening {controller.pause()}
+        if wasListening {controller.pause(releaseEpsonServices:false)}
         profilePanel=ProfilePanel(settings:settings) { [weak self] next in
             guard let self else{return true}
             if let next,!self.persist(next) {return false}
@@ -246,7 +248,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         alert.addButton(withTitle: "Seiten sichern"); alert.addButton(withTitle: "Abbrechen")
         NSApp.activate(ignoringOtherApps: true)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        controller.pause()
+        controller.pause(releaseEpsonServices:false)
         recoveryProcessing = true;refreshIcon()
         let storage = self.storage
         DispatchQueue.global(qos:.userInitiated).async { [weak self] in

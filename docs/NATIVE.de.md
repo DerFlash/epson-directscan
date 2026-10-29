@@ -87,6 +87,9 @@ weder die Quell-App noch eine installierte Kopie.
 3. **Mit Epson verbinden** wählen. Der erste Hinweis erklärt, dass die beiden
    Epson-Tastenhelfer während des Direktmodus pausieren. Nach bestätigter
    Scanner-Freigabe beim Pausieren oder Beenden werden sie wieder gestartet.
+   Ein Scanfehler, Wiederverbinden, Einstellungswechsel oder Aufwachen gibt die
+   Tastenhelfer nicht automatisch zurück. Auch in diesem Zustand lässt sich die
+   Steuerung mit **Pausieren und freigeben** bewusst zurückgeben.
 4. Auf **Bereit – Epson-Taste drücken** warten. Eine entbehrliche Karte im geraden
    Papierweg einlegen und die Scantaste am Epson drücken. Das Ergebnis wird automatisch
    abgelegt. Für eine weitere Karte warten, bis die App wieder bereit ist.
@@ -101,7 +104,7 @@ ersetzt. Nicht mehrere Scan-Apps gleichzeitig verwenden.
 ### Neue Scanprofile in der Entwicklungsfassung 0.4.0-beta.1-dev
 
 Diese Erweiterung ist noch nicht veröffentlicht. Normale Karten wurden lokal am
-Gerät geprüft; der neue Hüllenmodus in Build 21 befindet sich in der Geräteprüfung.
+Gerät geprüft; der neue Hüllenmodus in Build 22 befindet sich in der Geräteprüfung.
 Die folgenden Punkte gehören zur lokalen Entwicklungsfassung; der bisherige
 Beta2-Download enthält sie noch nicht.
 
@@ -329,8 +332,10 @@ auch bei einem verzögerten Treiberabschluss nach einem Neustart. Beide Dateien
 bitte nicht löschen; bei belegter Sperre warten und erneut verbinden.
 Bei nicht bestätigter Freigabe bleiben die Dienste ebenfalls pausiert, um
 konkurrierende Zugriffe zu vermeiden. Beenden wartet kurz auf eine Bestätigung;
-bei Fehler/Timeout bleibt der Vermerk erhalten. Die App danach erneut öffnen,
-um die Dienste zurückzugeben.
+bei Fehler/Timeout bleibt der Vermerk erhalten. Eine aktive DirectScan-App übernimmt
+den vorhandenen Vermerk, ohne die Epson-Helfer zwischendurch neu zu starten.
+Zum gezielten Zurückgeben nach bestätigter Freigabe **Pausieren und freigeben** oder
+**Beenden** wählen.
 
 `events.jsonl`, `WorkerLogs/` und jeweils eine vorherige Logdatei sind begrenzt.
 Die Ereignisse enthalten Codes, Zahlen und Zeiten, keine Bilder, OCR-Texte oder

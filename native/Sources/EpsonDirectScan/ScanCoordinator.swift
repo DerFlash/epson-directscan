@@ -20,6 +20,8 @@ final class ScanCoordinator {
     private var desiredActive = false
     private var stopping = false
     private var releaseFailed = false
+    private(set) var ownsEpsonButtons = false
+    private var releaseEpsonServicesOnClose = true
     private var resumeAfterClose = false
     private var closed = false
     private var closeReported = false
@@ -76,7 +78,7 @@ final class ScanCoordinator {
         diagnostics.status(["phase": policy.phase.rawValue, "message": message,
             "buttonEvents": buttonEvents, "imagesSaved": imagesSaved,
             "lastFile": lastFile?.lastPathComponent ?? "", "listening": desiredActive,
-            "collecting": collecting, "collectionPages": collectionPages])
+            "collecting": collecting, "collectionPages": collectionPages, "controlsEpsonButtons": ownsEpsonButtons])
         onChange?()
     }
     func start() {
@@ -85,9 +87,11 @@ final class ScanCoordinator {
         do {
             guard !settings().paused else { return }
             _ = try storage.validateDestination(settings().destination)
-            guard try !storage.hasUnfinishedJobs() else { throw ScanFailure.unfinishedPages }
             guard !conflictingApps() else { update("Bitte ScanSmart, Event Manager und die alte AutoSave-App beenden."); return }
+            releaseEpsonServicesOnClose = false
             try mode.acquire()
+            ownsEpsonButtons = true
+            guard try !storage.hasUnfinishedJobs() else { throw ScanFailure.unfinishedPages }
             desiredActive = true; policy.resume(); policy.recover()
             try launch(.button)
         } catch { fail(error.localizedDescription, code: "receiver_start_failed") }
@@ -294,8 +298,9 @@ final class ScanCoordinator {
             }
         } catch { fail(error.localizedDescription, code: "handoff_failed") }
     }
-    func pause() {
+    func pause(releaseEpsonServices: Bool = true) {
         desiredActive = false; resumeAfterClose = false
+        releaseEpsonServicesOnClose = releaseEpsonServices
         if releaseFailed { policy.failed(); update(); return }
         policy.pause()
         if let helper { stopping = true; deadline = now() + 6; helper.cancel(); update("Scanner wird freigegeben …") }
@@ -304,6 +309,7 @@ final class ScanCoordinator {
     func finishCollection(pauseAfter: Bool = false) {
         guard collecting else { return }
         pauseAfterCollection = pauseAfterCollection || pauseAfter
+        if pauseAfter {releaseEpsonServicesOnClose=true}
         guard !feedingEnded, finishReason == nil else { return }
         finishReason = .stop; idleSince = nil
         // The child installs its signal handlers before Ready. Until then, latch
@@ -313,7 +319,7 @@ final class ScanCoordinator {
     }
     func recover() {
         guard !busy else { return }
-        pause()
+        pause(releaseEpsonServices:false)
         do { try storage.acknowledgeRecovery(); policy.recover(); start() }
         catch { fail(error.localizedDescription, code: "recovery_failed") }
     }
@@ -327,7 +333,7 @@ final class ScanCoordinator {
         guard sessionReleased else { return }
         let resume = resumeAfterClose; resumeAfterClose = false
         do {
-            try mode.restore()
+            if releaseEpsonServicesOnClose {try mode.restore();ownsEpsonButtons=false}
             if policy.phase == .paused { update("Pausiert – Scanner für andere Programme freigegeben") }
             else { update() }
             if resume { DispatchQueue.main.async { [weak self] in self?.start() } }

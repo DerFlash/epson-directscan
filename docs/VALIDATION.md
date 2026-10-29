@@ -762,3 +762,41 @@ The initial build20 UI setup exposed a hidden profile panel after deactivation:
 the still-open editor disabled the remaining settings. Build21 keeps that editor
 visible across focus changes, like the status panel; capture logic is identical
 to the reviewed build20 correction. Build21 supersedes it for physical acceptance.
+
+### Build22 follow-up: native errors and exclusive button ownership
+
+The first installed build21 button scan produced two fully decoded, upright
+980x1276 JPEGs at300dpi/EXIF1, without orientation fallback. Original/processed/
+exported hashes match the receipt, the manifest ended as a single completed scan,
+and the app returned ready with no Pending job. Both card faces are legible; the
+transparent trailing seam remains close to the native capture boundary, so
+pixel-complete holder-corner acceptance is still open.
+
+The swapped/turned follow-up did not provide any native pages and ended with an
+unconfirmed helper release. A no-scan open/close probe also blocked; a user-confirmed
+scanner power cycle restored open0/close0. An unchanged retry then failed before
+image delivery. These failed captures do not count as hardware acceptance.
+
+Investigation identified a definite diagnostic defect: Epson6.7.84 sends NSError
+objects to completion/interruption/communication callbacks, while the bridge read
+integers and therefore logged object-address bits. The corrected callback harness
+uses actual NSError objects and verifies exact error codes and object ABI; nil
+completion/communication remains success. Underlying capture failure still needs
+another controlled scan with the corrected diagnostic build.
+
+The user also observed Epson software returning. Source and live state confirmed
+that recoverable errors restored both vendor button helpers while DirectScan was
+still running. Reconnection additionally restored them briefly before taking over
+again. Build22 retains the original takeover memo and keeps the helpers stopped
+through error/recovery, internal settings pauses and sleep/resume; explicit Pause/
+Quit restores them after confirmed release. A failed first takeover still rolls
+back its initial helper state. No vendor files or permanent launchd disable flags
+are changed.
+
+New regressions cover error/recovery ownership, pending-job transport refusal,
+internal pause/resume without vendor restart, stable memo reacquisition, active
+scanner-lease refusal and failed-initial-takeover rollback. Parallel tests exposed
+an inherited-descriptor lock window: closing an owner alone can leave an unrelated
+pre-exec child holding its file description. A bounded child reproducer fails
+before explicit unlock and passes afterward. All129 native tests plus the native
+callback/configuration harness pass. Physical build22 acceptance remains pending.

@@ -2,6 +2,14 @@
 
 ## 0.4.0-beta.1-dev — unreleased
 
+- Keep Epson's automatic button helpers stopped after scan errors, during recovery,
+  settings edits and sleep/resume. Explicit Pause/Quit returns the original helper
+  state after confirmed device release; reconnecting no longer starts them between
+  takeovers. Preserve the original recovery memo across application restarts.
+- Read Epson completion/interruption/communication errors as NSError objects,
+  preserving their actual codes. Release process locks explicitly so an unrelated
+  spawning process cannot briefly retain an obsolete lock.
+
 - Add editable scan profiles with complete physical outside dimensions in mm,
   centered output areas and fixed clockwise rotations for each scanner side.
   Ordinary fixed areas disable automatic cropping. Transparent holders use a
