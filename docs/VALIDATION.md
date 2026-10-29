@@ -1,5 +1,8 @@
 # Download release validation — v0.3.0-beta.2
 
+> Current local development work: see “Transparent-holder correction, build20”
+> at the end. Published beta2 remains unchanged.
+
 The repository was renamed in place to `DerFlash/epson-directscan` (same repository
 ID, issues, releases and history; old URL redirect verified). Beta2/build15 adds
 an arm64 app DMG/ZIP and canonical download/update guidance. It is explicitly
@@ -709,3 +712,40 @@ separate from this local acceptance.
 Finally the status window was closed. A process readback confirmed the installed
 main application and its parent-bound button receiver still running in the
 background; the app was left ready for the physical scan button.
+
+### Transparent-holder correction, build20 — 2026-10-29, local only
+
+The original physical Toploader attempt failed acceptance: the fixed acquisition
+area discarded transparent trailing material, and a text-poor Energy face did
+not meet the OCR confidence gates. Native overscan was independently unsuitable:
+a narrow area corrupted rows and a full-width area repeated trailing pixels.
+Those configurations are not used by the new transparent profile option.
+
+An Epson UI comparison and independent native regular scans demonstrated full
+holder edges with automatic cropping, laminated mode and positive crop margin.
+The production helper reuses the supervised AF path with the supported0.20in
+margin and full sensor area; one-card mode finishes after its first batch.
+That exact AF configuration still requires the physical build20 button test.
+Fixed dimensions now describe a centered output canvas without scaling; only
+its known capture margin may be removed. A protected-content mismatch retains
+originals instead of exporting. Revision2 stamps distinguish this capture and
+processing from historical fixed frames.
+
+Optional upright references store a bounded, securely archived Vision revision1
+feature print. A match requires distance<=12 and at least20% separation between
+rotations. Either physical face can determine its paired rotation; reliable OCR
+conflicts remain visible. A same-native-path reference passed52 private sample
+variants including both complete holder captures at four rotations; unrelated
+card fronts were rejected. Cross-path color differences can leave a valid card
+uncertain, so users should select a reference from their own capture path.
+Perspective normalization and grayscale experiments did not improve this result
+and are not included. Private scans, feature prints and sample matrices are not
+part of the repository.
+
+Local software checks:120 native tests plus the Objective-C callback/configuration
+harness,26 Node tests and42 Python/package tests passed. Build20 compiles and is
+ad-hoc signed, still not notarized. Tests cover complete one-batch JPG/PDF handoff,
+Stop/stall bounds, centered pixel placement without stretch, too-small frames,
+legacy framing rejection, reference corruption/size limits, either duplex channel,
+conflicts and cancellation before publication. Actual holder border completeness,
+sharpness, orientation and repeated physical Stop behavior remain pending below.

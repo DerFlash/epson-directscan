@@ -4,7 +4,16 @@
 
 - Add editable scan profiles with complete physical outside dimensions in mm,
   centered output areas and fixed clockwise rotations for each scanner side.
-  Fixed areas disable automatic cropping, retaining transparent holder margins.
+  Ordinary fixed areas disable automatic cropping. Transparent holders use a
+  dedicated laminated/automatic-area capture before centering the output canvas.
+- Add complete transparent-holder capture with checked driver margin settings,
+  single-batch completion and the existing supervised Stop/stall protection.
+  Fixed output dimensions never stretch the captured image; an unsafe canvas
+  retains the originals for recovery instead of exporting a clipped card.
+- Add optional upright local image references to profiles for text-poor cards.
+  A securely stored Vision feature print can orient either physical face and
+  infer the other through the measured duplex mapping. No reference image/path
+  is stored. Conflicts and ambiguous/unrelated matches keep the fixed fallback.
 - Add local Apple Vision fast orientation scoring with conservative fixed fallback.
   Joint duplex inference can use either readable face; it stays gated on a
   hardware-verified side mapping for each capture path. Both mappings are now

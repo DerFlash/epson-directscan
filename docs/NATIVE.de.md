@@ -100,8 +100,9 @@ ersetzt. Nicht mehrere Scan-Apps gleichzeitig verwenden.
 
 ### Neue Scanprofile in der Entwicklungsfassung 0.4.0-beta.1-dev
 
-Diese Erweiterung ist noch nicht veröffentlicht oder am Gerät abgenommen. Die
-folgenden Punkte gehören zur lokalen Entwicklungsfassung; der bisherige
+Diese Erweiterung ist noch nicht veröffentlicht. Normale Karten wurden lokal am
+Gerät geprüft; der neue Hüllenmodus in Build 20 befindet sich in der Geräteprüfung.
+Die folgenden Punkte gehören zur lokalen Entwicklungsfassung; der bisherige
 Beta2-Download enthält sie noch nicht.
 
 Unter **Scanprofile bearbeiten …** lassen sich Profile anlegen und anschließend
@@ -119,9 +120,14 @@ aktiviert; Schema 1/2 wird mit einer unveränderten privaten Sicherung übernomm
   mittig und gerade führen; die Maße enthalten keinen zusätzlichen Sicherheitsrand.
   Liegt der Kartenrand direkt an der Bildkante, etwas größere Maße als Reserve
   wählen. Eine feste Größe richtet eine schief eingelegte Vorlage nicht gerade.
-  Für einen Toploader sind dessen komplette Außenmaße anzugeben. Der transparente
-  Rand bleibt Bestandteil des angeforderten Scanbereichs. Das innere Kartenmotiv
-  wird nicht ausgeschnitten und das Bild wird nicht auf andere Proportionen gedehnt.
+- **Transparente Hülle vollständig erfassen:** Für Toploader einschalten und die
+  vollständigen Außenmaße mit etwas Randreserve angeben. Dieser Modus erfasst die
+  Vorlage zunächst über Epsons automatische Flächenerkennung für laminierte Karten
+  mit Randreserve. Erst danach setzt die App das Bild mittig in die gewünschte
+  Ausgabegröße, ohne es zu strecken. Das innere Kartenmotiv wird nicht ausgeschnitten.
+  Eine zu kleine Ausgabegröße wird abgewiesen; die Originale bleiben zur Wiederherstellung
+  erhalten. Der Hüllenmodus funktioniert beim Einzelscan und im kontinuierlichen Einzug.
+  Er verwendet feste Drehungen oder die macOS-Automatik.
 - Das Kartenprofil beginnt mit bearbeitbaren 63 × 88 mm. Für Toploader gibt es keine
   angenommenen Universalmaße. In dieser Fassung gelten 50,8–215,9 mm Breite und
   50,8–297 mm Höhe, zusätzlich die tatsächlichen engeren Treibergrenzen.
@@ -133,6 +139,14 @@ aktiviert; Schema 1/2 wird mit einer unveränderten privaten Sicherung übernomm
   werden beide Seiten eines Blatts gemeinsam beurteilt; die lesbare Fläche darf
   auf jeder Scannerseite liegen. Unklare oder widersprüchliche Ergebnisse verwenden
   die festen Ersatzdrehungen und hinterlassen einen Hinweis, keinen Gerätefehler.
+- **Aufrechte Referenz wählen …:** Optional ein scharfes, aufrechtes JPG/PNG wählen,
+  beispielsweise die gemeinsame Pokémon-Rückseite. Verwende möglichst einen Scan
+  aus demselben Scanweg; abweichende Farben, Beschnitt oder ein anderes Rückseitenmotiv
+  können einen sicheren Treffer verhindern. Die App speichert nur einen lokalen
+  Bildmerkmal-Abdruck, weder Bild noch Dateipfad. Beide Seiten werden geprüft:
+  Der Treffer darf auch auf der anderen Scannerseite liegen. Eine sichere
+  Texterkennung und eine widersprechende Referenz werden als Konflikt gemeldet.
+  Mit **Referenz entfernen** geht das Profil zur reinen Texterkennung zurück.
 - **Die Rückseitenlage wurde für ES-C320W und Treiber6.7.84 auf beiden Scanwegen
   separat am Gerät gemessen.** Neue Profile enthalten diese Zuordnung.
   Ältere oder ausdrücklich unkalibrierte Profile ohne Zuordnung verwenden die
@@ -145,7 +159,8 @@ aktiviert; Schema 1/2 wird mit einer unveränderten privaten Sicherung übernomm
 
 Feste Breite mit automatisch erkannter Höhe ist noch nicht freigegeben. Insbesondere
 die transparente Endkante einer Hülle ist nicht durch den inneren Kartenrand ersetzbar.
-Die vollständigen Außenränder und Zentrierung sind noch physisch zu prüfen.
+Die vollständigen Hüllenränder und Zentrierung werden mit dem neuen Hüllenmodus
+noch physisch geprüft; Softwaretests allein belegen keinen vollständigen Gerätescan.
 Zurückgehaltene Aufträge aus älteren Versionen ohne geprüfte Rahmung bleiben
 lesbar und erhalten, werden aber nicht als maßgerecht exportiert oder entfernt.
 Eine Größenvorgabe ändert nicht die mechanischen
