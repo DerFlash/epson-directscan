@@ -39,10 +39,11 @@
 @property int captureError;
 @property BOOL captureRequested;
 @property BOOL afCalled;
+@property int signalDuringControl;
 @end
 @implementation ControlFixture
 - (unsigned char)mode{return self.controlMode;}
-- (int)setMode:(unsigned char)value{if(!self.controlError&&!self.rejectControl)self.controlMode=value;return self.controlError;}
+- (int)setMode:(unsigned char)value{if(!self.controlError&&!self.rejectControl)self.controlMode=value;if(self.signalDuringControl)signalHandler(self.signalDuringControl);return self.controlError;}
 - (int)startScanningInAFM{self.afCalled=YES;if(self.controlMode==1)self.captureRequested=YES;return self.captureError;}
 @end
 
@@ -59,14 +60,23 @@ static NSInteger callbackError(FeedingReceiver *receiver,NSString *selector,NSEr
 }
 
 int main(void) { @autoreleasepool {
+    BOOL started=NO;
     ControlFixture *control=[ControlFixture new];
-    if(startFeeding((id<FeedingScanner>)control)!=0||!control.captureRequested){fprintf(stderr,"AF success must actually request capture after acquiring scanner control\n");return 12;}
+    if(startFeeding((id<FeedingScanner>)control,getppid(),&started)!=0||!started||!control.captureRequested){fprintf(stderr,"AF success must actually request capture after acquiring scanner control\n");return 12;}
     control=[ControlFixture new];control.controlError=394;
-    if(startFeeding((id<FeedingScanner>)control)!=394||control.afCalled){fprintf(stderr,"Failed control acquisition must stop before AF and preserve its error\n");return 13;}
+    if(startFeeding((id<FeedingScanner>)control,getppid(),&started)!=394||started||control.afCalled){fprintf(stderr,"Failed control acquisition must stop before AF and preserve its error\n");return 13;}
     control=[ControlFixture new];control.rejectControl=YES;
-    if(startFeeding((id<FeedingScanner>)control)==0||control.afCalled){fprintf(stderr,"Unconfirmed control mode must never start AF\n");return 14;}
+    if(startFeeding((id<FeedingScanner>)control,getppid(),&started)==0||started||control.afCalled){fprintf(stderr,"Unconfirmed control mode must never start AF\n");return 14;}
     control=[ControlFixture new];control.controlMode=1;control.captureError=303;
-    if(startFeeding((id<FeedingScanner>)control)!=303||!control.captureRequested){fprintf(stderr,"An existing control session must preserve AF start failures\n");return 15;}
+    if(startFeeding((id<FeedingScanner>)control,getppid(),&started)!=303||!started||!control.captureRequested){fprintf(stderr,"An existing control session must preserve AF start failures\n");return 15;}
+    for(NSNumber *number in @[@SIGUSR1,@SIGTERM]){
+        aborted=0;finishing=0;control=[ControlFixture new];control.signalDuringControl=number.intValue;
+        int status=startFeeding((id<FeedingScanner>)control,getppid(),&started);
+        if(status!=0||started||control.afCalled){fprintf(stderr,"Stop or abort during control acquisition must prevent capture\n");return 16;}
+    }
+    aborted=0;finishing=0;
+    control=[ControlFixture new];
+    if(startFeeding((id<FeedingScanner>)control,getppid()+1,&started)!=0||started||control.afCalled){fprintf(stderr,"A lost parent must prevent capture after control acquisition\n");return 17;}
     AreaFixture *area=[AreaFixture new];
     area.dpi=300;
     NSDictionary *settings=@{@"profileWidthMM":@76,@"profileHeightMM":@102,@"crop":@NO};

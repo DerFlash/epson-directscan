@@ -90,12 +90,15 @@ static int claimLease(NSString *root) {
 }
 
 static BOOL exact(Class cls,NSString *name,const char *encoding){Method m=class_getInstanceMethod(cls,NSSelectorFromString(name));return m && strcmp(method_getTypeEncoding(m),encoding)==0;}
-static int startFeeding(id<FeedingScanner> scanner){
+static int startFeeding(id<FeedingScanner> scanner,pid_t parent,BOOL *started){
+ *started=NO;
  // Unlike scanInBackground, Epson6.7.84's AF entry does not acquire control.
  // Opening may leave mode0; startAFM then returns0 without enabling the feeder.
  // close already finalizes control, including failed or cancelled starts.
  int status=[scanner setMode:1];if(status)return status;
  if([scanner mode]!=1)return -316;
+ if(aborted||finishing||getppid()!=parent)return 0;
+ *started=YES;
  return [scanner startScanningInAFM];
 }
 static BOOL configureFixedArea(id<FeedingScanner> scanner,NSDictionary *settings){
@@ -241,7 +244,11 @@ int main(int argc,char **argv){@autoreleasepool{
   else {
   if(receiver.singleShot&&![scanner documentLoaded]){emit(@"empty",0);emit(@"end",0);result=0;}
   else {
-  status=startFeeding(scanner);if(status){emit(@"error",status);return 1;}
+  BOOL started=NO;status=startFeeding(scanner,parent,&started);if(status){emit(@"error",status);return 1;}
+  if(!started){
+   if(finishing&&!aborted&&getppid()==parent){result=0;emit(@"end",0);}
+   return result;
+  }
   BOOL stopSent=NO;NSTimeInterval stopDeadline=0;
   while([scanner jobMode]!=0||[scanner isScanning]){@autoreleasepool{
    [NSRunLoop.mainRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.05]];
