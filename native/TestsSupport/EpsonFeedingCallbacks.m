@@ -30,6 +30,18 @@
 - (BOOL)overScanEnabled{return self.overscan;}
 @end
 
+static NSInteger callbackError(FeedingReceiver *receiver,NSString *selector,NSError *error){
+ int descriptors[2];if(pipe(descriptors)!=0)return NSIntegerMin;
+ fflush(stdout);int saved=dup(STDOUT_FILENO);
+ dup2(descriptors[1],STDOUT_FILENO);close(descriptors[1]);
+ @try {((void(*)(id,SEL,id,id))objc_msgSend)(receiver,NSSelectorFromString(selector),nil,error);}
+ @finally {fflush(stdout);dup2(saved,STDOUT_FILENO);close(saved);}
+ char bytes[4096];ssize_t count=read(descriptors[0],bytes,sizeof(bytes));close(descriptors[0]);
+ if(count<=0)return NSIntegerMin;
+ NSDictionary *event=[NSJSONSerialization JSONObjectWithData:[NSData dataWithBytes:bytes length:(NSUInteger)count] options:0 error:nil];
+ return [event[@"value"] longLongValue];
+}
+
 int main(void) { @autoreleasepool {
     AreaFixture *area=[AreaFixture new];
     area.dpi=300;
@@ -47,6 +59,18 @@ int main(void) { @autoreleasepool {
     if(configureFixedArea((id<FeedingScanner>)area,holder)){fprintf(stderr,"Rejected transparent-media settings were accepted\n");return 7;}
     FeedingReceiver *receiver = [FeedingReceiver new];
     @try {
+        // The actual Epson6.7.84 notifier constructs an NSError and passes
+        // that object in x3. An integer declaration instead reads its address.
+        NSError *driverError=[NSError errorWithDomain:@"com.epson.Scanner" code:394 userInfo:nil];
+        for(NSString *name in @[@"scanner:didCompleteScanningWithError:",@"scanner:didInterruptScanningWithError:",@"scanner:didEncounterDeviceCommunicationError:"]){
+            FeedingReceiver *failure=[FeedingReceiver new];
+            if(callbackError(failure,name,driverError)!=394||!failure.failed){fprintf(stderr,"Epson NSError callback lost its actual code: %s\n",name.UTF8String);return 9;}
+            if(!exact(FeedingReceiver.class,name,"v32@0:8@16@24")){fprintf(stderr,"Epson error callback ABI must take an object\n");return 10;}
+        }
+        for(NSString *name in @[@"scanner:didCompleteScanningWithError:",@"scanner:didEncounterDeviceCommunicationError:"]){
+            FeedingReceiver *success=[FeedingReceiver new];
+            if(callbackError(success,name,nil)!=NSIntegerMin||success.failed){fprintf(stderr,"Nil NSError must remain a successful notification\n");return 11;}
+        }
         // Scanner.framework calls this directly; respondsToSelector is not consulted.
         ((void(*)(id,SEL,id,id))objc_msgSend)(receiver,NSSelectorFromString(@"scanner:willScanToScannedImageHandle:"),nil,nil);
         for (NSString *name in @[@"scannerWillBeginContinuousScanning:", @"scannerDidEndContinuousScanning:",

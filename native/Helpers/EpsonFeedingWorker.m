@@ -136,7 +136,7 @@ static BOOL compatible(void){
  for(NSString *key in types)if(!exact(c,key,[types[key] UTF8String]))return NO;
  if(!exact(c,@"documentLoaded","B16@0:8"))return NO;
  Class receiver=NSClassFromString(@"FeedingReceiver");
- NSDictionary *callbacks=@{@"scannerWillBeginContinuousScanning:":@"v24@0:8@16",@"scannerDidEndContinuousScanning:":@"v24@0:8@16",@"scannerWillCancelScanning:":@"v24@0:8@16",@"scannerDidCancelScanning:":@"v24@0:8@16",@"scanner:willScanToScannedImageHandle:":@"v32@0:8@16@24",@"scanner:didScanToScannedImageHandle:":@"v32@0:8@16@24",@"scanner:didPressButton:":@"v32@0:8@16q24"};
+ NSDictionary *callbacks=@{@"scannerWillBeginContinuousScanning:":@"v24@0:8@16",@"scannerDidEndContinuousScanning:":@"v24@0:8@16",@"scannerWillCancelScanning:":@"v24@0:8@16",@"scannerDidCancelScanning:":@"v24@0:8@16",@"scanner:willScanToScannedImageHandle:":@"v32@0:8@16@24",@"scanner:didScanToScannedImageHandle:":@"v32@0:8@16@24",@"scanner:didPressButton:":@"v32@0:8@16q24",@"scanner:didCompleteScanningWithError:":@"v32@0:8@16@24",@"scanner:didInterruptScanningWithError:":@"v32@0:8@16@24",@"scanner:didEncounterDeviceCommunicationError:":@"v32@0:8@16@24"};
  for(NSString *key in callbacks)if(!exact(receiver,key,[callbacks[key] UTF8String]))return NO;
  return YES;
 }
@@ -160,8 +160,9 @@ static BOOL compatible(void){
 }
 - (void)scannerDidRequestStop:(id)s{self.stopRequested=YES;}
 - (void)scannerDidDisconnect:(id)s{self.failed=YES;emit(@"error",-310);}
-- (void)scanner:(id)s didCompleteScanningWithError:(int)e{if(e){self.failed=YES;emit(@"error",e);}}
-- (void)scanner:(id)s didInterruptScanningWithError:(int)e{self.failed=YES;emit(@"error",e?e:-311);}
+- (void)scanner:(id)s didCompleteScanningWithError:(NSError*)error{if(error){self.failed=YES;emit(@"error",error.code);}}
+- (void)scanner:(id)s didInterruptScanningWithError:(NSError*)error{self.failed=YES;emit(@"error",error?error.code:-311);}
+- (void)scanner:(id)s didEncounterDeviceCommunicationError:(NSError*)error{if(error){self.failed=YES;emit(@"error",error.code);}}
 - (void)scanner:(id)s didScanToScannedImageHandle:(id<FeedingImage>)handle {
  @synchronized(self){@autoreleasepool{
   if(self.failed)return;
