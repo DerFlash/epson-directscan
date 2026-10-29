@@ -1,5 +1,6 @@
 import AppKit
 import DirectScanCore
+import UniformTypeIdentifiers
 
 final class ProfilePanel: NSWindowController, NSWindowDelegate {
     private var snapshot: ScanSettings
@@ -12,6 +13,8 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
     private let hint = NSTextField(wrappingLabelWithString:"")
     private let removeButton = NSButton()
     private let transparent = NSButton(checkboxWithTitle:"Transparente Hülle vollständig erfassen",target:nil,action:nil)
+    private let referenceButton=NSButton(),clearReferenceButton=NSButton()
+    private let referenceStatus=NSTextField(labelWithString:"")
     init(settings: ScanSettings, completion: @escaping (ScanSettings?) -> Bool) {
         snapshot = settings;self.completion = completion
         if let selected = settings.activeProfile ?? settings.profiles.first { current = selected }
@@ -40,6 +43,11 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
         label("Hinten / feste Ersatzdrehung",243);field(back,243)
         label("Druckversatz der Rückseite",202);field(offset,202)
         transparent.frame=NSRect(x:20,y:301,width:520,height:26);transparent.target=self;transparent.action=#selector(updateControls);content.addSubview(transparent)
+        referenceButton.title="Aufrechte Referenz wählen …";referenceButton.target=self;referenceButton.action=#selector(chooseReference)
+        referenceButton.bezelStyle = .rounded;referenceButton.frame=NSRect(x:16,y:257,width:300,height:32);content.addSubview(referenceButton)
+        clearReferenceButton.title="Referenz entfernen";clearReferenceButton.target=self;clearReferenceButton.action=#selector(clearReference)
+        clearReferenceButton.bezelStyle = .rounded;clearReferenceButton.frame=NSRect(x:324,y:257,width:216,height:32);content.addSubview(clearReferenceButton)
+        referenceStatus.frame=NSRect(x:20,y:221,width:520,height:25);referenceStatus.font = .systemFont(ofSize:12);content.addSubview(referenceStatus)
         hint.frame=NSRect(x:20,y:70,width:520,height:118);hint.font = .systemFont(ofSize:12);hint.textColor = .secondaryLabelColor;content.addSubview(hint)
         func button(_ title:String,_ x:CGFloat,_ w:CGFloat,_ action:Selector)->NSButton {
             let b=NSButton(title:title,target:self,action:action);b.bezelStyle = .rounded;b.frame=NSRect(x:x,y:20,width:w,height:32);content.addSubview(b);return b
@@ -74,16 +82,26 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
         width.isEnabled=area.indexOfSelectedItem==1;height.isEnabled=width.isEnabled
         let mode=OrientationMode.allCases[max(0,orientation.indexOfSelectedItem)]
         front.isEnabled=mode != .epson;back.isEnabled=mode != .epson;offset.isEnabled=mode == .vision
+        referenceButton.isEnabled=mode == .vision;clearReferenceButton.isEnabled=mode == .vision && current.referencePrint != nil
+        referenceStatus.stringValue=current.referencePrint == nil ? "Optional: aufrechtes Kartenbild, z. B. eine gemeinsame Rückseite." : "Lokale Bildreferenz gespeichert – ohne Bilddatei oder Dateipfad."
         removeButton.isEnabled=snapshot.profiles.contains(where:{$0.id==current.id})
         var text="Außenmaße vor der Drehung. Beim Einzelscan schneidet die App die feste Fläche mittig aus dem Papierformat aus; automatischer Randzuschnitt ist aus. Epson-Drehung nur bei automatischer Fläche. Automatische Höhe ist noch nicht freigegeben."
         if transparent.state == .on {
             text="Die Hülle wird mit transparenten Rändern erfasst. Feste Maße bestimmen die Ausgabegröße vor der Drehung, ohne Strecken. Bei zu kleiner Fläche bleiben die Originale erhalten. Bitte Automatisch – macOS oder feste Drehung wählen."
         }
-        if mode == .vision && snapshot.duplex && (snapshot.automaticFeeding ? current.feedingMapping : current.icaMapping) == nil {
+        if mode == .vision && snapshot.duplex && (snapshot.automaticFeeding || transparent.state == .on ? current.feedingMapping : current.icaMapping) == nil {
             text += "\nDie Duplex-Zuordnung dieses Scanwegs ist noch nicht kalibriert. Bis zur Geräteprüfung gelten die festen Ersatzdrehungen."
         } else if mode == .vision {text += "\nBei unsicherer Erkennung gelten die festen Ersatzdrehungen. Vorne/hinten bezeichnet die Scannerseite."}
         hint.stringValue=text
     }
+    @objc private func chooseReference() {
+        let panel=NSOpenPanel();panel.allowedContentTypes=[.jpeg,.png];panel.allowsMultipleSelection=false
+        panel.message="Wähle einen scharfen, aufrechten Scan der Karte, z. B. die gemeinsame Pokémon-Rückseite. Erkennung und Bildvergleich bleiben auf diesem Mac."
+        guard panel.runModal() == .OK,let url=panel.url else{return}
+        do {current.referencePrint=try ReferenceMatcher.makeReference(url);updateControls()}
+        catch {showError("Die Referenz konnte nicht gelesen werden. Bitte ein einzelnes JPG- oder PNG-Bild mit höchstens 16 Megapixeln und 32 MB wählen.")}
+    }
+    @objc private func clearReference() {current.referencePrint=nil;updateControls()}
     @objc private func save() {
         var p=current;p.name=name.stringValue.trimmingCharacters(in:.whitespacesAndNewlines)
         p.transparentOriginal=transparent.state == .on

@@ -49,6 +49,7 @@ extension ScanStorage {
     }
 
     public func prepareImages(job: ScanJob, analyze: (URL) throws -> [OrientationEvidence] = VisionOrientation.analyze,
+                              referenceAnalyze: (URL,Data) throws -> [ReferenceEvidence] = {try ReferenceMatcher.analyze($0,reference:$1)},
                               onProgress: (Int) throws -> Void = { _ in }, isCancelled: () -> Bool = { false }, onCheckpoint: () throws -> Void = {}) throws {
         try processingCheckpoint(isCancelled,onCheckpoint)
         guard job.settings.requiresImageProcessing, let profile = job.settings.activeProfile else { return }
@@ -86,15 +87,33 @@ extension ScanStorage {
                     if job.settings.duplex && (front == nil || back == nil) { notices.insert(.missingPair) }
                     else if job.settings.duplex && mapping == nil { notices.insert(.uncalibrated) }
                     else if let front {
+                        func fallback(_ notice:OrientationNotice)->OrientationResult {
+                            OrientationResult(front:profile.frontRotation,back:back == nil ? nil:profile.backRotation,notice:notice)
+                        }
+                        var decision:OrientationResult
                         do {
                             let a = try analyze(inputs[front.side]!)
-                            guard !isCancelled() else { throw CocoaError(.userCancelled) }
+                            try processingCheckpoint(isCancelled,onCheckpoint)
                             let b = try back.map { try analyze(inputs[$0.side]!) }
-                            let decision = OrientationDecision.resolve(front:a,back:b,mapping:mapping,
+                            decision = OrientationDecision.resolve(front:a,back:b,mapping:mapping,
                                 fallbackFront:profile.frontRotation,fallbackBack:profile.backRotation,printedOffset:profile.printedBackOffset)
-                            angles[.front] = decision.front;angles[.back] = decision.back ?? profile.backRotation
-                            if let notice = decision.notice { notices.insert(notice) }
-                        } catch { notices.insert(.unavailable) }
+                        } catch {decision=fallback(.unavailable)}
+                        try processingCheckpoint(isCancelled,onCheckpoint)
+                        if let reference=profile.referencePrint {
+                            var failed=false
+                            func evidence(_ side:PageSide)->[ReferenceEvidence] {
+                                do {return try referenceAnalyze(inputs[side]!,reference)} catch {failed=true;return []}
+                            }
+                            let a=evidence(front.side)
+                            try processingCheckpoint(isCancelled,onCheckpoint)
+                            let b=back.map{evidence($0.side)}
+                            try processingCheckpoint(isCancelled,onCheckpoint)
+                            decision=ReferenceDecision.resolve(text:decision,front:a,back:b,mapping:mapping,
+                                fallbackFront:profile.frontRotation,fallbackBack:profile.backRotation,printedOffset:profile.printedBackOffset)
+                            if failed && decision.notice == .uncertain {decision=fallback(.unavailable)}
+                        }
+                        angles[.front] = decision.front;angles[.back] = decision.back ?? profile.backRotation
+                        if let notice = decision.notice { notices.insert(notice) }
                     }
                 }
                 for raw in group {

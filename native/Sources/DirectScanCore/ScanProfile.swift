@@ -42,6 +42,7 @@ public struct ScanProfile: Codable, Equatable, Identifiable {
     // Optional for compatibility with profiles and pending jobs from build19.
     public var transparentOriginal: Bool?
     public var isTransparentOriginal: Bool { transparentOriginal == true }
+    public var referencePrint: Data?
     // Missing legacy/explicitly uncalibrated values retain conservative fallback.
     public var icaMapping: DuplexMapping?
     public var feedingMapping: DuplexMapping?
@@ -54,6 +55,7 @@ public struct ScanProfile: Codable, Equatable, Identifiable {
     }
     public func validate() throws {
         try area.validate()
+        guard referencePrint.map({!$0.isEmpty && $0.count<=262144}) ?? true else {throw ScanFailure.invalidSettings}
         guard !name.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty, name.count <= 60,
               [frontRotation,backRotation,printedBackOffset].allSatisfy({ [0,90,180,270].contains($0) }),
               icaMapping?.isValid ?? true, feedingMapping?.isValid ?? true else { throw ScanFailure.invalidSettings }

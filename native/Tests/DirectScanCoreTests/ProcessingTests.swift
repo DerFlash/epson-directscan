@@ -5,6 +5,55 @@ import Testing
 @testable import DirectScanCore
 
 @Suite struct ProcessingTests {
+    @Test func referenceCanOrientEitherDuplexChannelEvenWhenOCRIsUnavailable() throws {
+        for matchingName in ["front.jpg","back.jpg"] {
+            let f=try StorageTests(),store=try f.store(),out=try f.destination()
+            var s=settings(out,duplex:true);s.profiles[0].orientation = .vision
+            s.profiles[0].referencePrint=Data(repeating:1,count:48)
+            let job=try store.beginJob(settings:s)
+            for (name,side) in [("front.jpg",PageSide.front),("back.jpg",.back)] {
+                let source=job.directory.appendingPathComponent(name);try f.jpeg(source,width:80,height:40)
+                try store.stage(source:source,job:job,sheet:1,side:side)
+            }
+            try store.complete(job:job,reason:.completed)
+            var referenceCalls=0
+            try store.prepareImages(job:job,analyze:{_ in throw CocoaError(.fileReadUnknown)},referenceAnalyze:{url,data in
+                #expect(data==s.profiles[0].referencePrint);referenceCalls+=1
+                return [0,90,180,270].map{ReferenceEvidence(rotation:$0,distance:url.lastPathComponent==matchingName && $0==90 ? 5:25)}
+            })
+            #expect(referenceCalls==2)
+            #expect(try store.processingNotice(job:job).isEmpty)
+            let files=try store.export(job:job)
+            #expect(files.count==2)
+            for file in files {let decoded=try JPEGInput.decode(file);#expect(decoded.width==40 && decoded.height==80)}
+        }
+    }
+    @Test func corruptReferenceFallsBackAndRetainsOriginalsWhileReliableOCRStillWorks() throws {
+        for reliableOCR in [true,false] {
+            let f=try StorageTests(),store=try f.store(),out=try f.destination()
+            var s=settings(out);s.profiles[0].orientation = .vision;s.profiles[0].frontRotation=0
+            s.profiles[0].referencePrint=Data(repeating:1,count:48)
+            let job=try store.beginJob(settings:s),source=job.directory.appendingPathComponent("front.jpg")
+            try f.jpeg(source,width:80,height:40);try store.stage(source:source,job:job,sheet:1,side:.front);try store.complete(job:job,reason:.completed)
+            try store.prepareImages(job:job,analyze:{_ in [0,90,180,270].map{OrientationEvidence(rotation:$0,score:reliableOCR && $0==90 ? 50:0,lines:reliableOCR && $0==90 ? 3:0)}})
+            #expect(try store.processingNotice(job:job)==(reliableOCR ? []:[.unavailable]))
+            let output=try #require(store.export(job:job).first),decoded=try JPEGInput.decode(output)
+            #expect(decoded.width==(reliableOCR ? 40:80))
+            #expect(FileManager.default.fileExists(atPath:source.path))
+        }
+    }
+    @Test func cancellationDuringReferenceAnalysisCannotPublishOrLoseOriginals() throws {
+        let f=try StorageTests(),store=try f.store(),out=try f.destination()
+        var s=settings(out);s.profiles[0].orientation = .vision;s.profiles[0].referencePrint=Data(repeating:1,count:48)
+        let job=try store.beginJob(settings:s),source=job.directory.appendingPathComponent("front.jpg")
+        try f.jpeg(source,width:80,height:40);try store.stage(source:source,job:job,sheet:1,side:.front);try store.complete(job:job,reason:.completed)
+        var cancelled=false
+        #expect(throws:(any Error).self) {
+            try store.prepareImages(job:job,analyze:{_ in [0,90,180,270].map{OrientationEvidence(rotation:$0,score:0,lines:0)}},referenceAnalyze:{_,_ in cancelled=true;return []},isCancelled:{cancelled})
+        }
+        #expect(try FileManager.default.contentsOfDirectory(atPath:out.path).isEmpty)
+        #expect(FileManager.default.fileExists(atPath:source.path))
+    }
     @Test func legacyFixedCapturesAndUnstampedProcessedCopiesCannotPublishOrDeleteOriginals() throws {
         for legacyCapture in [true,false] {
             let f=try StorageTests(),store=try f.store(),out=try f.destination()

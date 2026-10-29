@@ -4,6 +4,26 @@ import Testing
 @testable import DirectScanCore
 
 @Suite struct ProfileTests {
+    @Test func optionalLocalReferenceSurvivesSettingsAndRejectsUnboundedData() throws {
+        let p=ScanProfile(name:"Referenz")
+        var json=try #require(JSONSerialization.jsonObject(with:JSONEncoder().encode(p)) as? [String:Any])
+        let printBytes=Data(repeating:7,count:48)
+        json["referencePrint"]=printBytes.base64EncodedString()
+        let profile=try JSONDecoder().decode(ScanProfile.self,from:JSONSerialization.data(withJSONObject:json))
+        let saved=try #require(JSONSerialization.jsonObject(with:JSONEncoder().encode(profile)) as? [String:Any])
+        #expect(saved["referencePrint"] as? String == printBytes.base64EncodedString())
+        for count in [0,262145] {
+            json["referencePrint"]=Data(repeating:0,count:count).base64EncodedString()
+            #expect(throws:(any Error).self) {
+                let invalid=try JSONDecoder().decode(ScanProfile.self,from:JSONSerialization.data(withJSONObject:json))
+                try invalid.validate()
+            }
+        }
+        //No reference remains the historical behavior, rather than a migration requirement.
+        json.removeValue(forKey:"referencePrint")
+        let old=try JSONDecoder().decode(ScanProfile.self,from:JSONSerialization.data(withJSONObject:json))
+        try old.validate()
+    }
     @Test func newProfilesCanOrientEitherReadableFaceOnBothMeasuredCapturePaths() {
         let p=ScanProfile(name:"Neues Profil")
         func evidence(_ angle:Int?) -> [OrientationEvidence] {

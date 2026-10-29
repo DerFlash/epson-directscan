@@ -38,7 +38,7 @@ final class NativeProcess: NativeHelper {
                       arguments: ["--parent", String(getpid()), "--root", root.path])
         case .scan(let settings):
             guard let executable = Bundle.main.executableURL else { throw CocoaError(.fileNoSuchFile) }
-            let data = try JSONEncoder().encode(settings)
+            let data = try Self.scanPayload(settings)
             self.init(executable: executable, arguments: ["--scan-worker", root.path, data.base64EncodedString(), String(getpid())])
         case .feeding(let job):
             let data = try Self.feedingPayload(job.settings)
@@ -53,6 +53,11 @@ final class NativeProcess: NativeHelper {
         try settings.validate()
         try settings.activeProfile?.validateForCapture()
         var payload = try JSONSerialization.jsonObject(with:JSONEncoder().encode(settings)) as! [String:Any]
+        // This helper captures pages only; reference prints stay in the parent
+        // job journal for post-processing, away from command-line size limits.
+        var profiles=payload["profiles"] as? [[String:Any]] ?? []
+        for index in profiles.indices {profiles[index].removeValue(forKey:"referencePrint")}
+        payload["profiles"]=profiles
         payload["crop"] = settings.driverCrop;payload["rotate"] = settings.driverRotate
         payload["deskew"] = settings.driverDeskew
         payload["transparentOriginal"] = settings.transparentOriginal
@@ -64,6 +69,16 @@ final class NativeProcess: NativeHelper {
             payload["profileWidthMM"] = width;payload["profileHeightMM"] = height
         }
         return try JSONSerialization.data(withJSONObject:payload)
+    }
+    static func scanPayload(_ settings:ScanSettings)throws->Data {
+        try settings.validate()
+        var snapshot=settings
+        // ICA processes the job in its own worker. Preserve the active profile
+        // and reference exactly; inactive profiles cannot affect that job.
+        snapshot.profiles=settings.activeProfile.map{[$0]} ?? []
+        let data=try JSONEncoder().encode(snapshot)
+        guard data.count<=128*1024 else {throw ScanFailure.invalidSettings}
+        return data
     }
     func start() throws {
         try process.run()

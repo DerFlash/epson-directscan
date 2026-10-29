@@ -4,6 +4,22 @@ import Foundation
 @testable import DirectScanCore
 
 @Suite struct DriverConfigurationTests {
+    @Test func referencePrintsStayInJobStorageAndNeverEnterCaptureArguments() throws {
+        var s=ScanSettings(destination:"/tmp")
+        s.profiles=(0..<20).map { i in var p=ScanProfile(name:"Profil \(i)");p.referencePrint=Data(repeating:7,count:262144);return p }
+        s.activeProfileID=s.profiles[0].id
+        let payload=try NativeProcess.feedingPayload(s)
+        #expect(payload.count<20000)
+        let json=try #require(JSONSerialization.jsonObject(with:payload) as? [String:Any])
+        let profiles=try #require(json["profiles"] as? [[String:Any]])
+        #expect(profiles.allSatisfy{$0["referencePrint"]==nil})
+        #expect(s.profiles.allSatisfy{$0.referencePrint?.count==262144})
+        #expect(throws:(any Error).self) {try NativeProcess.scanPayload(s)}
+        s.profiles[0].referencePrint=Data(repeating:1,count:12000)
+        let capture=try JSONDecoder().decode(ScanSettings.self,from:NativeProcess.scanPayload(s))
+        #expect(capture.profiles.count==1 && capture.activeProfile==s.activeProfile)
+        #expect(s.profiles.count==20 && s.profiles[1].referencePrint?.count==262144)
+    }
     @Test func activeProfileRequiresExplicitDisabledCorrectionReadbacks() throws {
         var s=ScanSettings();var p=ScanProfile(name:"Hülle");p.area=ScanArea(widthMM:76,heightMM:102);p.orientation = .vision
         s.profiles=[p];s.activeProfileID=p.id
