@@ -101,7 +101,7 @@ ersetzt. Nicht mehrere Scan-Apps gleichzeitig verwenden.
 ### Neue Scanprofile in der Entwicklungsfassung 0.4.0-beta.1-dev
 
 Diese Erweiterung ist noch nicht veröffentlicht. Normale Karten wurden lokal am
-Gerät geprüft; der neue Hüllenmodus in Build 20 befindet sich in der Geräteprüfung.
+Gerät geprüft; der neue Hüllenmodus in Build 21 befindet sich in der Geräteprüfung.
 Die folgenden Punkte gehören zur lokalen Entwicklungsfassung; der bisherige
 Beta2-Download enthält sie noch nicht.
 

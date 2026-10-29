@@ -1,6 +1,6 @@
 # Download release validation — v0.3.0-beta.2
 
-> Current local development work: see “Transparent-holder correction, build20”
+> Current local development work: see “Transparent-holder correction, build20/21”
 > at the end. Published beta2 remains unchanged.
 
 The repository was renamed in place to `DerFlash/epson-directscan` (same repository
@@ -713,7 +713,7 @@ Finally the status window was closed. A process readback confirmed the installed
 main application and its parent-bound button receiver still running in the
 background; the app was left ready for the physical scan button.
 
-### Transparent-holder correction, build20 — 2026-10-29, local only
+### Transparent-holder correction, build20/21 — 2026-10-29, local only
 
 The original physical Toploader attempt failed acceptance: the fixed acquisition
 area discarded transparent trailing material, and a text-poor Energy face did
@@ -757,3 +757,8 @@ reference-derived pair against it. The new decision and full-storage/export
 regressions reproduced6 failures before the correction; all122 native tests
 pass afterward. No Critical or Minor findings remained. This is a local test
 installation, not a publication or broad hardware acceptance.
+
+The initial build20 UI setup exposed a hidden profile panel after deactivation:
+the still-open editor disabled the remaining settings. Build21 keeps that editor
+visible across focus changes, like the status panel; capture logic is identical
+to the reviewed build20 correction. Build21 supersedes it for physical acceptance.

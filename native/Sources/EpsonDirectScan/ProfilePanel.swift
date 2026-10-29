@@ -20,7 +20,7 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
         if let selected = settings.activeProfile ?? settings.profiles.first { current = selected }
         else { var p = ScanProfile(name:"Karte");p.area = ScanArea(widthMM:63,heightMM:88);p.orientation = .vision;current = p }
         let panel = NSPanel(contentRect:NSRect(x:0,y:0,width:560,height:720),styleMask:[.titled,.closable],backing:.buffered,defer:false)
-        super.init(window:panel);panel.title = "Scanprofile";panel.isReleasedWhenClosed = false;panel.delegate = self
+        super.init(window:panel);panel.title = "Scanprofile";panel.isReleasedWhenClosed = false;panel.hidesOnDeactivate = false;panel.delegate = self
         let content = NSView(frame:panel.frame);panel.contentView = content
         func label(_ text:String,_ y:CGFloat) { let v = NSTextField(labelWithString:text);v.frame=NSRect(x:20,y:y+140,width:200,height:24);content.addSubview(v) }
         func field(_ v:NSView,_ y:CGFloat) {v.frame=NSRect(x:220,y:y+140,width:315,height:26);content.addSubview(v)}
