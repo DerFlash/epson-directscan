@@ -742,10 +742,18 @@ Perspective normalization and grayscale experiments did not improve this result
 and are not included. Private scans, feature prints and sample matrices are not
 part of the repository.
 
-Local software checks:120 native tests plus the Objective-C callback/configuration
+Local software checks:122 native tests plus the Objective-C callback/configuration
 harness,26 Node tests and42 Python/package tests passed. Build20 compiles and is
 ad-hoc signed, still not notarized. Tests cover complete one-batch JPG/PDF handoff,
 Stop/stall bounds, centered pixel placement without stretch, too-small frames,
 legacy framing rejection, reference corruption/size limits, either duplex channel,
 conflicts and cancellation before publication. Actual holder border completeness,
 sharpness, orientation and repeated physical Stop behavior remain pending below.
+
+The independent final review found one orientation conflict issue: a combined
+uncertain result or a failure on the other face could hide a confident per-face
+OCR result. Both channel orders now retain successful evidence and compare each
+reference-derived pair against it. The new decision and full-storage/export
+regressions reproduced6 failures before the correction; all122 native tests
+pass afterward. No Critical or Minor findings remained. This is a local test
+installation, not a publication or broad hardware acceptance.

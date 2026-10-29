@@ -4,6 +4,17 @@ import Testing
 
 @Suite struct ReferenceOrientationTests {
     private let mapping=DuplexMapping(sign:-1,offset:0)
+    @Test func individualStrongOCRCannotBeHiddenByUncertainPairScores() {
+        let strong=[0,90,180,270].map{OrientationEvidence(rotation:$0,score:$0==0 ? 20:0,lines:$0==0 ? 2:0)}
+        let weak=zip([0,90,180,270],[0.0,17,18,17]).map{OrientationEvidence(rotation:$0.0,score:$0.1,lines:$0.1>0 ? 1:0)}
+        for swapped in [false,true] {
+            let a=swapped ? weak:strong,b=swapped ? strong:weak
+            let text=OrientationDecision.resolve(front:a,back:b,mapping:mapping,fallbackFront:0,fallbackBack:0)
+            #expect(text.notice == .uncertain)
+            let result=ReferenceDecision.resolve(text:text,front:swapped ? match(180):match(nil),back:swapped ? match(nil):match(180),mapping:mapping,fallbackFront:0,fallbackBack:0,ocrFront:a,ocrBack:b)
+            #expect(result.front==0 && result.back==0 && result.notice == .conflict)
+        }
+    }
     private func match(_ angle:Int?,best:Double=5,next:Double=20)->[ReferenceEvidence] {
         [0,90,180,270].map{ReferenceEvidence(rotation:$0,distance:$0 == angle ? best:next)}
     }

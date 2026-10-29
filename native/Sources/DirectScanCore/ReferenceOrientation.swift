@@ -17,24 +17,32 @@ public enum ReferenceDecision {
         guard best.distance<=12,next.distance>0,(next.distance-best.distance)/next.distance>=0.20 else {return nil}
         return best.rotation
     }
-    public static func resolve(text:OrientationResult,front:[ReferenceEvidence],back:[ReferenceEvidence]?,mapping:DuplexMapping?,fallbackFront:Int,fallbackBack:Int,printedOffset:Int=0)->OrientationResult {
+    public static func resolve(text:OrientationResult,front:[ReferenceEvidence],back:[ReferenceEvidence]?,mapping:DuplexMapping?,fallbackFront:Int,fallbackBack:Int,printedOffset:Int=0,ocrFront:[OrientationEvidence]=[],ocrBack:[OrientationEvidence]=[])->OrientationResult {
         if [.conflict,.uncalibrated,.missingPair].contains(text.notice) {return text}
         let a=winner(front),b=back.flatMap(winner)
         func fallback(_ reason:OrientationNotice)->OrientationResult {
             OrientationResult(front:fallbackFront,back:back == nil ? nil:fallbackBack,notice:reason)
+        }
+        func contradictsOCR(_ front:Int,_ back:Int?)->Bool {
+            if let strong=OrientationDecision.confidentRotation(ocrFront),strong != front {return true}
+            if let strong=OrientationDecision.confidentRotation(ocrBack),let back,strong != back {return true}
+            return false
         }
         if text.notice == nil {
             if a.map({$0 != text.front}) ?? false || b.map({$0 != text.back}) ?? false {return fallback(.conflict)}
             return text
         }
         guard back != nil else {
-            return a.map{OrientationResult(front:$0,back:nil,notice:nil)} ?? text
+            guard let a else{return text}
+            return contradictsOCR(a,nil) ? fallback(.conflict):OrientationResult(front:a,back:nil,notice:nil)
         }
         guard let mapping,mapping.isValid else {return fallback(.uncalibrated)}
         if let a,let b,mapping.back(for:a,printedOffset:printedOffset) != b {return fallback(.conflict)}
         let angle=a ?? b.flatMap { value in [0,90,180,270].first{mapping.back(for:$0,printedOffset:printedOffset)==value} }
         guard let angle else {return text}
-        return OrientationResult(front:angle,back:mapping.back(for:angle,printedOffset:printedOffset),notice:nil)
+        let paired=mapping.back(for:angle,printedOffset:printedOffset)
+        guard !contradictsOCR(angle,paired) else{return fallback(.conflict)}
+        return OrientationResult(front:angle,back:paired,notice:nil)
     }
 }
 

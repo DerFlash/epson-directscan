@@ -5,6 +5,27 @@ import Testing
 @testable import DirectScanCore
 
 @Suite struct ProcessingTests {
+    @Test func perFaceStrongOCRSurvivesWeakOrThrowingOtherFaceAndBlocksReferenceConflict() throws {
+        for strongBack in [false,true] {for otherThrows in [false,true] {
+            let f=try StorageTests(),store=try f.store(),out=try f.destination()
+            var s=settings(out,duplex:true);s.profiles[0].orientation = .vision
+            s.profiles[0].frontRotation=0;s.profiles[0].backRotation=0;s.profiles[0].referencePrint=Data(repeating:1,count:48)
+            let job=try store.beginJob(settings:s)
+            for (name,side) in [("front.jpg",PageSide.front),("back.jpg",.back)] {
+                let source=job.directory.appendingPathComponent(name);try f.jpeg(source,width:80,height:40)
+                try store.stage(source:source,job:job,sheet:1,side:side)
+            }
+            try store.complete(job:job,reason:.completed)
+            let strongName=strongBack ? "back.jpg":"front.jpg"
+            try store.prepareImages(job:job,analyze:{url in
+                if url.lastPathComponent != strongName && otherThrows {throw CocoaError(.fileReadUnknown)}
+                if url.lastPathComponent==strongName {return [0,90,180,270].map{OrientationEvidence(rotation:$0,score:$0==0 ? 20:0,lines:$0==0 ? 2:0)}}
+                return zip([0,90,180,270],[0.0,17,18,17]).map{OrientationEvidence(rotation:$0.0,score:$0.1,lines:$0.1>0 ? 1:0)}
+            },referenceAnalyze:{url,_ in [0,90,180,270].map{ReferenceEvidence(rotation:$0,distance:url.lastPathComponent != strongName && $0==180 ? 5:25)}})
+            #expect(try store.processingNotice(job:job)==[.conflict])
+            for file in try store.export(job:job) {let image=try JPEGInput.decode(file);#expect(image.width==80 && image.height==40)}
+        }}
+    }
     @Test func referenceCanOrientEitherDuplexChannelEvenWhenOCRIsUnavailable() throws {
         for matchingName in ["front.jpg","back.jpg"] {
             let f=try StorageTests(),store=try f.store(),out=try f.destination()

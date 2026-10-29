@@ -90,14 +90,14 @@ extension ScanStorage {
                         func fallback(_ notice:OrientationNotice)->OrientationResult {
                             OrientationResult(front:profile.frontRotation,back:back == nil ? nil:profile.backRotation,notice:notice)
                         }
-                        var decision:OrientationResult
-                        do {
-                            let a = try analyze(inputs[front.side]!)
-                            try processingCheckpoint(isCancelled,onCheckpoint)
-                            let b = try back.map { try analyze(inputs[$0.side]!) }
-                            decision = OrientationDecision.resolve(front:a,back:b,mapping:mapping,
-                                fallbackFront:profile.frontRotation,fallbackBack:profile.backRotation,printedOffset:profile.printedBackOffset)
-                        } catch {decision=fallback(.unavailable)}
+                        var ocrFront:[OrientationEvidence]?,ocrBack:[OrientationEvidence]?
+                        do {ocrFront=try analyze(inputs[front.side]!)} catch {}
+                        try processingCheckpoint(isCancelled,onCheckpoint)
+                        if let back {do {ocrBack=try analyze(inputs[back.side]!)} catch {}}
+                        let empty=[0,90,180,270].map{OrientationEvidence(rotation:$0,score:0,lines:0)}
+                        var decision=OrientationDecision.resolve(front:ocrFront ?? empty,back:back == nil ? nil:ocrBack ?? empty,mapping:mapping,
+                            fallbackFront:profile.frontRotation,fallbackBack:profile.backRotation,printedOffset:profile.printedBackOffset)
+                        if (ocrFront == nil || (back != nil && ocrBack == nil)) && decision.notice == .uncertain {decision=fallback(.unavailable)}
                         try processingCheckpoint(isCancelled,onCheckpoint)
                         if let reference=profile.referencePrint {
                             var failed=false
@@ -109,7 +109,8 @@ extension ScanStorage {
                             let b=back.map{evidence($0.side)}
                             try processingCheckpoint(isCancelled,onCheckpoint)
                             decision=ReferenceDecision.resolve(text:decision,front:a,back:b,mapping:mapping,
-                                fallbackFront:profile.frontRotation,fallbackBack:profile.backRotation,printedOffset:profile.printedBackOffset)
+                                fallbackFront:profile.frontRotation,fallbackBack:profile.backRotation,printedOffset:profile.printedBackOffset,
+                                ocrFront:ocrFront ?? [],ocrBack:ocrBack ?? [])
                             if failed && decision.notice == .uncertain {decision=fallback(.unavailable)}
                         }
                         angles[.front] = decision.front;angles[.back] = decision.back ?? profile.backRotation

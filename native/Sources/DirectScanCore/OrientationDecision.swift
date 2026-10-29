@@ -22,6 +22,7 @@ public enum OrientationDecision {
         guard a.score >= 12, a.lines >= 2, (a.score-b.score)/a.score >= 0.20 else { return nil }
         return a.rotation
     }
+    public static func confidentRotation(_ evidence:[OrientationEvidence])->Int? {winner(evidence)}
     public static func resolve(front: [OrientationEvidence], back: [OrientationEvidence]?, mapping: DuplexMapping?,
                                fallbackFront: Int, fallbackBack: Int, printedOffset: Int = 0) -> OrientationResult {
         func fallback(_ reason: OrientationNotice) -> OrientationResult {
