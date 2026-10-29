@@ -30,6 +30,22 @@
 - (BOOL)overScanEnabled{return self.overscan;}
 @end
 
+// Epson6.7.84 may open in mode0. AF start then reports success without
+// sending its hardware command; the caller must first enter control mode1.
+@interface ControlFixture:NSObject
+@property unsigned char controlMode;
+@property int controlError;
+@property BOOL rejectControl;
+@property int captureError;
+@property BOOL captureRequested;
+@property BOOL afCalled;
+@end
+@implementation ControlFixture
+- (unsigned char)mode{return self.controlMode;}
+- (int)setMode:(unsigned char)value{if(!self.controlError&&!self.rejectControl)self.controlMode=value;return self.controlError;}
+- (int)startScanningInAFM{self.afCalled=YES;if(self.controlMode==1)self.captureRequested=YES;return self.captureError;}
+@end
+
 static NSInteger callbackError(FeedingReceiver *receiver,NSString *selector,NSError *error){
  int descriptors[2];if(pipe(descriptors)!=0)return NSIntegerMin;
  fflush(stdout);int saved=dup(STDOUT_FILENO);
@@ -43,6 +59,14 @@ static NSInteger callbackError(FeedingReceiver *receiver,NSString *selector,NSEr
 }
 
 int main(void) { @autoreleasepool {
+    ControlFixture *control=[ControlFixture new];
+    if(startFeeding((id<FeedingScanner>)control)!=0||!control.captureRequested){fprintf(stderr,"AF success must actually request capture after acquiring scanner control\n");return 12;}
+    control=[ControlFixture new];control.controlError=394;
+    if(startFeeding((id<FeedingScanner>)control)!=394||control.afCalled){fprintf(stderr,"Failed control acquisition must stop before AF and preserve its error\n");return 13;}
+    control=[ControlFixture new];control.rejectControl=YES;
+    if(startFeeding((id<FeedingScanner>)control)==0||control.afCalled){fprintf(stderr,"Unconfirmed control mode must never start AF\n");return 14;}
+    control=[ControlFixture new];control.controlMode=1;control.captureError=303;
+    if(startFeeding((id<FeedingScanner>)control)!=303||!control.captureRequested){fprintf(stderr,"An existing control session must preserve AF start failures\n");return 15;}
     AreaFixture *area=[AreaFixture new];
     area.dpi=300;
     NSDictionary *settings=@{@"profileWidthMM":@76,@"profileHeightMM":@102,@"crop":@NO};

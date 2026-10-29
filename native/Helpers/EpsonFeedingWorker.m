@@ -30,6 +30,7 @@
 - (void)setCroppingSize:(float)value; - (float)croppingSize;
 - (void)setOverScanEnabled:(BOOL)value; - (BOOL)overScanEnabled;
 - (int)startScanningInAFM; - (int)stopScanningInAutoFeedingMode;
+- (unsigned char)mode; - (int)setMode:(unsigned char)value;
 - (BOOL)isScanning; - (unsigned char)jobMode;
 @end
 @protocol FeedingImage <NSObject>
@@ -89,6 +90,14 @@ static int claimLease(NSString *root) {
 }
 
 static BOOL exact(Class cls,NSString *name,const char *encoding){Method m=class_getInstanceMethod(cls,NSSelectorFromString(name));return m && strcmp(method_getTypeEncoding(m),encoding)==0;}
+static int startFeeding(id<FeedingScanner> scanner){
+ // Unlike scanInBackground, Epson6.7.84's AF entry does not acquire control.
+ // Opening may leave mode0; startAFM then returns0 without enabling the feeder.
+ // close already finalizes control, including failed or cancelled starts.
+ int status=[scanner setMode:1];if(status)return status;
+ if([scanner mode]!=1)return -316;
+ return [scanner startScanningInAFM];
+}
 static BOOL configureFixedArea(id<FeedingScanner> scanner,NSDictionary *settings){
  NSNumber *width=settings[@"profileWidthMM"],*height=settings[@"profileHeightMM"];
  if([settings[@"transparentOriginal"] boolValue]){
@@ -134,6 +143,7 @@ static BOOL compatible(void){
  if(!exact(u,@"initWithLocationID:productIDForValidation:","@24@0:8I16S20"))return NO;
  NSDictionary *types=@{@"initWithInterface:":@"@24@0:8@16",@"open":@"i16@0:8",@"close":@"i16@0:8",@"isOpened":@"B16@0:8",@"setDelegate:":@"v24@0:8@16",@"setWorkFolder:":@"v24@0:8@16",@"autoFeedingModeSupported":@"B16@0:8",@"duplexSupported":@"B16@0:8",@"autoCroppingSupported":@"B16@0:8",@"skewCorrectionSupported":@"B16@0:8",@"supportedColorFormats":@"@16@0:8",@"supportedImageFormats":@"@16@0:8",@"setXResolution:":@"v24@0:8Q16",@"setYResolution:":@"v24@0:8Q16",@"setColorFormat:":@"v20@0:8i16",@"colorFormat":@"i16@0:8",@"setImageFormat:":@"v20@0:8i16",@"imageFormat":@"i16@0:8",@"setDuplexEnabled:":@"v20@0:8B16",@"duplexEnabled":@"B16@0:8",@"setAutoCroppingEnabled:":@"v20@0:8B16",@"autoCroppingEnabled":@"B16@0:8",@"setSkewCorrectionEnabled:":@"v20@0:8B16",@"skewCorrectionEnabled":@"B16@0:8",@"setScanAreaInPixel:":@"v48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16",@"setAutoFeedingModeTimeout:":@"v24@0:8Q16",@"startScanningInAFM":@"i16@0:8",@"stopScanningInAutoFeedingMode":@"i16@0:8",@"isScanning":@"B16@0:8",@"jobMode":@"C16@0:8"};
  for(NSString *key in types)if(!exact(c,key,[types[key] UTF8String]))return NO;
+ if(!exact(c,@"mode","C16@0:8")||!exact(c,@"setMode:","i20@0:8C16"))return NO;
  if(!exact(c,@"documentLoaded","B16@0:8"))return NO;
  Class receiver=NSClassFromString(@"FeedingReceiver");
  NSDictionary *callbacks=@{@"scannerWillBeginContinuousScanning:":@"v24@0:8@16",@"scannerDidEndContinuousScanning:":@"v24@0:8@16",@"scannerWillCancelScanning:":@"v24@0:8@16",@"scannerDidCancelScanning:":@"v24@0:8@16",@"scanner:willScanToScannedImageHandle:":@"v32@0:8@16@24",@"scanner:didScanToScannedImageHandle:":@"v32@0:8@16@24",@"scanner:didPressButton:":@"v32@0:8@16q24",@"scanner:didCompleteScanningWithError:":@"v32@0:8@16@24",@"scanner:didInterruptScanningWithError:":@"v32@0:8@16@24",@"scanner:didEncounterDeviceCommunicationError:":@"v32@0:8@16@24"};
@@ -231,7 +241,7 @@ int main(int argc,char **argv){@autoreleasepool{
   else {
   if(receiver.singleShot&&![scanner documentLoaded]){emit(@"empty",0);emit(@"end",0);result=0;}
   else {
-  status=[scanner startScanningInAFM];if(status){emit(@"error",status);return 1;}
+  status=startFeeding(scanner);if(status){emit(@"error",status);return 1;}
   BOOL stopSent=NO;NSTimeInterval stopDeadline=0;
   while([scanner jobMode]!=0||[scanner isScanning]){@autoreleasepool{
    [NSRunLoop.mainRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.05]];
