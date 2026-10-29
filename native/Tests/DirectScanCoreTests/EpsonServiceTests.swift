@@ -56,4 +56,22 @@ private final class ServiceCommands {
         #expect(shell.loaded==shell.labels)
         #expect(!FileManager.default.fileExists(atPath:root.appendingPathComponent("epson-services.json").path))
     }
+    @Test @MainActor func activeRestartWithMissingDestinationRetainsMemoAndStopsReturnedAgents() throws {
+        let root=try folder();defer{try? FileManager.default.removeItem(at:root)}
+        let storage=try ScanStorage(root:root),shell=ServiceCommands()
+        let mode=EpsonButtonMode(root:root,diagnostics:Diagnostics(root:root),runCommand:shell.run)
+        try mode.acquire()
+        let memo=root.appendingPathComponent("epson-services.json"),original=try Data(contentsOf:memo)
+        shell.loaded.insert("com.epson.scannermonitor")
+        let settings=ScanSettings(destination:root.appendingPathComponent("unavailable").path)
+        let fresh=EpsonButtonMode(root:root,diagnostics:Diagnostics(root:root),runCommand:shell.run)
+        let controller=ScanCoordinator(storage:storage,diagnostics:Diagnostics(root:root),settings:{settings},services:fresh,
+            makeHelper:{_ in Issue.record("Missing destination must never launch a scanner helper");throw CocoaError(.featureUnsupported)},conflictingApps:{false})
+        controller.start()
+        #expect(controller.policy.phase == .error && controller.ownsEpsonButtons)
+        #expect(shell.loaded.isEmpty && FileManager.default.fileExists(atPath:memo.path))
+        #expect(try Data(contentsOf:memo)==original)
+        controller.pause()
+        #expect(shell.loaded==shell.labels && !controller.ownsEpsonButtons)
+    }
 }

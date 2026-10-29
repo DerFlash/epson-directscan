@@ -107,6 +107,15 @@ private final class HandoffClock { var time: TimeInterval = 0 }
         f.controller.start()
         #expect(f.services.paused && f.services.restoreCalls==0 && f.factory.roles.last == .button)
     }
+    @Test func internalPauseCannotRevokeAnExplicitReleaseWaitingForClose() throws {
+        let f=try HandoffFixture();f.button.emit("ready",1)
+        f.controller.pause()
+        f.controller.pause(releaseEpsonServices:false)
+        #expect(f.services.paused)
+        f.button.emit("closed",0);f.button.exit()
+        #expect(!f.services.paused && f.services.restoreCalls==1)
+        #expect(!f.controller.ownsEpsonButtons && f.controller.sessionReleased && !f.controller.listening)
+    }
     @Test func transparentSingleCardUsesNativeHelperButKeepsIndividualJPGOrCardPDF() throws {
         for format in [OutputFormat.jpg,.pdf] {
             let f=try HandoffFixture(),image=try StorageTests(),p=try transparentProfile()

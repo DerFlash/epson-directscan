@@ -157,7 +157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     @objc func chooseFolder() {
         guard !controller.busy, !editorOpen else { return }
-        let wasListening = controller.listening
+        let wasListening = controller.listening || controller.ownsEpsonButtons
         if wasListening { controller.pause(releaseEpsonServices:false) }
         NSApp.activate(ignoringOtherApps: true)
         let panel = NSOpenPanel(); folderPanel = panel
@@ -221,7 +221,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     @objc private func editProfiles() {
         guard !controller.busy,!editorOpen else{return}
-        let wasListening=controller.listening
+        let wasListening=controller.listening || controller.ownsEpsonButtons
         if wasListening {controller.pause(releaseEpsonServices:false)}
         profilePanel=ProfilePanel(settings:settings) { [weak self] next in
             guard let self else{return true}

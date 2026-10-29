@@ -86,11 +86,11 @@ final class ScanCoordinator {
         if stopping { resumeAfterClose = true; return }
         do {
             guard !settings().paused else { return }
-            _ = try storage.validateDestination(settings().destination)
             guard !conflictingApps() else { update("Bitte ScanSmart, Event Manager und die alte AutoSave-App beenden."); return }
             releaseEpsonServicesOnClose = false
             try mode.acquire()
             ownsEpsonButtons = true
+            _ = try storage.validateDestination(settings().destination)
             guard try !storage.hasUnfinishedJobs() else { throw ScanFailure.unfinishedPages }
             desiredActive = true; policy.resume(); policy.recover()
             try launch(.button)
@@ -300,7 +300,7 @@ final class ScanCoordinator {
     }
     func pause(releaseEpsonServices: Bool = true) {
         desiredActive = false; resumeAfterClose = false
-        releaseEpsonServicesOnClose = releaseEpsonServices
+        releaseEpsonServicesOnClose = releaseEpsonServicesOnClose || releaseEpsonServices
         if releaseFailed { policy.failed(); update(); return }
         policy.pause()
         if let helper { stopping = true; deadline = now() + 6; helper.cancel(); update("Scanner wird freigegeben …") }

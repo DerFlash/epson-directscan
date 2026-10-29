@@ -800,3 +800,13 @@ an inherited-descriptor lock window: closing an owner alone can leave an unrelat
 pre-exec child holding its file description. A bounded child reproducer fails
 before explicit unlock and passes afterward. All129 native tests plus the native
 callback/configuration harness pass. Physical build22 acceptance remains pending.
+
+An independent follow-up review found two ownership edge cases before build22
+installation: an unavailable destination on active restart could restore the
+vendor memo, and an internal sleep pause could revoke an explicit release already
+waiting for device close. Both now have failing-then-passing regressions. Startup
+establishes ownership before fallible destination validation; explicit release is
+latched until a new activation. Local editors resume an existing ownership intent.
+All131 native tests plus the callback/configuration harness pass after this one
+review fix pass. No Critical or Minor findings remained; the acquisition algorithm
+is unchanged and physical acceptance is still pending.
