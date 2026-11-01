@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0-beta.1 — 2026-11-01
 
 - License the project under PolyForm Strict 1.0.0; modifications and redistribution
   require separate permission. Commercial use outside
@@ -8,8 +8,6 @@
   Björn Teichmann; no commercial license or software purchase is offered for sale.
 - Include the license and licensing/contact notice in native and legacy app
   bundles and native DMGs. Refuse packages with missing or stale bundled notices.
-
-## 0.4.0-beta.1-dev — unreleased
 
 - Explicitly clear retained laminated-paper mode for transparent-holder capture,
   retaining automatic area detection, full sensor width and the 0.20-inch margin.
@@ -58,7 +56,10 @@
 - Migrate schema1/2 settings with exact private backups and retain previous active
   behavior. Add regression coverage for pairing, physical geometry, image metadata,
   retry, corrupt references and cancellation. Existing ad-hoc distribution policy
-  and driver requirements apply; this development candidate is not published.
+  and driver requirements apply.
+- Promote hardware-tested development build24 to release build25. Capture,
+  processing and helper sources are unchanged; the release updates metadata and
+  includes the current license notices in the app and download packages.
 
 ## 0.3.0-beta.2 — 2026-10-27
 

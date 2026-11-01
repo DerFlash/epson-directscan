@@ -1,7 +1,30 @@
-# Download release validation — v0.3.0-beta.2
+# Release validation — v0.4.0-beta.1
 
-> Current local development work: see “Transparent-holder correction, build20/21”
-> at the end. Published beta2 remains unchanged.
+The new release promotes locally hardware-tested development build24 to build25.
+Compared with that tested build, capture, processing and helper sources are
+unchanged. Release-only changes update version/download documentation and include
+the current main branch's license notices and repository maintenance. No private
+settings, card images or reference feature archives belong in the downloads.
+
+The dated “Build24 transparent-holder acceptance” section below is the current
+physical evidence: upright complete holder sides, changed physical face/rotation,
+automatic reinsertion, four-page PDF after physical Stop and a bare-card regression.
+It records131 Swift,26 Node and42 Python tests plus the native callback harness
+for that tested source. Final release/packaging checks also include the newer
+upstream license and branch-cleanup tests. Distribution remains arm64, ad-hoc
+signed and not notarized; the Epson6.7.84 driver must be installed separately.
+Historical “local only” or “unpublished” notes below describe their development
+stage and do not describe this subsequently authorized release.
+
+Final local release checks passed131 Swift tests in17 suites plus the compiled
+native callback harness,44 Node tests and43 Python tests (218 total), including
+actual DMG/ZIP, license-notice and branch-cleanup fixtures. During a parallel
+audit/package run the signal-handshake fixture exceeded its own5-second lifetime;
+the same unchanged native suite passed when run without those competing checks.
+No production deadline or test expectation was weakened. Remote CI and final
+download verification are separate gates recorded in the release evidence.
+
+## Prior download release validation — v0.3.0-beta.2
 
 The repository was renamed in place to `DerFlash/epson-directscan` (same repository
 ID, issues, releases and history; old URL redirect verified). Beta2/build15 adds

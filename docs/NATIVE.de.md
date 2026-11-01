@@ -1,11 +1,10 @@
 # Epson DirectScan Beta – native Menüleisten-App
 
-Beta **0.3.0-beta.2** (Build 15) für den Epson ES-C320W über USB.
-Sie ergänzt doppelseitige JPGs, ein PDF pro Karte und den kontinuierlichen Einzug
-mit einem gemeinsamen PDF. Duplex-JPG, Karten-PDF, automatisches Nachlegen,
-Stopptaste und eine 30-Sekunden-Wartefrist wurden lokal am Gerät geprüft;
-die Ergebnisse stehen in [VALIDATION.md](VALIDATION.md).
-Die frühere einseitige Fassung wurde mit drei echten Tastenscans geprüft.
+Beta **0.4.0-beta.1** (Build 25) für den Epson ES-C320W über USB.
+Neu sind einstellbare Scanprofile, feste Drehungen, gemeinsame Duplex-Ausrichtung
+und der geprüfte Toploader-Modus. Er ergänzt doppelseitige JPGs, ein PDF pro Karte
+und den kontinuierlichen Einzug mit einem gemeinsamen PDF. Die getesteten
+Funktionen und verbleibenden Grenzen stehen in [VALIDATION.md](VALIDATION.md).
 Das ist keine allgemeine Produktionsfreigabe für andere Macs, Treiber oder Scanner.
 
 Die App ersetzt die ScanSmart-Oberfläche. Sie braucht weder Bedienungshilfen
@@ -43,8 +42,8 @@ erlaubt noch keine Nutzung.
 
 ## Download und Installation
 
-Lade die [**DMG für Apple Silicon**](https://github.com/DerFlash/epson-directscan/releases/download/v0.3.0-beta.2/epson-directscan-0.3.0-beta.2-macos-arm64.dmg)
-aus dem [GitHub-Release](https://github.com/DerFlash/epson-directscan/releases/tag/v0.3.0-beta.2) herunter. Alternativ enthält die App-ZIP dieselbe fertige App. Entwicklerwerkzeuge
+Lade die [**DMG für Apple Silicon**](https://github.com/DerFlash/epson-directscan/releases/download/v0.4.0-beta.1/epson-directscan-0.4.0-beta.1-macos-arm64.dmg)
+aus dem [GitHub-Release](https://github.com/DerFlash/epson-directscan/releases/tag/v0.4.0-beta.1) herunter. Alternativ enthält die App-ZIP dieselbe fertige App. Entwicklerwerkzeuge
 oder Kompilieren sind dafür nicht nötig; der Epson-Treiber bleibt Voraussetzung.
 [Offizieller Epson-Support](https://www.epson.de/de_DE/support/sc/es-c320w/s/s2773).
 
@@ -116,16 +115,16 @@ ersetzt. Nicht mehrere Scan-Apps gleichzeitig verwenden.
 
 ## Einstellungen
 
-### Neue Scanprofile in der Entwicklungsfassung 0.4.0-beta.1-dev
+### Scanprofile, Ausrichtung und Toploader
 
-Diese Erweiterung ist noch nicht veröffentlicht. Normale Karten wurden lokal am
-Gerät geprüft. In Build 24 wurden auch vollständige Hüllenränder und die gemeinsame
+Normale Karten wurden lokal am Gerät geprüft. Im zugrunde liegenden Build 24 wurden
+auch vollständige Hüllenränder und die gemeinsame
 Duplex-Ausrichtung an einer entbehrlichen Testkarte im Toploader geprüft, einschließlich
 gewendeter und um 180° gedrehter Einlage. Automatisches Nachlegen und die Stopptaste
 ergaben ein gemeinsames, geprüftes PDF mit vier Seiten. Das ist keine Freigabe aller
 Hüllen und Dicken.
-Die folgenden Punkte gehören zur lokalen Entwicklungsfassung; der bisherige
-Beta2-Download enthält sie noch nicht.
+Release-Build 25 übernimmt dieselbe Scanlogik. Der ältere 0.3-Beta2-Download
+enthält diese Profile noch nicht.
 
 Unter **Scanprofile bearbeiten …** lassen sich Profile anlegen und anschließend
 im Menü **Scanprofil** wählen. „Bisherige Einstellungen“ verwendet weiterhin die
