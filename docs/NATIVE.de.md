@@ -12,6 +12,21 @@ Die App ersetzt die ScanSmart-Oberfläche. Sie braucht weder Bedienungshilfen
 noch System Events und lädt keine Scans hoch. Sie enthält keine Epson-Software;
 der Epson-Treiber muss separat installiert sein.
 
+## Lizenz und kommerzielle Nutzung
+
+Der Quellcode steht unter der [PolyForm Strict License 1.0.0](../LICENSE).
+Nichtkommerzielle Nutzung ist nach deren Bedingungen erlaubt. Änderungen und
+Weitergabe benötigen eine gesonderte Genehmigung. Sonstige kommerzielle Nutzung,
+auch im eigenen Betrieb, benötigt die
+vorherige gesonderte schriftliche Genehmigung von **Björn Teichmann**.
+Die ausdrücklich in der Lizenz genannten Freigaben, etwa für Bildungs- und
+öffentliche Einrichtungen, gelten ebenfalls.
+
+Anfragen sind im direkten Kontakt oder über einen GitHub-Issue möglich;
+Einzelheiten stehen in [LICENSING.md](../LICENSING.md). Derzeit wird keine
+kommerzielle Lizenz und kein Kauf der Software angeboten. Eine Anfrage allein
+erlaubt noch keine Nutzung.
+
 ## Voraussetzungen
 
 - Epson ES-C320W, direkt per USB verbunden. Andere Modelle und WLAN sind nicht

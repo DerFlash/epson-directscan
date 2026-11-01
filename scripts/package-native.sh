@@ -31,6 +31,13 @@ for EXE in "$APP/Contents/MacOS/EpsonDirectScan" "$APP/Contents/Helpers/EpsonBut
   [[ $(lipo -archs "$EXE") == arm64 ]] || fail 'This download package requires arm64 executables.'
 done
 codesign --verify --strict --deep "$APP" 2>/dev/null || fail 'Invalid app signature.'
+for NOTICE in LICENSE.txt LICENSING.md; do
+  BUNDLED_NOTICE="$APP/Contents/Resources/$NOTICE"
+  SOURCE_NOTICE="$ROOT/$NOTICE"
+  [[ "$NOTICE" != LICENSE.txt ]] || SOURCE_NOTICE="$ROOT/LICENSE"
+  [[ -f "$BUNDLED_NOTICE" && ! -L "$BUNDLED_NOTICE" ]] || fail "Missing bundled licensing notice: $NOTICE. Rebuild the app."
+  cmp -s "$SOURCE_NOTICE" "$BUNDLED_NOTICE" || fail "Stale bundled licensing notice: $NOTICE. Rebuild the app."
+done
 SIGNATURE="$(codesign -dv --verbose=4 "$APP" 2>&1)"
 SIGNING='other'
 if [[ "$SIGNATURE" == *'Signature=adhoc'* ]]; then SIGNING='ad-hoc'; fi
@@ -69,6 +76,7 @@ chmod -R a+rX "$DMG_ROOT/Epson DirectScan Beta.app"
 codesign --verify --strict --deep "$DMG_ROOT/Epson DirectScan Beta.app"
 ln -s /Applications "$DMG_ROOT/Applications"
 cp "$ROOT/LICENSE" "$DMG_ROOT/LICENSE.txt"
+cp "$ROOT/LICENSING.md" "$DMG_ROOT/LICENSING.md"
 if $NOTARIZED; then
   STATUS='Developer-ID-signiert; Notarisierungsticket geprüft.'
 else
@@ -103,8 +111,15 @@ Die DMG installiert keinen Epson-Treiber und richtet keinen Autostart ein.
 
 Anleitung und bekannte Beta-Grenzen:
 https://github.com/DerFlash/epson-directscan/blob/main/docs/NATIVE.de.md
+
+Lizenz: PolyForm Strict 1.0.0. Kommerzielle Nutzung außerhalb der
+ausdrücklichen Lizenzfreigaben benötigt vorherige schriftliche Genehmigung
+von Björn Teichmann. Derzeit kein kommerzielles Verkaufsangebot.
+License: PolyForm Strict 1.0.0. Commercial use outside its express
+permissions requires prior written permission. No commercial license is
+currently offered for sale. See LICENSE.txt and LICENSING.md.
 EOF
-chmod 644 "$DMG_ROOT/Installation.txt" "$DMG_ROOT/LICENSE.txt"
+chmod 644 "$DMG_ROOT/Installation.txt" "$DMG_ROOT/LICENSE.txt" "$DMG_ROOT/LICENSING.md"
 if ! hdiutil create -fs HFS+ -format UDZO -volname "Epson DirectScan $VERSION" -srcfolder "$DMG_ROOT" "$PAYLOAD/$STEM.dmg" > "$TASK_STAGE/image.log" 2>&1; then
   cat "$TASK_STAGE/image.log" >&2; fail 'Disk image creation failed.'
 fi
