@@ -3,6 +3,9 @@ import ImageCaptureCore
 import DirectScanCore
 
 final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDeviceDelegate {
+    private(set) var orientationFallback = false
+    var processingCancelled: () -> Bool = { false }
+    var onProcessingCheckpoint: () throws -> Void = {}
     let storage: ScanStorage
     let diagnostics: Diagnostics
     let mode: EpsonServices
@@ -241,22 +244,54 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
         feeder.resolution = 300; feeder.pixelDataType = .RGB
         guard let depth = ICScannerBitDepth(rawValue: 8), feeder.supportedBitDepths.contains(8) else { throw DriverConfigurationFailure.unavailable }
         feeder.bitDepth = depth; try Self.configureDuplex(feeder, enabled: settings.duplex)
-        let size = feeder.documentSize; feeder.scanArea = CGRect(x: 0, y: 0, width: size.width, height: size.height)
+        try Self.configureArea(feeder,settings:settings)
         let features = feeder.vendorFeatures ?? []; var actual: [String: Int] = [:]
         if let f = features.first(where: { $0.internalName == "VF_AUTOCROP" }) as? ICScannerFeatureEnumeration {
-            let requested = settings.crop ? 1 : 0
+            let requested = settings.driverCrop ? 1 : 0
             guard let option = f.values.first(where: { $0.intValue == requested }) else { throw DriverConfigurationFailure.unavailable }
             f.currentValue = option
             guard let value = f.currentValue as? NSNumber else { throw DriverConfigurationFailure.rejected }
             actual["VF_AUTOCROP"] = value.intValue
         }
-        for (key, requested) in [("VF_DESKEW", settings.deskew), ("VF_AUTOROTATE", settings.rotate)] {
+        for (key, requested) in [("VF_DESKEW", settings.driverDeskew), ("VF_AUTOROTATE", settings.driverRotate)] {
             if let f = features.first(where: { $0.internalName == key }) as? ICScannerFeatureBoolean {
                 f.value = requested; actual[key] = f.value ? 1 : 0
             }
         }
         try validateDriverCorrections(settings: settings, actual: actual)
         guard feeder.resolution == 300, feeder.pixelDataType == .RGB, feeder.duplexScanningEnabled == settings.duplex else { throw DriverConfigurationFailure.rejected }
+    }
+    static func configureArea(_ feeder: ICScannerFunctionalUnitDocumentFeeder, settings: ScanSettings) throws {
+        try settings.activeProfile?.validateForCapture()
+        if let area = settings.activeProfile?.area, !area.isAutomatic {
+            guard feeder.supportedMeasurementUnits.contains(Int(ICScannerMeasurementUnit.centimeters.rawValue)) else { throw ScanFailure.unsupportedProfile }
+            feeder.measurementUnit = .centimeters
+            guard feeder.measurementUnit == .centimeters else { throw DriverConfigurationFailure.rejected }
+            guard let w=area.widthMM,let h=area.heightMM else {throw ScanFailure.unsupportedProfile}
+            // ICA document feeders obey documentType even when scanArea echoes
+            // a custom rectangle. Select the smallest containing paper preset;
+            // the immutable processing step frames the requested outside size.
+            var best: (type:ICScannerDocumentType,size:CGSize)?
+            for value in feeder.supportedDocumentTypes {
+                guard let type=ICScannerDocumentType(rawValue:UInt(value)) else {continue}
+                feeder.documentType=type
+                guard feeder.documentType == type else {throw DriverConfigurationFailure.rejected}
+                let size=feeder.documentSize
+                guard size.width.isFinite,size.height.isFinite,size.width*10>=w,size.height*10>=h else {continue}
+                if best == nil || size.width*size.height < best!.size.width*best!.size.height {best=(type,size)}
+            }
+            guard let best else {throw ScanFailure.unsupportedProfile}
+            feeder.documentType=best.type
+            let size=feeder.documentSize
+            guard feeder.documentType == best.type,abs(size.width-best.size.width)<=0.01,abs(size.height-best.size.height)<=0.01 else {throw DriverConfigurationFailure.rejected}
+            let requested = CGRect(origin:.zero,size:size)
+            feeder.scanArea = requested
+            let actual = feeder.scanArea
+            guard zip([requested.minX,requested.minY,requested.width,requested.height],[actual.minX,actual.minY,actual.width,actual.height])
+                .allSatisfy({ abs($0-$1) <= 0.01 }) else { throw DriverConfigurationFailure.rejected }
+        } else {
+            let size = feeder.documentSize; feeder.scanArea = CGRect(x: 0, y: 0, width: size.width, height: size.height)
+        }
     }
     static func configureDuplex(_ feeder: ICScannerFunctionalUnitDocumentFeeder, enabled: Bool) throws {
         guard !enabled || feeder.supportsDuplexScanning else { throw DriverConfigurationFailure.unavailable }
@@ -292,12 +327,13 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
         }
         do {
             try storage.complete(job: job, reason: .completed)
-            let outputs = try storage.export(job: job)
+            let outputs = try storage.export(job: job,isCancelled:processingCancelled,onCheckpoint:onProcessingCheckpoint)
+            orientationFallback = try !storage.processingNotice(job:job).isEmpty
             for target in outputs {
                 imagesSaved += 1; lastFile = target
                 update("\(imagesSaved) Datei(en) gespeichert")
             }
-            try storage.finish(job: job); self.job = nil; deadline = nil; policy.completed()
+            try storage.finish(job: job,isCancelled:processingCancelled,onCheckpoint:onProcessingCheckpoint); self.job = nil; deadline = nil; policy.completed()
             diagnostics.record("scan_completed", values: ["pages": pages]); update("Bereit – \(outputs.count) Datei(en) gespeichert")
             onScanFinished?(outputs.count)
         } catch { fail(error.localizedDescription, code: "completion_unconfirmed", error: error) }

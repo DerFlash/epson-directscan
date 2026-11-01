@@ -1,4 +1,30 @@
-# Download release validation — v0.3.0-beta.2
+# Release validation — v0.4.0-beta.1
+
+The new release promotes locally hardware-tested development build24 to build25.
+Compared with that tested build, capture, processing and helper sources are
+unchanged. Release-only changes update version/download documentation and include
+the current main branch's license notices and repository maintenance. No private
+settings, card images or reference feature archives belong in the downloads.
+
+The dated “Build24 transparent-holder acceptance” section below is the current
+physical evidence: upright complete holder sides, changed physical face/rotation,
+automatic reinsertion, four-page PDF after physical Stop and a bare-card regression.
+It records131 Swift,26 Node and42 Python tests plus the native callback harness
+for that tested source. Final release/packaging checks also include the newer
+upstream license and branch-cleanup tests. Distribution remains arm64, ad-hoc
+signed and not notarized; the Epson6.7.84 driver must be installed separately.
+Historical “local only” or “unpublished” notes below describe their development
+stage and do not describe this subsequently authorized release.
+
+Final local release checks passed131 Swift tests in17 suites plus the compiled
+native callback harness,44 Node tests and43 Python tests (218 total), including
+actual DMG/ZIP, license-notice and branch-cleanup fixtures. During a parallel
+audit/package run the signal-handshake fixture exceeded its own5-second lifetime;
+the same unchanged native suite passed when run without those competing checks.
+No production deadline or test expectation was weakened. Remote CI and final
+download verification are separate gates recorded in the release evidence.
+
+## Prior download release validation — v0.3.0-beta.2
 
 The repository was renamed in place to `DerFlash/epson-directscan` (same repository
 ID, issues, releases and history; old URL redirect verified). Beta2/build15 adds
@@ -489,3 +515,394 @@ or forced mid-image hardware cancellation was performed; retention/error cases
 are covered by regression tests. Prior image-quality limits and other unverified
 native-device cases remain as documented above. The source branch remains local;
 GitHub issue #3 records the result and stays open pending publication/integration.
+
+### Orientation and outside-dimension profiles — 2026-10-27 software acceptance
+
+Local `feat/orientation-scan-profiles`, candidate **0.4.0-beta.1-dev, build 16**.
+This is an implementation/software check, not new physical scanner acceptance or
+a publication. The installed app was not replaced or launched by this work.
+
+- 98 native Swift tests pass, including the explicitly enabled production Vision
+  comparison with the private spike inputs; the native Objective-C callback/area
+  contract harness also passes. The legacy/distribution suites pass 26 Node and 42
+  Python tests. The ad-hoc native app builds and validates its helper compatibility
+  without opening a device.
+- Schema 1/2 exact-byte backups, preserved previous active settings, selected-profile
+  round-trip, invalid dimensions/IDs, confirmed units and rejected area readback,
+  explicit 300dpi pixel conversion and centering are covered by software tests.
+- Pixel marker tests verify clockwise 90/180/270 output, swapped dimensions,300dpi,
+  normal/omitted-normal EXIF, no-op byte preservation and no overwrite. Processed
+  export retry does not rotate again; changed original bytes are rejected. A crash
+  during preparation retains owned partial copies and all captured originals.
+- Joint scoring handles either readable scanner side, both geometric signs/offsets,
+  conflicting strong evidence, ties and missing calibration. An uncalibrated pair
+  uses both fixed values with a notice and does not waste time on OCR.
+- A real private comparison with two distinct card fronts in four digital rotations
+  reproduced 8/8 correct front decisions using the product analyzer. Four back-only
+  variants remained undecided. This small sample is not a general accuracy estimate.
+  Accurate Vision mode still has the separately documented host backend failure;
+  only fast mode is used. No real card image or recognized text was added to Git.
+- Collection processing starts only after capture close/exit, in an isolated
+  exporter. Malformed progress is rejected; cancellation preserves pending pages
+  and cannot trigger a replay. Terminating an exporter after confirmed capture
+  closure does not invent a scanner-release failure. ICA processing checks a
+  thread-safe cancellation flag before publication; manual recovery runs off the UI.
+- The native profile panel was opened in a separate preview using synthetic holder
+  dimensions, with no capture logic or real app settings access. Layout, visible
+  controls and missing-height validation were inspected; the preview was closed.
+
+**Still required on the real ES-C320W/driver 6.7.84:** derive and confirm ICA and
+direct-feeding duplex mappings independently with driver autorotation off, including
+a 90-degree case and swapped card faces. No hardware mapping has been fabricated;
+without one the app explicitly uses fixed fallback. Also verify the entire outer
+holder margins, centering and deskew interaction for fixed dimensions. Width with
+automatic height remains unavailable until its own driver test passes. These gates
+must not be counted as completed by the software tests or synthetic pair algebra.
+
+Whole-branch review identified four Important issues, all addressed in one
+regression-backed fix pass:
+
+1. Export preparation, publication and final cleanup now share the parent-liveness
+   predicate. Tests simulate parent loss during final export and finalization:
+   no new publication after loss, and originals/receipts remain recoverable.
+2. Real work checkpoints cover hashing, PDF page writing/validation, chunked JPG
+   copies and finalization. The exporter has a 140-second inactivity window rather
+   than a 20-second whole-tail deadline. Tests keep a healthy tail alive beyond 20s,
+   extend it on a valid checkpoint, then demonstrate bounded cancellation on a stall.
+3. The tested shutdown policy preserves explicit save-and-quit intent beyond 30s
+   while supervised work continues, and completes on worker exit or a real failure.
+   Ordinary pause/quit retains its 6-second bound.
+4. New profiles require explicit disabled readback for competing driver rotation
+   and fixed-area cropping. Both missing and mistyped rotation features were shown
+   to authorize transport with the guard removed, and reject it with the guard active.
+
+No Critical finding was identified. One Minor remains deferred: comprehensive
+tagged-ICC color fidelity and non-normal EXIF/mirroring fixtures. The present normal
+scanner-path marker/DPI tests do not establish those general metadata guarantees.
+Review did not certify arbitrary imported/non-300dpi images, exhaustive power-loss
+or publication-instruction fault injection, hostile same-user filesystem races,
+a complete historical installed pending-job migration, every UI localization or
+assistive-technology flow, or actual hung-Vision cancellation latency/large-job
+throughput. Those broader guarantees are not claimed by this beta. Installation,
+new release distribution and physical acceptance remain separate from this local
+implementation check.
+
+### Orientation — physical acceptance in progress, 2026-10-28
+
+Build16 was installed locally with verified application/data backups. With Epson
+driver rotation disabled and both fixed output rotations at zero, three physical
+duplex scans produced six valid300dpi JPGs: portrait, a clockwise quarter-turn,
+and portrait with the card faces exchanged. Each returned to ready/listening with
+an empty Pending directory. Visual inspection and reference-image correlation
+established the ICA relationship `back = -front (mod360)`: the quarter-turn
+required corrections270°/90°, while both portrait cases required0°/0°.
+This does not establish the separate direct-feeding relationship.
+
+The new card also exposed a limitation in the original raw fast OCR score:
+upside-down noise could score as highly as real words, including an incorrect
+raw maximum on the physical quarter-turn. The conservative decision correctly
+declined those cases. Enabling Vision's own language correction, rather than
+lowering the decision gates or adding a spell-checking service, corrected the
+sample. The existing production-analyzer regression failed with seven issues
+before the change and passed afterward. The expanded private matrix now covers
+five front inputs from three distinct cards (including actual swapped-face and
+quarter-turn captures), in four digital rotations each; all20 decisions match
+the expected correction. Four back-only variants remain undecided. The complete
+98-test native suite and callback/geometry harness pass. Existing private spike
+originals retain their recorded hashes and modification times.
+
+Build17 contains this small OCR correction and is installed with another verified
+app/data backup. The measured ICA mapping and macOS automatic orientation are
+enabled in the private calibration profile. Automatic physical output, the
+remaining direct-feeding geometry and fixed card/holder outside dimensions are
+still under acceptance. The development candidate remains unpublished; these
+results are a small controlled sample, not a general orientation accuracy claim.
+
+Two subsequent physical ICA scans with automatic processing enabled passed:
+an upside-down card, then a quarter-turn with the card faces exchanged. Both
+published two visibly upright JPGs without processing notices and returned to
+ready/listening with Pending empty. The second case changed the raw landscape
+dimensions1045×740/1040×741 to portrait740×1045/741×1040, demonstrating actual
+pixel rotation on both scanner channels. The first case used a different printed
+card from the raw calibration captures, broadening the physical sample. Receipt
+digests match all four final files. The macOS login item was also retargeted from
+the older user-local copy to the installed application in `/Applications`; both
+System Settings selection and enabled/allowed record readback were verified.
+An actual logout/login was not performed during scanner acceptance.
+
+The first physical63×88mm attempt exposed an ICA limitation: the driver echoed
+the custom `scanArea`, but delivered the A5 preset1748×2480px. Its original rear
+also showed a tilted/clipped leading edge with deskew enabled and autocrop off.
+This attempt is a failed fixed-area acceptance, despite successful file saving.
+
+Build18 intentionally changes ICA framing: select the smallest containing paper
+preset, then frame its centered/leading-edge physical region before OCR/rotation.
+There is no stretching or content-edge search. Fixed profiles require disabled
+crop, deskew and vendor rotation; legacy/automatic-area deskew preferences remain.
+Direct feeding still requires matching actual native dimensions. Fixed-area
+Epson-rotation profiles remain decodable but cannot start a new capture. Older
+fixed raw/processed jobs without verified capture/processing revisions remain
+readable and retained, and cannot authorize publication or original deletion.
+
+103 native tests pass, including the private orientation matrix and native harness.
+Tests cover actual crop pixels before OCR/rotation, exact output dimensions,
+repeat export without reprocessing, undersized capture retention, rejected
+oversized direct-feeding frames, old inactive-profile/settings/job readability,
+and failed export/cleanup of legacy fixed captures and stale oversized copies.
+Each new defect was reproduced before its guard was implemented. Scoped
+independent review identified the decoder and stale-processing reuse problems;
+both were resolved with focused regressions, with no remaining Critical or
+Important finding. That review did not certify physical framing or rerun tests.
+
+Build18 builds and verifies, and is installed locally with verified app/data
+backup. The card profile remains active at63×88mm; an inactive77×102mm holder
+profile uses the user's measured outside size. The actual corrected fixed-frame
+scan and holder mechanical suitability/border retention remain pending. No new
+scan after this installation is counted as accepted until its images are checked.
+
+The corrected physical ICA63×88mm scan delivered two744×1039px JPGs from the
+selected A6 capture1240×1748px. Both capture/processing revision markers are1,
+receipt digests match and there are no orientation notices. Both sides are
+visibly upright; the rear outside edge is tight against the exact-size boundary,
+so full-border retention is not claimed for that template. A65×90mm area with
+reserve and duplex PDF is the next acceptance case. A thick rigid holder was
+not fed: its reported dimensions/thickness are outside the confirmed
+[Epson ISO ID-1 plastic-card specification](https://download4.epson.biz/sec_pubs/es-c320w/useg/en/GUID-A2F939AF-072A-4C13-9BE1-5E6AAD23B6BF.htm).
+
+The subsequent ICA65×90mm duplex PDF has two pages,184.32×255.12pt from
+768×1063px at300dpi (physical dimensions rounded to whole pixels). Poppler read
+and300dpi rendering of both pages succeeded, and the receipt digest matches the
+913,064-byte final file. Both sides stand upright with no processing notices.
+The front is complete; the rear outside edge remains tight, so this is format
+and orientation acceptance, not a general whole-border guarantee. The app
+returned to ready/listening with Pending empty. Direct-feeding calibration is
+now prepared separately with automatic area and fixed0°/0° output; no direct
+mapping is enabled until actual geometry is measured.
+
+Direct feeding was then measured independently with native rotation disabled:
+normal portrait required0°/0°, and the clockwise quarter-turn required270°/90°.
+Visual inspection, local OCR and a reference-back comparison agree on
+`back = -front (mod360)`. Four staged originals were privately snapshotted and
+hash-verified before physical Stop. Stop produced one1,365,431-byte four-page PDF
+with a matching receipt and returned to ready/listening with Pending empty.
+The readable face remained on channelA in these captures; physical swapped-face
+acceptance on this path is still a separate final case, despite the insertion
+instruction. Do not count it as demonstrated from the user's description alone.
+
+Build19 includes both measured ES-C320W/driver6.7.84 mappings in newly created
+profiles. An uncalibrated legacy/explicitly missing mapping still falls back.
+The new-profile consumer regression failed before the change;104 native tests
+now pass, including the private orientation matrix. Both native helpers already
+restrict USB product400 and driver6.7.84, so these defaults do not extend support
+to another model or driver. Build19 is installed with another verified app/data
+backup; the final continuous fixed-frame test uses69×94mm with more reserve,
+local automatic orientation and physical Stop. That final image result remains
+pending and is not established by the software tests.
+
+**Final local acceptance, build19:** a physical lower-edge-first card with its
+blue back facing the user produced two815×1110px native fixed-area originals and
+two identically sized processed pages. After physical Stop, the912,244-byte PDF
+has two195.6×266.4pt pages (69×94mm at300dpi with whole-pixel rounding). Both
+pages rendered successfully at300dpi and were visually inspected: blue back on
+page1, readable printed face on page2, both upright. Thus the readable face was
+actually on channelB in this final direct-feeding case. Both original-to-output
+digests changed, there are no processing notices, capture/processing revisions
+are1, the final PDF digest matches its receipt, and the app returned to
+ready/listening with Pending empty. The fixed native area was actually delivered,
+not just echoed by a setter. This accepts the demonstrated duplex orientation,
+dimensions, PDF export and physical Stop workflow on the tested device.
+
+The leading-edge boundary may remain flush with the card; these samples do not
+establish arbitrary overscan or guaranteed entire outer borders for all insertions.
+No thick-holder feed was performed, automatic height remains unavailable, and
+the previously observed darker direct-feeding color remains outside this change.
+This pass did not repeat a jam, forced mid-image stop, inactivity timeout,
+sleep/wake or unplug test; earlier evidence and software guards remain separate.
+
+Final installed bytes match the verified build19 manifest.104 native,26 Node
+and42 Python tests pass (172 total), plus the native callback/geometry harness.
+The package tests also exercise actual DMG/ZIP behavior. New source/runtime and
+private card evidence stay separate; no real scan or OCR text entered Git.
+The normal destination and PDF-per-card/duplex preferences were restored through
+the UI, automatic feeding is off by default, and its stored timeout is again120s.
+The active profile uses69×94mm/local automatic orientation; a measured77×102mm
+holder profile is retained inactive. The owned temporary calibration profile was
+removed with backups retained. The login item readback after build19 remains
+enabled/allowed at the `/Applications` app path; no real logout/login was needed.
+This completes the authorized local installation and the demonstrated scanner
+tests, with the explicit media/image-quality limits above. Publication remains
+separate from this local acceptance.
+Finally the status window was closed. A process readback confirmed the installed
+main application and its parent-bound button receiver still running in the
+background; the app was left ready for the physical scan button.
+
+### Transparent-holder correction, build20/21 — 2026-10-29, local only
+
+The original physical Toploader attempt failed acceptance: the fixed acquisition
+area discarded transparent trailing material, and a text-poor Energy face did
+not meet the OCR confidence gates. Native overscan was independently unsuitable:
+a narrow area corrupted rows and a full-width area repeated trailing pixels.
+Those configurations are not used by the new transparent profile option.
+
+An Epson UI comparison and independent native regular scans demonstrated full
+holder edges with automatic cropping, laminated mode and positive crop margin.
+The production helper reuses the supervised AF path with the supported0.20in
+margin and full sensor area; one-card mode finishes after its first batch.
+That exact AF configuration still requires the physical build20 button test.
+Fixed dimensions now describe a centered output canvas without scaling; only
+its known capture margin may be removed. A protected-content mismatch retains
+originals instead of exporting. Revision2 stamps distinguish this capture and
+processing from historical fixed frames.
+
+Optional upright references store a bounded, securely archived Vision revision1
+feature print. A match requires distance<=12 and at least20% separation between
+rotations. Either physical face can determine its paired rotation; reliable OCR
+conflicts remain visible. A same-native-path reference passed52 private sample
+variants including both complete holder captures at four rotations; unrelated
+card fronts were rejected. Cross-path color differences can leave a valid card
+uncertain, so users should select a reference from their own capture path.
+Perspective normalization and grayscale experiments did not improve this result
+and are not included. Private scans, feature prints and sample matrices are not
+part of the repository.
+
+Local software checks:122 native tests plus the Objective-C callback/configuration
+harness,26 Node tests and42 Python/package tests passed. Build20 compiles and is
+ad-hoc signed, still not notarized. Tests cover complete one-batch JPG/PDF handoff,
+Stop/stall bounds, centered pixel placement without stretch, too-small frames,
+legacy framing rejection, reference corruption/size limits, either duplex channel,
+conflicts and cancellation before publication. Actual holder border completeness,
+sharpness, orientation and repeated physical Stop behavior remain pending below.
+
+The independent final review found one orientation conflict issue: a combined
+uncertain result or a failure on the other face could hide a confident per-face
+OCR result. Both channel orders now retain successful evidence and compare each
+reference-derived pair against it. The new decision and full-storage/export
+regressions reproduced6 failures before the correction; all122 native tests
+pass afterward. No Critical or Minor findings remained. This is a local test
+installation, not a publication or broad hardware acceptance.
+
+The initial build20 UI setup exposed a hidden profile panel after deactivation:
+the still-open editor disabled the remaining settings. Build21 keeps that editor
+visible across focus changes, like the status panel; capture logic is identical
+to the reviewed build20 correction. Build21 supersedes it for physical acceptance.
+
+### Build22 follow-up: native errors and exclusive button ownership
+
+The first installed build21 button scan produced two fully decoded, upright
+980x1276 JPEGs at300dpi/EXIF1, without orientation fallback. Original/processed/
+exported hashes match the receipt, the manifest ended as a single completed scan,
+and the app returned ready with no Pending job. Both card faces are legible; the
+transparent trailing seam remains close to the native capture boundary, so
+pixel-complete holder-corner acceptance is still open.
+
+The swapped/turned follow-up did not provide any native pages and ended with an
+unconfirmed helper release. A no-scan open/close probe also blocked; a user-confirmed
+scanner power cycle restored open0/close0. An unchanged retry then failed before
+image delivery. These failed captures do not count as hardware acceptance.
+
+Investigation identified a definite diagnostic defect: Epson6.7.84 sends NSError
+objects to completion/interruption/communication callbacks, while the bridge read
+integers and therefore logged object-address bits. The corrected callback harness
+uses actual NSError objects and verifies exact error codes and object ABI; nil
+completion/communication remains success. Underlying capture failure still needs
+another controlled scan with the corrected diagnostic build.
+
+The user also observed Epson software returning. Source and live state confirmed
+that recoverable errors restored both vendor button helpers while DirectScan was
+still running. Reconnection additionally restored them briefly before taking over
+again. Build22 retains the original takeover memo and keeps the helpers stopped
+through error/recovery, internal settings pauses and sleep/resume; explicit Pause/
+Quit restores them after confirmed release. A failed first takeover still rolls
+back its initial helper state. No vendor files or permanent launchd disable flags
+are changed.
+
+New regressions cover error/recovery ownership, pending-job transport refusal,
+internal pause/resume without vendor restart, stable memo reacquisition, active
+scanner-lease refusal and failed-initial-takeover rollback. Parallel tests exposed
+an inherited-descriptor lock window: closing an owner alone can leave an unrelated
+pre-exec child holding its file description. A bounded child reproducer fails
+before explicit unlock and passes afterward. All129 native tests plus the native
+callback/configuration harness pass. Physical build22 acceptance remains pending.
+
+An independent follow-up review found two ownership edge cases before build22
+installation: an unavailable destination on active restart could restore the
+vendor memo, and an internal sleep pause could revoke an explicit release already
+waiting for device close. Both now have failing-then-passing regressions. Startup
+establishes ownership before fallible destination validation; explicit release is
+latched until a new activation. Local editors resume an existing ownership intent.
+All131 native tests plus the callback/configuration harness pass after this one
+review fix pass. No Critical or Minor findings remained; the acquisition algorithm
+is unchanged and physical acceptance is still pending.
+
+### Build24 transparent-holder acceptance — 2026-11-01, local only
+
+This section supersedes the pending holder acceptance and laminated-mode choice
+above. It does not change the published beta2 download or certify other media.
+The device remains ES-C320W USB with Epson driver6.7.84 on an Apple-Silicon Mac
+running macOS27.0.1. The actual test holder measures approximately77x102mm;
+it was fed landscape, a closed long edge first, with an expendable card inside.
+
+Repeated native captures with laminated mode enabled fed the holder but returned
+no pages and could not confirm close. A controlled regular native comparison
+changed only the transmitted LAMON field to LAMOFF, retaining cropping, area,
+duplex,300dpi and JPEG quality. It returned two complete, decoded holder images
+and closed normally. The exact product AF single-shot helper then succeeded with
+its existing full sensor area,0.20in margin and unchanged JPEG default. Build24
+therefore explicitly clears retained laminated mode and verifies its readback;
+unsupported or ignored settings fail before capture. This is a demonstrated
+configuration correction, not a general explanation of every earlier stall.
+
+The native control-mode entry and cancellation gate also remain in this build.
+A callback/configuration regression starts from retained laminated mode1 and
+requires0, including refusal to clear despite otherwise valid margin support.
+It failed against the previous implementation and passes after the correction.
+The focused independent review reported no findings. The release build, strict
+ad-hoc signature and byte-verified installation passed, with full app/data backups.
+
+The first installed button scan delivered both complete holder sides but retained
+a visible uncertain-orientation notice: its old reference missed the unchanged
+20% separation gate. A new upright reference was selected through the profile UI
+from an actual scan using this holder path. Only that profile's feature print
+changed. The private matrix passed36 holder-specific positive/negative cases;
+eight comparisons with older bare-card calibration images remained uncertain.
+This is not44 successful matches or cross-profile calibration. No confidence
+threshold or orientation algorithm was relaxed.
+
+With the updated reference, a physical button scan after swapping faces and
+turning the holder180degrees produced two upright980x1276px JPEGs at300dpi,
+EXIF orientation1, with no processing notices. Actual image inspection showed
+all four holder corners and long seams on both sides, a legible Energy header
+and copyright, and no repeated or clipped trailing band. Both files fully decoded
+and matched their receipts; the app returned ready/listening with Pending empty.
+
+A separate continuous-mode test started once with the Epson button. Reinserting
+the same holder without another button produced a second duplex pair. Physical
+Stop completed a1,761,867-byte four-page PDF; its SHA256 matched the durable receipt.
+All four embedded images fully decoded at980x1276px/300dpi. Poppler read and300dpi
+rendering passed for every page, with upright pairs, actual full holder corners
+and legible details. No processing notices were recorded. Pending was empty and
+the next button receiver rearmed; the user confirmed steady Power after Stop.
+The temporary unlimited feeding timeout and continuous mode were restored to
+the prior single-scan/120-second settings through the UI and independently read back.
+
+An ordinary bare-card regression then used the69x94mm profile and the physical
+Epson Start button. Both815x1110px/300dpi JPEGs fully decoded, matched their
+receipts and stood upright without notices; printed text was legible. The fixed
+leading edge remains tight, so this confirms ordinary capture/storage/orientation,
+not an additional full-card-border guarantee. The app rearmed with Pending empty
+and the user confirmed steady Power. The active Toploader profile was restored;
+all setting values again match the pre-collection baseline. Installed build24
+still matches the built app bytes and passes strict deep signature verification.
+
+Final source checks passed131 Swift tests in17 suites plus the native Objective-C
+callback/configuration harness,26 Node tests and42 Python tests, including real
+DMG/ZIP packaging tests. The restricted first legacy/package run failed on local
+AppleScript test objects and disk-image creation; the same unchanged suite passed
+with the required local macOS access. These are fixture tests and do not scan,
+operate an application UI or require accessibility permission.
+
+The card can remain slightly tilted inside its holder; no inner-card deskew,
+universal thickness approval or long-series reliability is established. This pass
+does not repeat sleep/wake, USB removal, jam, forced mid-image Stop or idle-timeout
+acceptance. Private scans, reference archives and detailed device receipts remain
+outside Git. No release or publication is included in this local acceptance.

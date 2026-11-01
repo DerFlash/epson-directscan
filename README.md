@@ -1,4 +1,4 @@
-# Epson DirectScan — v0.3.0-beta.2
+# Epson DirectScan — v0.4.0-beta.1
 
 A native macOS menu-bar app for the **Epson ES-C320W over USB**. Press the scanner's
 Start button and save directly to a chosen folder, without the ScanSmart frontend
@@ -14,6 +14,10 @@ or further Save clicks. This independent project includes no Epson software.
   pressing Start again. Collect one PDF until physical/app Stop or a configurable
   inactivity period (30/60/120/300 seconds, or unlimited).
 - Switchable driver crop, deskew and text-based orientation detection.
+- Editable scan profiles with fixed outside dimensions, per-side rotations and
+  joint local macOS orientation analysis. Either duplex face can orient the pair.
+- A transparent-holder mode with capture margin and an optional upright local
+  reference for text-poor cards; no reference image or recognized text is uploaded.
 - A 15-second no-completed-page guard during active capture. Empty Stop completes
   with a clear notice; real device faults remain visible and retain data.
 - Private staging, verified exclusive exports and explicit recovery. No uncertain
@@ -29,7 +33,7 @@ supported. macOS 13+ is the build target; other Macs/OS versions are unverified.
 
 ## Download and install
 
-[Download DMG for Apple Silicon](https://github.com/DerFlash/epson-directscan/releases/download/v0.3.0-beta.2/epson-directscan-0.3.0-beta.2-macos-arm64.dmg) · [All release files](https://github.com/DerFlash/epson-directscan/releases/tag/v0.3.0-beta.2)
+[Download DMG for Apple Silicon](https://github.com/DerFlash/epson-directscan/releases/download/v0.4.0-beta.1/epson-directscan-0.4.0-beta.1-macos-arm64.dmg) · [All release files](https://github.com/DerFlash/epson-directscan/releases/tag/v0.4.0-beta.1)
 
 - **macos-arm64.dmg:** ready-built app, Applications link and installation notes.
 - **macos-arm64.zip:** the same app without the disk image.
@@ -68,8 +72,8 @@ This creates and ad-hoc signs `build/Epson DirectScan Beta.app`, then installs i
 to `~/Applications/Epson DirectScan Beta.app`. Quit an installed copy before an
 update and use `--replace` on the build/install scripts. The installer preserves
 the previous app in a private ZIP backup. The bundle ID stays
-`org.scansmart.directscan.beta`; build `15` adds downloads without changing the
-tested scanning logic.
+`org.scansmart.directscan.beta`. Release build `25` promotes the hardware-tested
+development build `24` without changing capture or processing logic.
 
 1. Quit ScanSmart, Event Manager and older AutoSave helpers. Connect the ES-C320W
    directly by USB and open **Epson DirectScan Beta**.
@@ -86,8 +90,14 @@ or change the scanner's global launch-app assignment automatically.
 
 ## Beta limits and recovery
 
-- Automatic rotation is not reliable for colorful cards or card backs
-  ([issue #1](https://github.com/DerFlash/epson-directscan/issues/1)).
+- Epson's text-based rotation remains unreliable for colorful cards or backs
+  ([issue #1](https://github.com/DerFlash/epson-directscan/issues/1)). New profiles
+  offer fixed rotations or local joint analysis with an optional upright reference.
+  Uncertain or conflicting evidence keeps the configured fallback and a notice.
+- Fixed areas disable driver deskew. Width with automatic height is unavailable.
+  The tested holder retained all actual corners; this does not certify other
+  holders or thicknesses. A card tilted inside its holder remains tilted, and
+  ordinary fixed-card capture can have a tight leading edge.
 - Continuous scans of the test card look darker than ordinary scans
   ([issue #2](https://github.com/DerFlash/epson-directscan/issues/2)).
 - A real paper jam requires physical clearance. After USB disconnect/power-off,
@@ -115,11 +125,16 @@ this beta deliberately does not satisfy it. No credentials are bundled.
 
 ## Verification and older helper
 
-The release has **138 local software tests** (70 Swift, 26 Node, 42 Python), plus
-the compiled Epson callback contract harness. Device checks covered physical
+The release passed **218 local software tests** (131 Swift, 44 Node,
+43 Python), plus the compiled Epson callback contract harness. This includes
+the current main branch's packaging, license and branch-cleanup tests.
+Device checks covered physical
 Start, duplex JPG/PDF, continuous reinsertion, Stop and idle finish, empty Stop,
 the pickup guard, retained-page recovery and a successful card scan after
-clearing a real jam. Scope and remaining cases: [VALIDATION.md](docs/VALIDATION.md).
+clearing a real jam. The new holder acceptance covers complete duplex borders,
+swapped/turned insertion, automatic reinsertion and a four-page PDF after Stop;
+ordinary-card JPG capture was checked again. Scope and remaining cases:
+[VALIDATION.md](docs/VALIDATION.md).
 CI checks native core/helper contracts and compilation without Epson hardware;
 the Epson orientation integration test requires the separately installed driver.
 

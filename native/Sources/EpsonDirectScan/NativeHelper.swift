@@ -9,7 +9,7 @@ struct HelperEvent: Codable {
     var sheet: Int? = nil
     var side: Int? = nil
 }
-enum HelperRole: Equatable { case button, scan(ScanSettings), feeding(ScanJob) }
+enum HelperRole: Equatable { case button, scan(ScanSettings), feeding(ScanJob), export(ScanJob) }
 protocol NativeHelper: AnyObject {
     var onEvent: ((HelperEvent) -> Void)? { get set }
     var onExit: ((Int32) -> Void)? { get set }
@@ -38,13 +38,47 @@ final class NativeProcess: NativeHelper {
                       arguments: ["--parent", String(getpid()), "--root", root.path])
         case .scan(let settings):
             guard let executable = Bundle.main.executableURL else { throw CocoaError(.fileNoSuchFile) }
-            let data = try JSONEncoder().encode(settings)
+            let data = try Self.scanPayload(settings)
             self.init(executable: executable, arguments: ["--scan-worker", root.path, data.base64EncodedString(), String(getpid())])
         case .feeding(let job):
-            let data = try JSONEncoder().encode(job.settings)
+            let data = try Self.feedingPayload(job.settings)
             self.init(executable: Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/EpsonFeedingWorker"),
                       arguments: [root.path, job.directory.path, data.base64EncodedString(), String(getpid())])
+        case .export(let job):
+            guard let executable = Bundle.main.executableURL else { throw CocoaError(.fileNoSuchFile) }
+            self.init(executable:executable,arguments:["--export-worker",root.path,job.id.uuidString,String(getpid())])
         }
+    }
+    static func feedingPayload(_ settings: ScanSettings) throws -> Data {
+        try settings.validate()
+        try settings.activeProfile?.validateForCapture()
+        var payload = try JSONSerialization.jsonObject(with:JSONEncoder().encode(settings)) as! [String:Any]
+        // This helper captures pages only; reference prints stay in the parent
+        // job journal for post-processing, away from command-line size limits.
+        var profiles=payload["profiles"] as? [[String:Any]] ?? []
+        for index in profiles.indices {profiles[index].removeValue(forKey:"referencePrint")}
+        payload["profiles"]=profiles
+        payload["crop"] = settings.driverCrop;payload["rotate"] = settings.driverRotate
+        payload["deskew"] = settings.driverDeskew
+        payload["transparentOriginal"] = settings.transparentOriginal
+        payload["singleShot"] = !settings.automaticFeeding
+        if let area = settings.activeProfile?.area, !area.isAutomatic {
+            // Width-only needs a separate hardware acceptance and must not silently
+            // turn into a smaller automatically cropped inner card.
+            guard let width = area.widthMM, let height = area.heightMM else { throw ScanFailure.unsupportedProfile }
+            payload["profileWidthMM"] = width;payload["profileHeightMM"] = height
+        }
+        return try JSONSerialization.data(withJSONObject:payload)
+    }
+    static func scanPayload(_ settings:ScanSettings)throws->Data {
+        try settings.validate()
+        var snapshot=settings
+        // ICA processes the job in its own worker. Preserve the active profile
+        // and reference exactly; inactive profiles cannot affect that job.
+        snapshot.profiles=settings.activeProfile.map{[$0]} ?? []
+        let data=try JSONEncoder().encode(snapshot)
+        guard data.count<=128*1024 else {throw ScanFailure.invalidSettings}
+        return data
     }
     func start() throws {
         try process.run()

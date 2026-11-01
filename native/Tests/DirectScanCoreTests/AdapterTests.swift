@@ -25,6 +25,8 @@ private final class FakeDevice: ICScannerDevice {
     override func cancelScan() { cancelRequests += 1 }
 }
 private final class EmptyFeeder: ICScannerFunctionalUnitDocumentFeeder {
+    var features: [ICScannerFeature]?
+    override var vendorFeatures: [ICScannerFeature]? {features}
     var loaded = false
     var dpi: Int = 300
     var color: ICScannerPixelDataType = .RGB
@@ -54,6 +56,28 @@ private final class FakeBrowser: ICDeviceBrowser {
     override func stop() {}
 }
 private final class TestClock { var time: TimeInterval = 0 }
+private final class WrongRotationFeature: ICScannerFeatureEnumeration {
+    override var internalName: String? {"VF_AUTOROTATE"}
+}
+private final class AreaFeeder: ICScannerFunctionalUnitDocumentFeeder {
+    var unit: ICScannerMeasurementUnit = .inches
+    var rectangle = CGRect.zero
+    var rejectUnit = false, rejectArea = false
+    var paper = ICScannerDocumentType(rawValue:1)!
+    override var supportedDocumentTypes: IndexSet {IndexSet([1,5,23])}
+    override var documentType: ICScannerDocumentType {get {paper} set {paper=newValue}}
+    override var documentSize: CGSize {
+        switch paper.rawValue {
+        case 5: return CGSize(width:14.8,height:21)
+        case 23: return CGSize(width:5.2,height:7.4)
+        default: return CGSize(width:21,height:29.7)
+        }
+    }
+    override var supportedMeasurementUnits: IndexSet { IndexSet(integer:Int(ICScannerMeasurementUnit.centimeters.rawValue)) }
+    override var measurementUnit: ICScannerMeasurementUnit { get {unit} set {if !rejectUnit {unit=newValue}} }
+    override var physicalSize: CGSize {CGSize(width:21.6,height:29.7)}
+    override var scanArea: CGRect {get {rectangle} set {if !rejectArea {rectangle=newValue}}}
+}
 @MainActor private final class AdapterFixture {
     let root: URL
     let services = FakeServices()
@@ -61,15 +85,17 @@ private final class TestClock { var time: TimeInterval = 0 }
     let clock = TestClock()
     let controller: ScannerController
     let storage: ScanStorage
-    init(loaded: Bool = false, duplex: Bool = false) throws {
+    init(loaded: Bool = false, duplex: Bool = false, profile: ScanProfile? = nil, features: [ICScannerFeature]? = nil) throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         storage = try ScanStorage(root: root.appendingPathComponent("private"))
         let out = root.appendingPathComponent("out")
         try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
         let browser = self.browser, services = self.services, clock = self.clock
         browser.device.feeder.loaded = loaded
+        browser.device.feeder.features = features
         var snapshot = ScanSettings(destination: out.path)
         snapshot.duplex = duplex; snapshot.crop = false; snapshot.deskew = false; snapshot.rotate = false
+        if let profile {snapshot.profiles=[profile];snapshot.activeProfileID=profile.id}
         controller = ScannerController(storage: storage, diagnostics: Diagnostics(root: storage.root),
             settings: { snapshot }, services: services,
             makeBrowser: { browser }, conflictingApps: { false }, now: { clock.time })
@@ -81,6 +107,30 @@ private final class TestClock { var time: TimeInterval = 0 }
     deinit { try? FileManager.default.removeItem(at: root) }
 }
 @Suite @MainActor struct AdapterTests {
+    @Test func missingOrMistypedRotationFeatureStopsProfileScanBeforeTransport() throws {
+        var profile=ScanProfile(name:"Karte");profile.orientation = .vision
+        let variants: [[ICScannerFeature]?] = [nil,[WrongRotationFeature()]]
+        for features in variants {
+            let f=try AdapterFixture(loaded:true,profile:profile,features:features)
+            f.controller.scannerDevice(f.browser.device,didSelect:f.browser.device.feeder,error:nil)
+            f.controller.scanAuthorized()
+            #expect(!f.browser.device.scanRequested && f.controller.policy.phase == .error)
+        }
+    }
+    @Test func fixedAreaUsesConfirmedUnitsAndRejectsDriverChanges() throws {
+        var settings=ScanSettings();var p=ScanProfile(name:"Karte");p.area=ScanArea(widthMM:63,heightMM:88)
+        settings.profiles=[p];settings.activeProfileID=p.id
+        let feeder=AreaFeeder()
+        try ScannerController.configureArea(feeder,settings:settings)
+        // Real ICA ADF capture obeys the paper preset, not a cached custom
+        // scanArea. Acquire a containing preset; processing frames the output.
+        #expect(feeder.documentType.rawValue == 5)
+        #expect(feeder.rectangle == CGRect(x:0,y:0,width:14.8,height:21))
+        feeder.unit = .inches;feeder.rejectUnit=true
+        #expect(throws:(any Error).self) {try ScannerController.configureArea(feeder,settings:settings)}
+        feeder.rejectUnit=false;feeder.rejectArea=true;feeder.rectangle = .zero
+        #expect(throws:(any Error).self) {try ScannerController.configureArea(feeder,settings:settings)}
+    }
     @Test func actualScannerFaultAfterWatchdogIsNotSuppressed() throws {
         let f = try AdapterFixture(loaded: true)
         var completed: Int?

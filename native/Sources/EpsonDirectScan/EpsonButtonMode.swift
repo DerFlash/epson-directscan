@@ -19,14 +19,19 @@ final class EpsonButtonMode: EpsonServices {
         "/Applications/Epson Software/Event Manager.app/Contents/Resources/Assistants/Event Manager/EEventManager.app/Contents/MacOS/EEventManager"]
     private var domain: String { "gui/\(getuid())" }
     private var memo: URL { root.appendingPathComponent("epson-services.json") }
-    init(root: URL, diagnostics: Diagnostics) { self.root = root; self.diagnostics = diagnostics }
+    private let runCommand: (([String],Bool) throws -> (Int32,String))?
+    init(root: URL, diagnostics: Diagnostics, runCommand: (([String],Bool) throws -> (Int32,String))? = nil) { self.root = root; self.diagnostics = diagnostics;self.runCommand=runCommand }
     private func command(_ args: [String], output: Bool = false) throws -> (Int32, String) {
+        if let runCommand {return try runCommand(args,output)}
         let result = try runBoundedProcess(executable: args[0], arguments: Array(args.dropFirst()))
         return (result.status, output ? result.output : "")
     }
     func restore() throws {
         let lease = try ScannerLease(root: root)
         defer { withExtendedLifetime(lease) {} }
+        try restoreLocked()
+    }
+    private func restoreLocked() throws {
         guard FileManager.default.fileExists(atPath: memo.path) else { return }
         let labels = try JSONDecoder().decode([String].self, from: Data(contentsOf: memo))
         for label in labels {
@@ -39,13 +44,21 @@ final class EpsonButtonMode: EpsonServices {
         diagnostics.record("epson_services_restored")
     }
     func acquire() throws {
-        try restore()
+        let lease = try ScannerLease(root:root)
+        defer {withExtendedLifetime(lease){}}
+        let resuming=FileManager.default.fileExists(atPath:memo.path)
+        if resuming {
+            let original=try JSONDecoder().decode([String].self,from:Data(contentsOf:memo))
+            guard original.allSatisfy({entries[$0] != nil}) else {throw CocoaError(.fileReadCorruptFile)}
+        }
         var loaded: [String] = []
         for label in entries.keys.sorted() {
             if try command(["/bin/launchctl", "print", domain + "/" + label]).0 == 0 { loaded.append(label) }
         }
-        try JSONEncoder().encode(loaded).write(to: memo, options: .atomic)
-        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: memo.path)
+        if !resuming {
+            try JSONEncoder().encode(loaded).write(to: memo, options: .atomic)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: memo.path)
+        }
         do {
             for label in loaded {
                 guard try command(["/bin/launchctl", "bootout", domain + "/" + label]).0 == 0 else { throw CocoaError(.fileWriteUnknown) }
@@ -56,6 +69,6 @@ final class EpsonButtonMode: EpsonServices {
                 if parts.count == 2, let pid = Int32(parts[0]), executables.contains(String(parts[1])) { _ = kill(pid, SIGTERM) }
             }
             diagnostics.record("epson_services_taken_over")
-        } catch { try? restore(); throw error }
+        } catch {if !resuming {try? restoreLocked()};throw error}
     }
 }

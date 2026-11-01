@@ -25,5 +25,10 @@ public final class ScannerLease {
         _ = fchmod(fd, mode_t(0o600))
         descriptor = fd
     }
-    deinit { _ = Darwin.close(descriptor) }
+    deinit {
+        // Close-on-exec still leaves a brief inherited copy during spawn.
+        // Release our lock explicitly instead of waiting for that copy to close.
+        while flock(descriptor,LOCK_UN) != 0 && errno == EINTR {}
+        _ = Darwin.close(descriptor)
+    }
 }

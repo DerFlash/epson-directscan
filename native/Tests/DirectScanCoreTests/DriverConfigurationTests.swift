@@ -1,7 +1,48 @@
 import Testing
+import Foundation
+@testable import EpsonDirectScan
 @testable import DirectScanCore
 
 @Suite struct DriverConfigurationTests {
+    @Test func referencePrintsStayInJobStorageAndNeverEnterCaptureArguments() throws {
+        var s=ScanSettings(destination:"/tmp")
+        s.profiles=(0..<20).map { i in var p=ScanProfile(name:"Profil \(i)");p.referencePrint=Data(repeating:7,count:262144);return p }
+        s.activeProfileID=s.profiles[0].id
+        let payload=try NativeProcess.feedingPayload(s)
+        #expect(payload.count<20000)
+        let json=try #require(JSONSerialization.jsonObject(with:payload) as? [String:Any])
+        let profiles=try #require(json["profiles"] as? [[String:Any]])
+        #expect(profiles.allSatisfy{$0["referencePrint"]==nil})
+        #expect(s.profiles.allSatisfy{$0.referencePrint?.count==262144})
+        #expect(throws:(any Error).self) {try NativeProcess.scanPayload(s)}
+        s.profiles[0].referencePrint=Data(repeating:1,count:12000)
+        let capture=try JSONDecoder().decode(ScanSettings.self,from:NativeProcess.scanPayload(s))
+        #expect(capture.profiles.count==1 && capture.activeProfile==s.activeProfile)
+        #expect(s.profiles.count==20 && s.profiles[1].referencePrint?.count==262144)
+    }
+    @Test func activeProfileRequiresExplicitDisabledCorrectionReadbacks() throws {
+        var s=ScanSettings();var p=ScanProfile(name:"Hülle");p.area=ScanArea(widthMM:76,heightMM:102);p.orientation = .vision
+        s.profiles=[p];s.activeProfileID=p.id
+        for actual in [["VF_DESKEW":0],["VF_DESKEW":0,"VF_AUTOCROP":0],["VF_DESKEW":0,"VF_AUTOROTATE":0],["VF_AUTOCROP":0,"VF_AUTOROTATE":0], ["VF_DESKEW":1,"VF_AUTOCROP":0,"VF_AUTOROTATE":0]] {
+            #expect(throws:(any Error).self) {try validateDriverCorrections(settings:s,actual:actual)}
+        }
+        try validateDriverCorrections(settings:s,actual:["VF_DESKEW":0,"VF_AUTOCROP":0,"VF_AUTOROTATE":0])
+    }
+    @Test func profileDisablesConflictingDriverCorrectionsInBothPayloads() throws {
+        var s = ScanSettings();var p = ScanProfile(name:"Hülle")
+        p.area = ScanArea(widthMM:76,heightMM:102);p.orientation = .vision
+        s.profiles = [p];s.activeProfileID = p.id
+        try validateDriverCorrections(settings:s,actual:["VF_AUTOCROP":0,"VF_DESKEW":0,"VF_AUTOROTATE":0])
+        let bytes = try NativeProcess.feedingPayload(s)
+        let payload = try #require(JSONSerialization.jsonObject(with:bytes) as? [String:Any])
+        #expect(payload["crop"] as? Bool == false && payload["rotate"] as? Bool == false)
+        #expect(payload["deskew"] as? Bool == false)
+        #expect(payload["profileWidthMM"] as? Double == 76 && payload["profileHeightMM"] as? Double == 102)
+        #expect(s.deskew)
+        s.activeProfileID=nil
+        let legacy=try #require(JSONSerialization.jsonObject(with:NativeProcess.feedingPayload(s)) as? [String:Any])
+        #expect(legacy["deskew"] as? Bool == true)
+    }
     @Test func enabledCorrectionsMustExistAndMatchReadback() throws {
         let settings = ScanSettings()
         try validateDriverCorrections(settings: settings, actual: ["VF_AUTOCROP": 1, "VF_DESKEW": 1, "VF_AUTOROTATE": 1])

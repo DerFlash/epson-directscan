@@ -1,11 +1,10 @@
 # Epson DirectScan Beta – native Menüleisten-App
 
-Beta **0.3.0-beta.2** (Build 15) für den Epson ES-C320W über USB.
-Sie ergänzt doppelseitige JPGs, ein PDF pro Karte und den kontinuierlichen Einzug
-mit einem gemeinsamen PDF. Duplex-JPG, Karten-PDF, automatisches Nachlegen,
-Stopptaste und eine 30-Sekunden-Wartefrist wurden lokal am Gerät geprüft;
-die Ergebnisse stehen in [VALIDATION.md](VALIDATION.md).
-Die frühere einseitige Fassung wurde mit drei echten Tastenscans geprüft.
+Beta **0.4.0-beta.1** (Build 25) für den Epson ES-C320W über USB.
+Neu sind einstellbare Scanprofile, feste Drehungen, gemeinsame Duplex-Ausrichtung
+und der geprüfte Toploader-Modus. Er ergänzt doppelseitige JPGs, ein PDF pro Karte
+und den kontinuierlichen Einzug mit einem gemeinsamen PDF. Die getesteten
+Funktionen und verbleibenden Grenzen stehen in [VALIDATION.md](VALIDATION.md).
 Das ist keine allgemeine Produktionsfreigabe für andere Macs, Treiber oder Scanner.
 
 Die App ersetzt die ScanSmart-Oberfläche. Sie braucht weder Bedienungshilfen
@@ -43,8 +42,8 @@ erlaubt noch keine Nutzung.
 
 ## Download und Installation
 
-Lade die [**DMG für Apple Silicon**](https://github.com/DerFlash/epson-directscan/releases/download/v0.3.0-beta.2/epson-directscan-0.3.0-beta.2-macos-arm64.dmg)
-aus dem [GitHub-Release](https://github.com/DerFlash/epson-directscan/releases/tag/v0.3.0-beta.2) herunter. Alternativ enthält die App-ZIP dieselbe fertige App. Entwicklerwerkzeuge
+Lade die [**DMG für Apple Silicon**](https://github.com/DerFlash/epson-directscan/releases/download/v0.4.0-beta.1/epson-directscan-0.4.0-beta.1-macos-arm64.dmg)
+aus dem [GitHub-Release](https://github.com/DerFlash/epson-directscan/releases/tag/v0.4.0-beta.1) herunter. Alternativ enthält die App-ZIP dieselbe fertige App. Entwicklerwerkzeuge
 oder Kompilieren sind dafür nicht nötig; der Epson-Treiber bleibt Voraussetzung.
 [Offizieller Epson-Support](https://www.epson.de/de_DE/support/sc/es-c320w/s/s2773).
 
@@ -102,6 +101,9 @@ weder die Quell-App noch eine installierte Kopie.
 3. **Mit Epson verbinden** wählen. Der erste Hinweis erklärt, dass die beiden
    Epson-Tastenhelfer während des Direktmodus pausieren. Nach bestätigter
    Scanner-Freigabe beim Pausieren oder Beenden werden sie wieder gestartet.
+   Ein Scanfehler, Wiederverbinden, Einstellungswechsel oder Aufwachen gibt die
+   Tastenhelfer nicht automatisch zurück. Auch in diesem Zustand lässt sich die
+   Steuerung mit **Pausieren und freigeben** bewusst zurückgeben.
 4. Auf **Bereit – Epson-Taste drücken** warten. Eine entbehrliche Karte im geraden
    Papierweg einlegen und die Scantaste am Epson drücken. Das Ergebnis wird automatisch
    abgelegt. Für eine weitere Karte warten, bis die App wieder bereit ist.
@@ -112,6 +114,94 @@ als weiterer Scan vorgemerkt. Die Gerätetaste wird nicht durch einen Menübefeh
 ersetzt. Nicht mehrere Scan-Apps gleichzeitig verwenden.
 
 ## Einstellungen
+
+### Scanprofile, Ausrichtung und Toploader
+
+Normale Karten wurden lokal am Gerät geprüft. Im zugrunde liegenden Build 24 wurden
+auch vollständige Hüllenränder und die gemeinsame
+Duplex-Ausrichtung an einer entbehrlichen Testkarte im Toploader geprüft, einschließlich
+gewendeter und um 180° gedrehter Einlage. Automatisches Nachlegen und die Stopptaste
+ergaben ein gemeinsames, geprüftes PDF mit vier Seiten. Das ist keine Freigabe aller
+Hüllen und Dicken.
+Release-Build 25 übernimmt dieselbe Scanlogik. Der ältere 0.3-Beta2-Download
+enthält diese Profile noch nicht.
+
+Unter **Scanprofile bearbeiten …** lassen sich Profile anlegen und anschließend
+im Menü **Scanprofil** wählen. „Bisherige Einstellungen“ verwendet weiterhin die
+vorherigen Korrekturschalter. Bei der Übernahme wird kein neues Profil automatisch
+aktiviert; Schema 1/2 wird mit einer unveränderten privaten Sicherung übernommen.
+
+- **Feste Außenmaße:** Breite quer zum Einzug und Höhe in Einzugsrichtung in
+  Millimetern, also vor einer Drehung. Dezimalkomma und Dezimalpunkt sind möglich.
+  Beim normalen Scan erfasst macOS ein ausreichend großes Papierformat; die App
+  schneidet daraus die feste Fläche mittig und ab der Einzugskante aus. Beim
+  kontinuierlichen Scan wird die feste Fläche direkt im Epson-Treiber gesetzt
+  und die gelieferte Bildgröße geprüft. Automatischer Randzuschnitt und
+  Treiber-Schrägkorrektur sind bei festen Außenmaßen aus. Bitte die Vorlage
+  mittig und gerade führen; die Maße enthalten keinen zusätzlichen Sicherheitsrand.
+  Liegt der Kartenrand direkt an der Bildkante, etwas größere Maße als Reserve
+  wählen. Eine feste Größe richtet eine schief eingelegte Vorlage nicht gerade.
+- **Transparente Hülle vollständig erfassen:** Für Toploader einschalten und die
+  vollständigen Außenmaße mit etwas Randreserve angeben. Dieser Modus erfasst die
+  Vorlage zunächst über Epsons automatische Flächenerkennung mit Randreserve.
+  Der zusätzliche Treiberschalter für laminierte Vorlagen bleibt dabei ausdrücklich
+  aus: Mit eingeschaltetem Schalter blieb der getestete Treiber nach dem Einzug
+  wiederholt ohne Bildausgabe hängen. Nach der Aufnahme setzt die App das Bild mittig
+  in die gewünschte Ausgabegröße, ohne es zu strecken. Das innere Kartenmotiv wird nicht ausgeschnitten.
+  Eine zu kleine Ausgabegröße wird abgewiesen; die Originale bleiben zur Wiederherstellung
+  erhalten. Der Hüllenmodus funktioniert beim Einzelscan und im kontinuierlichen Einzug.
+  Er verwendet feste Drehungen oder die macOS-Automatik.
+- Das Kartenprofil beginnt mit bearbeitbaren 63 × 88 mm. Für Toploader gibt es keine
+  angenommenen Universalmaße. In dieser Fassung gelten 50,8–215,9 mm Breite und
+  50,8–297 mm Höhe, zusätzlich die tatsächlichen engeren Treibergrenzen.
+- **Feste Drehung:** 0/90/180/270° im Uhrzeigersinn, getrennt für die beiden
+  Scannerseiten. „Vorne“ und „hinten“ beschreiben die Scannerseite und Dateireihenfolge,
+  nicht eine neu erkannte inhaltliche Kartenvorderseite.
+- **Automatisch – macOS:** lokale schnelle Texterkennung auf verkleinerten
+  Analysekopien. Die gespeicherten Bilder behalten ihre volle Auflösung. Bei Duplex
+  werden beide Seiten eines Blatts gemeinsam beurteilt; die lesbare Fläche darf
+  auf jeder Scannerseite liegen. Unklare oder widersprüchliche Ergebnisse verwenden
+  die festen Ersatzdrehungen und hinterlassen einen Hinweis, keinen Gerätefehler.
+- **Aufrechte Referenz wählen …:** Optional ein scharfes, aufrechtes JPG/PNG wählen,
+  beispielsweise die gemeinsame Pokémon-Rückseite. Verwende möglichst einen Scan
+  aus demselben Scanweg; abweichende Farben, Beschnitt oder ein anderes Rückseitenmotiv
+  können einen sicheren Treffer verhindern. Die App speichert nur einen lokalen
+  Bildmerkmal-Abdruck, weder Bild noch Dateipfad. Beide Seiten werden geprüft:
+  Der Treffer darf auch auf der anderen Scannerseite liegen. Eine sichere
+  Texterkennung und eine widersprechende Referenz werden als Konflikt gemeldet.
+  Mit **Referenz entfernen** geht das Profil zur reinen Texterkennung zurück.
+  Bleibt eine bekannte Rückseite unsicher, wähle einen neuen, aufrecht gedrehten
+  Rückseitenscan aus genau diesem Profil als Referenz. Die Konfidenzgrenzen bleiben
+  unverändert; eine unpassende Referenz wird nicht erzwungen. Eine Referenz für
+  Karten in Hüllen ist nicht automatisch für ein Profil ohne Hülle geeignet.
+- **Die Rückseitenlage wurde für ES-C320W und Treiber6.7.84 auf beiden Scanwegen
+  separat am Gerät gemessen.** Neue Profile enthalten diese Zuordnung.
+  Ältere oder ausdrücklich unkalibrierte Profile ohne Zuordnung verwenden die
+  festen Ersatzwerte; das Profilfenster zeigt dies an. Andere Modelle und
+  Treiberversionen sind durch diese Prüfung nicht freigegeben.
+- **Automatisch – Epson (bisher)** bleibt bei automatischer Scanfläche verfügbar.
+  Für feste Außenmaße bitte feste Drehung oder macOS-Automatik wählen.
+  Die neue feste/macOS-Drehung
+  schaltet Epsons automatische Drehung aus, damit das Bild nicht doppelt gedreht wird.
+
+Feste Breite mit automatisch erkannter Höhe ist noch nicht freigegeben. Insbesondere
+die transparente Endkante einer Hülle ist nicht durch den inneren Kartenrand ersetzbar.
+Beim lokalen Test mit einer 77 × 102 mm großen Hülle wurde quer, mit einer geschlossenen
+langen Kante zuerst, und mit 108 × 83 mm Ausgabegröße einschließlich Randreserve
+gescannt. Beide Seiten zeigten die tatsächlichen vier Hüllenecken und lesbare Details.
+Eine innerhalb der Hülle schief sitzende Karte wird dadurch nicht geradegerichtet.
+Diese Einzelprüfung ersetzt weder eine Dickenfreigabe noch einen Serientest.
+Zurückgehaltene Aufträge aus älteren Versionen ohne geprüfte Rahmung bleiben
+lesbar und erhalten, werden aber nicht als maßgerecht exportiert oder entfernt.
+Eine Größenvorgabe ändert nicht die mechanischen
+Einzugsgrenzen des Geräts.
+
+Empfangene Originalseiten bleiben bis zum geprüften Export erhalten. Gedrehte Kopien
+und ihre Verarbeitung werden getrennt protokolliert; eine Wiederholung dreht nicht
+noch einmal das bereits verarbeitete Bild. Kartenbilder und erkannte Texte werden
+für diese Funktion nicht hochgeladen und nicht in normale Diagnoseprotokolle geschrieben.
+
+### Bisherige Einstellungen
 
 Das Menü am Scannersymbol und **Einstellungen …** in der Statusansicht bieten:
 
@@ -132,7 +222,7 @@ Karte enthalten zuerst die Vorder-, dann die Rückseite. Ein Stapel erzeugt je
 Karte ein PDF. Zeitstempel und UUID verhindern Namenskollisionen; eine vorhandene
 Datei wird niemals ersetzt.
 
-Die automatische Drehung verwendet Epsons Texterkennung zur Orientierung.
+Die bisherige automatische Drehung verwendet Epsons Texterkennung zur Orientierung.
 Sie ist **bei farbigen Spielkarten und Kartenrückseiten nicht zuverlässig**:
 Die Testkarte wurde trotz aktivierter Erkennung teilweise auf dem Kopf belassen.
 Es gibt keine feste Ausrichtungsgarantie. Bei der Testkarte wirkten Bilder im
@@ -205,11 +295,13 @@ für erste Tests immer genau eine entbehrliche Karte verwenden.
 Der Epson-eigene Tastenempfänger läuft als kleiner isolierter Hilfsprozess.
 Nach einer physischen Taste 1 schließt er seine Verbindung und endet. Erst wenn
 beides bestätigt ist, startet der jeweilige Scanprozess. Normale JPG/PDF-Scans
-verwenden ImageCaptureCore. Der kontinuierliche Einzug verwendet den nativen
-Epson-Autoeinzug; Zuschnitt und Schräglagenkorrektur stammen aus Scanner.framework.
-Die Orientierung ermittelt Epsons ImageProcessor/Esaod an den vollständigen
-Einzelbildern. Die App wendet diese Drehentscheidung an und baut das PDF aus
-geprüften Seiten. Die störungsanfällige vollständige ScanEngine-Pipeline aus
+verwenden ImageCaptureCore. Der kontinuierliche Einzug und transparente Hüllen
+verwenden den nativen Epson-Autoeinzug; ein Hüllen-Einzelscan endet nach der ersten
+Charge. Zuschnitt und Schräglagenkorrektur stammen aus Scanner.framework, soweit
+das Profil sie zulässt. Im bisherigen Automatikmodus ermittelt Epsons
+ImageProcessor/Esaod die Orientierung an den vollständigen Einzelbildern;
+die neuen Profile verwenden stattdessen ihre feste Drehung oder lokale macOS-Analyse.
+Die App baut das PDF aus geprüften Seiten. Die störungsanfällige vollständige ScanEngine-Pipeline aus
 dem privaten Vorversuch wird nicht verwendet.
 
 Erst nach bestätigtem Abschluss, Schließen und Prozessende startet der nächste
@@ -269,8 +361,10 @@ auch bei einem verzögerten Treiberabschluss nach einem Neustart. Beide Dateien
 bitte nicht löschen; bei belegter Sperre warten und erneut verbinden.
 Bei nicht bestätigter Freigabe bleiben die Dienste ebenfalls pausiert, um
 konkurrierende Zugriffe zu vermeiden. Beenden wartet kurz auf eine Bestätigung;
-bei Fehler/Timeout bleibt der Vermerk erhalten. Die App danach erneut öffnen,
-um die Dienste zurückzugeben.
+bei Fehler/Timeout bleibt der Vermerk erhalten. Eine aktive DirectScan-App übernimmt
+den vorhandenen Vermerk, ohne die Epson-Helfer zwischendurch neu zu starten.
+Zum gezielten Zurückgeben nach bestätigter Freigabe **Pausieren und freigeben** oder
+**Beenden** wählen.
 
 `events.jsonl`, `WorkerLogs/` und jeweils eine vorherige Logdatei sind begrenzt.
 Die Ereignisse enthalten Codes, Zahlen und Zeiten, keine Bilder, OCR-Texte oder

@@ -14,7 +14,7 @@
 @protocol FeedingScanner <NSObject>
 - (id)initWithInterface:(id)interface; - (int)open; - (int)close; - (BOOL)isOpened;
 - (void)setDelegate:(id)value; - (void)setWorkFolder:(NSString*)value;
-- (BOOL)autoFeedingModeSupported; - (BOOL)duplexSupported;
+- (BOOL)autoFeedingModeSupported; - (BOOL)duplexSupported; - (BOOL)documentLoaded;
 - (BOOL)autoCroppingSupported; - (BOOL)skewCorrectionSupported;
 - (NSIndexSet*)supportedColorFormats; - (NSIndexSet*)supportedImageFormats;
 - (void)setXResolution:(NSUInteger)value; - (void)setYResolution:(NSUInteger)value;
@@ -23,7 +23,14 @@
 - (void)setAutoCroppingEnabled:(BOOL)value; - (BOOL)autoCroppingEnabled;
 - (void)setSkewCorrectionEnabled:(BOOL)value; - (BOOL)skewCorrectionEnabled;
 - (void)setScanAreaInPixel:(CGRect)value; - (void)setAutoFeedingModeTimeout:(NSUInteger)value;
+- (CGSize)maxScanSize; - (void)setScanArea:(CGRect)value; - (CGRect)scanAreaInPixel;
+- (NSUInteger)xResolution; - (NSUInteger)yResolution;
+- (NSIndexSet*)supportedLaminatedPaperModes; - (NSArray*)supportedCroppingSizes;
+- (void)setLaminatedPaperMode:(unsigned char)value; - (unsigned char)laminatedPaperMode;
+- (void)setCroppingSize:(float)value; - (float)croppingSize;
+- (void)setOverScanEnabled:(BOOL)value; - (BOOL)overScanEnabled;
 - (int)startScanningInAFM; - (int)stopScanningInAutoFeedingMode;
+- (unsigned char)mode; - (int)setMode:(unsigned char)value;
 - (BOOL)isScanning; - (unsigned char)jobMode;
 @end
 @protocol FeedingImage <NSObject>
@@ -83,6 +90,58 @@ static int claimLease(NSString *root) {
 }
 
 static BOOL exact(Class cls,NSString *name,const char *encoding){Method m=class_getInstanceMethod(cls,NSSelectorFromString(name));return m && strcmp(method_getTypeEncoding(m),encoding)==0;}
+static int startFeeding(id<FeedingScanner> scanner,pid_t parent,BOOL *started){
+ *started=NO;
+ // Unlike scanInBackground, Epson6.7.84's AF entry does not acquire control.
+ // Opening may leave mode0; startAFM then returns0 without enabling the feeder.
+ // close already finalizes control, including failed or cancelled starts.
+ int status=[scanner setMode:1];if(status)return status;
+ if([scanner mode]!=1)return -316;
+ if(aborted||finishing||getppid()!=parent)return 0;
+ *started=YES;
+ return [scanner startScanningInAFM];
+}
+static BOOL configureFixedArea(id<FeedingScanner> scanner,NSDictionary *settings){
+ NSNumber *width=settings[@"profileWidthMM"],*height=settings[@"profileHeightMM"];
+ if([settings[@"transparentOriginal"] boolValue]){
+  Class c=[scanner class];
+  NSDictionary *types=@{@"supportedLaminatedPaperModes":@"@16@0:8",@"supportedCroppingSizes":@"@16@0:8",@"setLaminatedPaperMode:":@"v20@0:8C16",@"laminatedPaperMode":@"C16@0:8",@"setCroppingSize:":@"v20@0:8f16",@"croppingSize":@"f16@0:8",@"setOverScanEnabled:":@"v20@0:8B16",@"overScanEnabled":@"B16@0:8",@"maxScanSize":@"{CGSize=dd}16@0:8",@"setScanArea:":@"v48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16",@"xResolution":@"Q16@0:8",@"yResolution":@"Q16@0:8",@"scanAreaInPixel":@"{CGRect={CGPoint=dd}{CGSize=dd}}16@0:8"};
+  for(NSString *name in types)if(!exact(c,name,[types[name] UTF8String]))return NO;
+  if(![settings[@"crop"] boolValue]||![scanner autoCroppingEnabled]||![[scanner supportedLaminatedPaperModes] containsIndex:0])return NO;
+  if(width||height){if(![width isKindOfClass:NSNumber.class]||![height isKindOfClass:NSNumber.class]||!isfinite(width.doubleValue)||!isfinite(height.doubleValue)||width.doubleValue<50.8||width.doubleValue>215.9||height.doubleValue<50.8||height.doubleValue>297)return NO;}
+  BOOL marginAvailable=NO;for(NSNumber *value in [scanner supportedCroppingSizes])if([value isKindOfClass:NSNumber.class]&&fabs(value.floatValue-0.20f)<0.00001)marginAvailable=YES;
+  if(!marginAvailable||[scanner xResolution]!=300||[scanner yResolution]!=300)return NO;
+  CGSize size=[scanner maxScanSize];if(!isfinite(size.width)||!isfinite(size.height)||size.width<=0||size.height<=0)return NO;
+  // Fixed ROI makes this driver discard transparent trailing material. Capture
+  // the full sensor area and frame the requested output after acquisition.
+  [scanner setScanArea:CGRectMake(0,0,size.width,size.height)];
+  CGRect area=[scanner scanAreaInPixel];
+  if(fabs(area.origin.x)>1||fabs(area.origin.y)>1||fabs(area.size.width-size.width*300)>1||fabs(area.size.height-size.height*300)>1)return NO;
+  // On the tested ES-C320W, LAM ON stalls after transport. LAM OFF with
+  // cropping and a positive margin preserves the actual holder edges instead.
+  // Explicitly clear it: the driver may retain a previously enabled value.
+  [scanner setLaminatedPaperMode:0];[scanner setCroppingSize:0.20f];[scanner setOverScanEnabled:NO];
+  return [scanner laminatedPaperMode]==0&&fabs([scanner croppingSize]-0.20f)<0.00001&&![scanner overScanEnabled];
+ }
+ if(!width&&!height)return YES;
+ if(![width isKindOfClass:NSNumber.class]||![height isKindOfClass:NSNumber.class]||[settings[@"crop"] boolValue])return NO;
+ double w=width.doubleValue,h=height.doubleValue;
+ if(!isfinite(w)||!isfinite(h)||w<50.8||w>215.9||h<50.8||h>297)return NO;
+ Class c=[scanner class];
+ if(!exact(c,@"xResolution","Q16@0:8")||!exact(c,@"yResolution","Q16@0:8")||[scanner xResolution]!=300||[scanner yResolution]!=300)return NO;
+ if(!exact(c,@"maxScanSize","{CGSize=dd}16@0:8")||!exact(c,@"setScanArea:","v48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16")||!exact(c,@"scanAreaInPixel","{CGRect={CGPoint=dd}{CGSize=dd}}16@0:8"))return NO;
+ CGSize maximum=[scanner maxScanSize];
+ if(!isfinite(maximum.width)||!isfinite(maximum.height)||maximum.width<=0||maximum.height<=0)return NO;
+ // The maximum and setter use the same native unit. Read its pixel extent,
+ // then convert the user's physical mm using the confirmed300dpi resolution.
+ [scanner setScanArea:CGRectMake(0,0,maximum.width,maximum.height)];
+ CGRect bounds=[scanner scanAreaInPixel];
+ double pw=round(w*300/25.4),ph=round(h*300/25.4);
+ if(!isfinite(bounds.origin.x)||!isfinite(bounds.origin.y)||!isfinite(bounds.size.width)||!isfinite(bounds.size.height)||bounds.size.width<pw||bounds.size.height<ph)return NO;
+ CGRect requested=CGRectMake(bounds.origin.x+round((bounds.size.width-pw)/2),bounds.origin.y,pw,ph);
+ [scanner setScanAreaInPixel:requested];CGRect actual=[scanner scanAreaInPixel];
+ return fabs(actual.origin.x-requested.origin.x)<=1&&fabs(actual.origin.y-requested.origin.y)<=1&&fabs(actual.size.width-pw)<=1&&fabs(actual.size.height-ph)<=1;
+}
 static BOOL compatible(void){
  NSBundle *b=[NSBundle bundleWithPath:@"/Library/Image Capture/Support/EPSON/Epson Scan 2/Core/Scanner.framework"];
  if(![[b objectForInfoDictionaryKey:@"CFBundleShortVersionString"] isEqual:@"6.7.84"] || ![b load])return NO;
@@ -90,19 +149,22 @@ static BOOL compatible(void){
  if(!exact(u,@"initWithLocationID:productIDForValidation:","@24@0:8I16S20"))return NO;
  NSDictionary *types=@{@"initWithInterface:":@"@24@0:8@16",@"open":@"i16@0:8",@"close":@"i16@0:8",@"isOpened":@"B16@0:8",@"setDelegate:":@"v24@0:8@16",@"setWorkFolder:":@"v24@0:8@16",@"autoFeedingModeSupported":@"B16@0:8",@"duplexSupported":@"B16@0:8",@"autoCroppingSupported":@"B16@0:8",@"skewCorrectionSupported":@"B16@0:8",@"supportedColorFormats":@"@16@0:8",@"supportedImageFormats":@"@16@0:8",@"setXResolution:":@"v24@0:8Q16",@"setYResolution:":@"v24@0:8Q16",@"setColorFormat:":@"v20@0:8i16",@"colorFormat":@"i16@0:8",@"setImageFormat:":@"v20@0:8i16",@"imageFormat":@"i16@0:8",@"setDuplexEnabled:":@"v20@0:8B16",@"duplexEnabled":@"B16@0:8",@"setAutoCroppingEnabled:":@"v20@0:8B16",@"autoCroppingEnabled":@"B16@0:8",@"setSkewCorrectionEnabled:":@"v20@0:8B16",@"skewCorrectionEnabled":@"B16@0:8",@"setScanAreaInPixel:":@"v48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16",@"setAutoFeedingModeTimeout:":@"v24@0:8Q16",@"startScanningInAFM":@"i16@0:8",@"stopScanningInAutoFeedingMode":@"i16@0:8",@"isScanning":@"B16@0:8",@"jobMode":@"C16@0:8"};
  for(NSString *key in types)if(!exact(c,key,[types[key] UTF8String]))return NO;
+ if(!exact(c,@"mode","C16@0:8")||!exact(c,@"setMode:","i20@0:8C16"))return NO;
+ if(!exact(c,@"documentLoaded","B16@0:8"))return NO;
  Class receiver=NSClassFromString(@"FeedingReceiver");
- NSDictionary *callbacks=@{@"scannerWillBeginContinuousScanning:":@"v24@0:8@16",@"scannerDidEndContinuousScanning:":@"v24@0:8@16",@"scannerWillCancelScanning:":@"v24@0:8@16",@"scannerDidCancelScanning:":@"v24@0:8@16",@"scanner:willScanToScannedImageHandle:":@"v32@0:8@16@24",@"scanner:didScanToScannedImageHandle:":@"v32@0:8@16@24",@"scanner:didPressButton:":@"v32@0:8@16q24"};
+ NSDictionary *callbacks=@{@"scannerWillBeginContinuousScanning:":@"v24@0:8@16",@"scannerDidEndContinuousScanning:":@"v24@0:8@16",@"scannerWillCancelScanning:":@"v24@0:8@16",@"scannerDidCancelScanning:":@"v24@0:8@16",@"scanner:willScanToScannedImageHandle:":@"v32@0:8@16@24",@"scanner:didScanToScannedImageHandle:":@"v32@0:8@16@24",@"scanner:didPressButton:":@"v32@0:8@16q24",@"scanner:didCompleteScanningWithError:":@"v32@0:8@16@24",@"scanner:didInterruptScanningWithError:":@"v32@0:8@16@24",@"scanner:didEncounterDeviceCommunicationError:":@"v32@0:8@16@24"};
  for(NSString *key in callbacks)if(!exact(receiver,key,[callbacks[key] UTF8String]))return NO;
  return YES;
 }
 @interface FeedingReceiver:NSObject
 @property(atomic) BOOL failed; @property(atomic) BOOL stopRequested;
 @property NSUInteger pages; @property BOOL rotate; @property BOOL duplex;
+@property BOOL singleShot;
 @property(strong) NSString *folder;
 @end
 @implementation FeedingReceiver
 - (void)scannerWillBeginContinuousScanning:(id)s{emit(@"batchBegin",1);}
-- (void)scannerDidEndContinuousScanning:(id)s{emit(@"batchEnd",1);}
+- (void)scannerDidEndContinuousScanning:(id)s{emit(@"batchEnd",1);if(self.singleShot)self.stopRequested=YES;}
 - (void)scanner:(id)s willScanToScannedImageHandle:(id<FeedingImage>)handle {
  // Required unconditional Epson callback. The image is incomplete at this point;
  // only didScanToScannedImageHandle may validate and stage it.
@@ -114,8 +176,9 @@ static BOOL compatible(void){
 }
 - (void)scannerDidRequestStop:(id)s{self.stopRequested=YES;}
 - (void)scannerDidDisconnect:(id)s{self.failed=YES;emit(@"error",-310);}
-- (void)scanner:(id)s didCompleteScanningWithError:(int)e{if(e){self.failed=YES;emit(@"error",e);}}
-- (void)scanner:(id)s didInterruptScanningWithError:(int)e{self.failed=YES;emit(@"error",e?e:-311);}
+- (void)scanner:(id)s didCompleteScanningWithError:(NSError*)error{if(error){self.failed=YES;emit(@"error",error.code);}}
+- (void)scanner:(id)s didInterruptScanningWithError:(NSError*)error{self.failed=YES;emit(@"error",error?error.code:-311);}
+- (void)scanner:(id)s didEncounterDeviceCommunicationError:(NSError*)error{if(error){self.failed=YES;emit(@"error",error.code);}}
 - (void)scanner:(id)s didScanToScannedImageHandle:(id<FeedingImage>)handle {
  @synchronized(self){@autoreleasepool{
   if(self.failed)return;
@@ -146,7 +209,10 @@ int main(int argc,char **argv){@autoreleasepool{
  NSString *expected=[root stringByAppendingPathComponent:@"Pending"];
  if(![[folder stringByDeletingLastPathComponent] isEqual:expected]||![[NSUUID alloc] initWithUUIDString:folder.lastPathComponent])return 2;
  NSData *bytes=[[NSData alloc] initWithBase64EncodedString:@(argv[3]) options:0];NSDictionary *settings=bytes?[NSJSONSerialization JSONObjectWithData:bytes options:0 error:nil]:nil;
- if(![settings isKindOfClass:NSDictionary.class]||![settings[@"automaticFeeding"] isEqual:@YES]||[settings[@"paused"] boolValue])return 2;
+ if(![settings isKindOfClass:NSDictionary.class]||![settings[@"automaticFeeding"] isKindOfClass:NSNumber.class]||[settings[@"paused"] boolValue])return 2;
+ BOOL continuous=[settings[@"automaticFeeding"] boolValue],transparent=[settings[@"transparentOriginal"] boolValue];
+ if(!continuous&&!transparent)return 2;
+ if(![settings[@"singleShot"] isKindOfClass:NSNumber.class]||[settings[@"singleShot"] boolValue]==continuous)return 2;
  for(NSString *key in @[@"duplex",@"crop",@"deskew",@"rotate"])if(![settings[key] isKindOfClass:NSNumber.class])return 2;
  signal(SIGTERM,signalHandler);signal(SIGINT,signalHandler);signal(SIGUSR1,signalHandler);signal(SIGUSR2,signalHandler);
  [NSApplication.sharedApplication setActivationPolicy:NSApplicationActivationPolicyProhibited];
@@ -156,6 +222,7 @@ int main(int argc,char **argv){@autoreleasepool{
  id<FeedingUSB> usb=[(id<FeedingUSB>)[NSClassFromString(@"USBInterface") alloc] initWithLocationID:location productIDForValidation:400];
  id<FeedingScanner> scanner=[(id<FeedingScanner>)[NSClassFromString(@"ESCI2Scanner") alloc] initWithInterface:usb];
  FeedingReceiver *receiver=[FeedingReceiver new];receiver.folder=folder;receiver.rotate=[settings[@"rotate"] boolValue];receiver.duplex=[settings[@"duplex"] boolValue];
+ receiver.singleShot=!continuous;
  NSString *work=[[root stringByAppendingPathComponent:@"DriverWork"] stringByAppendingPathComponent:folder.lastPathComponent];
  [NSFileManager.defaultManager createDirectoryAtPath:work withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:nil];
  [scanner setWorkFolder:work];[scanner setDelegate:receiver];int result=1;BOOL opened=NO;
@@ -163,6 +230,7 @@ int main(int argc,char **argv){@autoreleasepool{
   int status=[scanner open];opened=[scanner isOpened];if(status||!opened){emit(@"error",-304);return 1;}
   if(![scanner autoFeedingModeSupported]||![[scanner supportedColorFormats] containsIndex:1800]||![[scanner supportedImageFormats] containsIndex:1]||(receiver.duplex&&![scanner duplexSupported])||([settings[@"crop"] boolValue]&&![scanner autoCroppingSupported])||([settings[@"deskew"] boolValue]&&![scanner skewCorrectionSupported])){emit(@"error",-305);return 1;}
   [scanner setXResolution:300];[scanner setYResolution:300];[scanner setColorFormat:1800];[scanner setImageFormat:1];[scanner setDuplexEnabled:receiver.duplex];[scanner setAutoCroppingEnabled:[settings[@"crop"] boolValue]];[scanner setSkewCorrectionEnabled:[settings[@"deskew"] boolValue]];[scanner setScanAreaInPixel:CGRectMake(0,0,1748,2480)];
+  if(!configureFixedArea(scanner,settings)){emit(@"error",-315);return 1;}
   // Parent measures inactivity after a processed batch, excluding active transfer.
   [scanner setAutoFeedingModeTimeout:0];
   if([scanner colorFormat]!=1800||[scanner imageFormat]!=1||[scanner duplexEnabled]!=receiver.duplex||[scanner autoCroppingEnabled]!=[settings[@"crop"] boolValue]||[scanner skewCorrectionEnabled]!=[settings[@"deskew"] boolValue]){emit(@"error",-306);return 1;}
@@ -177,7 +245,13 @@ int main(int argc,char **argv){@autoreleasepool{
   if(aborted||getppid()!=parent)return 1;
   if(finishing){result=0;emit(@"end",0);}
   else {
-  status=[scanner startScanningInAFM];if(status){emit(@"error",status);return 1;}
+  if(receiver.singleShot&&![scanner documentLoaded]){emit(@"empty",0);emit(@"end",0);result=0;}
+  else {
+  BOOL started=NO;status=startFeeding(scanner,parent,&started);if(status){emit(@"error",status);return 1;}
+  if(!started){
+   if(finishing&&!aborted&&getppid()==parent){result=0;emit(@"end",0);}
+   return result;
+  }
   BOOL stopSent=NO;NSTimeInterval stopDeadline=0;
   while([scanner jobMode]!=0||[scanner isScanning]){@autoreleasepool{
    [NSRunLoop.mainRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.05]];
@@ -186,6 +260,7 @@ int main(int argc,char **argv){@autoreleasepool{
    if(stopSent&&NSProcessInfo.processInfo.systemUptime>=stopDeadline){receiver.failed=YES;emit(@"error",-308);break;}
   }}
   result=receiver.failed||aborted?1:0;if(result==0)emit(@"end",0);
+  }
   }
  }@catch(NSException *exception){emit(@"error",-309);result=1;}
  @finally{

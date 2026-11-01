@@ -34,7 +34,7 @@ import Testing
     @Test func readyIsDeliveredWhileTheReceiverIsStillRunning() async throws {
         let acknowledgement = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: acknowledgement) }
-        let script = "printf '%s\\n' '{\"event\":\"ready\",\"value\":1}'; i=0; while [ ! -f \"$1\" ] && [ \"$i\" -lt 100 ]; do i=$((i+1)); /bin/sleep .01; done; test -f \"$1\""
+        let script = "printf '%s\\n' '{\"event\":\"ready\",\"value\":1}'; i=0; while [ ! -f \"$1\" ] && [ \"$i\" -lt 1000 ]; do i=$((i+1)); /bin/sleep .01; done; test -f \"$1\""
         let helper = NativeProcess(executable: URL(fileURLWithPath: "/bin/sh"), arguments: ["-c", script, "receiver", acknowledgement.path])
         let status: Int32 = try await withCheckedThrowingContinuation { continuation in
             helper.onEvent = { event in

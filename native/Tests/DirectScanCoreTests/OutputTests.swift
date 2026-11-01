@@ -12,7 +12,7 @@ import Foundation
         let original = Data(#"{"schemaVersion":1,"destination":"/tmp","paused":true,"crop":false,"deskew":true,"rotate":false}"#.utf8)
         try original.write(to: store.root.appendingPathComponent("settings.json"))
         let settings = try store.loadSettings()
-        #expect(settings.schemaVersion == 2)
+        #expect(settings.schemaVersion == 3)
         #expect(settings.destination == "/tmp" && settings.paused && !settings.crop && !settings.rotate)
         #expect(!settings.duplex && settings.outputFormat == .jpg && !settings.automaticFeeding)
         #expect(settings.feedingTimeoutSeconds == 120)

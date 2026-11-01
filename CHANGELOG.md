@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0-beta.1 — 2026-11-01
 
 - License the project under PolyForm Strict 1.0.0; modifications and redistribution
   require separate permission. Commercial use outside
@@ -8,6 +8,58 @@
   Björn Teichmann; no commercial license or software purchase is offered for sale.
 - Include the license and licensing/contact notice in native and legacy app
   bundles and native DMGs. Refuse packages with missing or stale bundled notices.
+
+- Explicitly clear retained laminated-paper mode for transparent-holder capture,
+  retaining automatic area detection, full sensor width and the 0.20-inch margin.
+  A controlled native comparison and installed build24 button scans delivered both
+  complete holder sides and cleanly closed; the previous enabled mode repeatedly
+  stalled without images. Add a regression for a retained or ignored driver flag.
+- Explicitly acquire and verify native control mode before automatic feeding.
+  A Stop, abort or lost parent during control acquisition prevents a late feed start.
+- Keep Epson's automatic button helpers stopped after scan errors, during recovery,
+  settings edits and sleep/resume. Explicit Pause/Quit returns the original helper
+  state after confirmed device release; reconnecting no longer starts them between
+  takeovers. Preserve the original recovery memo across application restarts.
+- Read Epson completion/interruption/communication errors as NSError objects,
+  preserving their actual codes. Release process locks explicitly so an unrelated
+  spawning process cannot briefly retain an obsolete lock.
+
+- Add editable scan profiles with complete physical outside dimensions in mm,
+  centered output areas and fixed clockwise rotations for each scanner side.
+  Ordinary fixed areas disable automatic cropping. Transparent holders use a
+  dedicated automatic-area capture before centering the output canvas.
+- Add complete transparent-holder capture with checked driver margin settings,
+  single-batch completion and the existing supervised Stop/stall protection.
+  Fixed output dimensions never stretch the captured image; an unsafe canvas
+  retains the originals for recovery instead of exporting a clipped card.
+- Add optional upright local image references to profiles for text-poor cards.
+  A securely stored Vision feature print can orient either physical face and
+  infer the other through the measured duplex mapping. No reference image/path
+  is stored. Conflicts and ambiguous/unrelated matches keep the fixed fallback.
+- Add local Apple Vision fast orientation scoring with conservative fixed fallback.
+  Joint duplex inference can use either readable face; it stays gated on a
+  hardware-verified side mapping for each capture path. Both mappings are now
+  physically measured on ES-C320W/driver6.7.84 and included in new profiles.
+  Width with automatic height remains explicitly unavailable pending verification.
+- Enable Vision language correction before orientation scoring. A new physical
+  card exposed nearly equal raw OCR scores for upright text and upside-down
+  noise. The unchanged confidence gates now distinguish all tested rotations of
+  that card; private regression images remain outside the repository.
+- Correct fixed-size ICA output: acquire a containing paper preset and frame
+  the exact physical center/leading-edge region before OCR and rotation, without
+  scaling or content-based cropping. Disable driver deskew for fixed dimensions;
+  restrict Epson autorotation to automatic areas. Preserve historical profiles
+  and fail closed on unstamped old fixed captures/processed copies during recovery.
+- Preserve original page bytes; journal processed copies before atomic export so
+  retries cannot apply a rotation twice. Keep collection processing outside the
+  menu UI, honor cancellation before publication and retain recoverable originals.
+- Migrate schema1/2 settings with exact private backups and retain previous active
+  behavior. Add regression coverage for pairing, physical geometry, image metadata,
+  retry, corrupt references and cancellation. Existing ad-hoc distribution policy
+  and driver requirements apply.
+- Promote hardware-tested development build24 to release build25. Capture,
+  processing and helper sources are unchanged; the release updates metadata and
+  includes the current license notices in the app and download packages.
 
 ## 0.3.0-beta.2 — 2026-10-27
 
