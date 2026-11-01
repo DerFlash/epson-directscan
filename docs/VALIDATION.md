@@ -810,3 +810,76 @@ latched until a new activation. Local editors resume an existing ownership inten
 All131 native tests plus the callback/configuration harness pass after this one
 review fix pass. No Critical or Minor findings remained; the acquisition algorithm
 is unchanged and physical acceptance is still pending.
+
+### Build24 transparent-holder acceptance — 2026-11-01, local only
+
+This section supersedes the pending holder acceptance and laminated-mode choice
+above. It does not change the published beta2 download or certify other media.
+The device remains ES-C320W USB with Epson driver6.7.84 on an Apple-Silicon Mac
+running macOS27.0.1. The actual test holder measures approximately77x102mm;
+it was fed landscape, a closed long edge first, with an expendable card inside.
+
+Repeated native captures with laminated mode enabled fed the holder but returned
+no pages and could not confirm close. A controlled regular native comparison
+changed only the transmitted LAMON field to LAMOFF, retaining cropping, area,
+duplex,300dpi and JPEG quality. It returned two complete, decoded holder images
+and closed normally. The exact product AF single-shot helper then succeeded with
+its existing full sensor area,0.20in margin and unchanged JPEG default. Build24
+therefore explicitly clears retained laminated mode and verifies its readback;
+unsupported or ignored settings fail before capture. This is a demonstrated
+configuration correction, not a general explanation of every earlier stall.
+
+The native control-mode entry and cancellation gate also remain in this build.
+A callback/configuration regression starts from retained laminated mode1 and
+requires0, including refusal to clear despite otherwise valid margin support.
+It failed against the previous implementation and passes after the correction.
+The focused independent review reported no findings. The release build, strict
+ad-hoc signature and byte-verified installation passed, with full app/data backups.
+
+The first installed button scan delivered both complete holder sides but retained
+a visible uncertain-orientation notice: its old reference missed the unchanged
+20% separation gate. A new upright reference was selected through the profile UI
+from an actual scan using this holder path. Only that profile's feature print
+changed. The private matrix passed36 holder-specific positive/negative cases;
+eight comparisons with older bare-card calibration images remained uncertain.
+This is not44 successful matches or cross-profile calibration. No confidence
+threshold or orientation algorithm was relaxed.
+
+With the updated reference, a physical button scan after swapping faces and
+turning the holder180degrees produced two upright980x1276px JPEGs at300dpi,
+EXIF orientation1, with no processing notices. Actual image inspection showed
+all four holder corners and long seams on both sides, a legible Energy header
+and copyright, and no repeated or clipped trailing band. Both files fully decoded
+and matched their receipts; the app returned ready/listening with Pending empty.
+
+A separate continuous-mode test started once with the Epson button. Reinserting
+the same holder without another button produced a second duplex pair. Physical
+Stop completed a1,761,867-byte four-page PDF; its SHA256 matched the durable receipt.
+All four embedded images fully decoded at980x1276px/300dpi. Poppler read and300dpi
+rendering passed for every page, with upright pairs, actual full holder corners
+and legible details. No processing notices were recorded. Pending was empty and
+the next button receiver rearmed; the user confirmed steady Power after Stop.
+The temporary unlimited feeding timeout and continuous mode were restored to
+the prior single-scan/120-second settings through the UI and independently read back.
+
+An ordinary bare-card regression then used the69x94mm profile and the physical
+Epson Start button. Both815x1110px/300dpi JPEGs fully decoded, matched their
+receipts and stood upright without notices; printed text was legible. The fixed
+leading edge remains tight, so this confirms ordinary capture/storage/orientation,
+not an additional full-card-border guarantee. The app rearmed with Pending empty
+and the user confirmed steady Power. The active Toploader profile was restored;
+all setting values again match the pre-collection baseline. Installed build24
+still matches the built app bytes and passes strict deep signature verification.
+
+Final source checks passed131 Swift tests in17 suites plus the native Objective-C
+callback/configuration harness,26 Node tests and42 Python tests, including real
+DMG/ZIP packaging tests. The restricted first legacy/package run failed on local
+AppleScript test objects and disk-image creation; the same unchanged suite passed
+with the required local macOS access. These are fixture tests and do not scan,
+operate an application UI or require accessibility permission.
+
+The card can remain slightly tilted inside its holder; no inner-card deskew,
+universal thickness approval or long-series reliability is established. This pass
+does not repeat sleep/wake, USB removal, jam, forced mid-image Stop or idle-timeout
+acceptance. Private scans, reference archives and detailed device receipts remain
+outside Git. No release or publication is included in this local acceptance.

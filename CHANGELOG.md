@@ -2,6 +2,13 @@
 
 ## 0.4.0-beta.1-dev — unreleased
 
+- Explicitly clear retained laminated-paper mode for transparent-holder capture,
+  retaining automatic area detection, full sensor width and the 0.20-inch margin.
+  A controlled native comparison and installed build24 button scans delivered both
+  complete holder sides and cleanly closed; the previous enabled mode repeatedly
+  stalled without images. Add a regression for a retained or ignored driver flag.
+- Explicitly acquire and verify native control mode before automatic feeding.
+  A Stop, abort or lost parent during control acquisition prevents a late feed start.
 - Keep Epson's automatic button helpers stopped after scan errors, during recovery,
   settings edits and sleep/resume. Explicit Pause/Quit returns the original helper
   state after confirmed device release; reconnecting no longer starts them between
@@ -13,7 +20,7 @@
 - Add editable scan profiles with complete physical outside dimensions in mm,
   centered output areas and fixed clockwise rotations for each scanner side.
   Ordinary fixed areas disable automatic cropping. Transparent holders use a
-  dedicated laminated/automatic-area capture before centering the output canvas.
+  dedicated automatic-area capture before centering the output canvas.
 - Add complete transparent-holder capture with checked driver margin settings,
   single-batch completion and the existing supervised Stop/stall protection.
   Fixed output dimensions never stretch the captured image; an unsafe canvas

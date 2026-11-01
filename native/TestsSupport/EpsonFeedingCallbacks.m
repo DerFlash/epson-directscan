@@ -86,10 +86,10 @@ int main(void) { @autoreleasepool {
     if(configureFixedArea((id<FeedingScanner>)area,@{@"profileWidthMM":@76,@"crop":@NO})||configureFixedArea((id<FeedingScanner>)area,@{@"profileWidthMM":@76,@"profileHeightMM":@102,@"crop":@YES})){fprintf(stderr,"Invalid profile area was accepted\n");return 4;}
     area.reject=NO;area.dpi=150;
     if(configureFixedArea((id<FeedingScanner>)area,settings)){fprintf(stderr,"Unconfirmed resolution was accepted\n");return 5;}
-    area.dpi=300;area.overscan=YES;
+    area.dpi=300;area.overscan=YES;area.laminate=1;
     NSDictionary *holder=@{@"transparentOriginal":@YES,@"crop":@YES,@"profileWidthMM":@108,@"profileHeightMM":@83};
-    if(!configureFixedArea((id<FeedingScanner>)area,holder)||area.laminate!=1||fabs(area.margin-0.2)>0.00001||area.overscan||!CGRectEqualToRect(area.area,CGRectMake(0,0,2550,3510))){fprintf(stderr,"Transparent capture must acquire full sensor area with laminated mode, positive margin and overscan off\n");return 6;}
-    area.rejectMedia=YES;area.laminate=0;area.margin=0;
+    if(!configureFixedArea((id<FeedingScanner>)area,holder)||area.laminate!=0||fabs(area.margin-0.2)>0.00001||area.overscan||!CGRectEqualToRect(area.area,CGRectMake(0,0,2550,3510))){fprintf(stderr,"Holder capture must clear a prior laminated mode while retaining full sensor area, positive margin and overscan off\n");return 6;}
+    area.rejectMedia=YES;area.laminate=1;
     if(configureFixedArea((id<FeedingScanner>)area,holder)){fprintf(stderr,"Rejected transparent-media settings were accepted\n");return 7;}
     FeedingReceiver *receiver = [FeedingReceiver new];
     @try {

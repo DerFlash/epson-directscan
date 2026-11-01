@@ -107,7 +107,7 @@ static BOOL configureFixedArea(id<FeedingScanner> scanner,NSDictionary *settings
   Class c=[scanner class];
   NSDictionary *types=@{@"supportedLaminatedPaperModes":@"@16@0:8",@"supportedCroppingSizes":@"@16@0:8",@"setLaminatedPaperMode:":@"v20@0:8C16",@"laminatedPaperMode":@"C16@0:8",@"setCroppingSize:":@"v20@0:8f16",@"croppingSize":@"f16@0:8",@"setOverScanEnabled:":@"v20@0:8B16",@"overScanEnabled":@"B16@0:8",@"maxScanSize":@"{CGSize=dd}16@0:8",@"setScanArea:":@"v48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16",@"xResolution":@"Q16@0:8",@"yResolution":@"Q16@0:8",@"scanAreaInPixel":@"{CGRect={CGPoint=dd}{CGSize=dd}}16@0:8"};
   for(NSString *name in types)if(!exact(c,name,[types[name] UTF8String]))return NO;
-  if(![settings[@"crop"] boolValue]||![scanner autoCroppingEnabled]||![[scanner supportedLaminatedPaperModes] containsIndex:1])return NO;
+  if(![settings[@"crop"] boolValue]||![scanner autoCroppingEnabled]||![[scanner supportedLaminatedPaperModes] containsIndex:0])return NO;
   if(width||height){if(![width isKindOfClass:NSNumber.class]||![height isKindOfClass:NSNumber.class]||!isfinite(width.doubleValue)||!isfinite(height.doubleValue)||width.doubleValue<50.8||width.doubleValue>215.9||height.doubleValue<50.8||height.doubleValue>297)return NO;}
   BOOL marginAvailable=NO;for(NSNumber *value in [scanner supportedCroppingSizes])if([value isKindOfClass:NSNumber.class]&&fabs(value.floatValue-0.20f)<0.00001)marginAvailable=YES;
   if(!marginAvailable||[scanner xResolution]!=300||[scanner yResolution]!=300)return NO;
@@ -117,8 +117,11 @@ static BOOL configureFixedArea(id<FeedingScanner> scanner,NSDictionary *settings
   [scanner setScanArea:CGRectMake(0,0,size.width,size.height)];
   CGRect area=[scanner scanAreaInPixel];
   if(fabs(area.origin.x)>1||fabs(area.origin.y)>1||fabs(area.size.width-size.width*300)>1||fabs(area.size.height-size.height*300)>1)return NO;
-  [scanner setLaminatedPaperMode:1];[scanner setCroppingSize:0.20f];[scanner setOverScanEnabled:NO];
-  return [scanner laminatedPaperMode]==1&&fabs([scanner croppingSize]-0.20f)<0.00001&&![scanner overScanEnabled];
+  // On the tested ES-C320W, LAM ON stalls after transport. LAM OFF with
+  // cropping and a positive margin preserves the actual holder edges instead.
+  // Explicitly clear it: the driver may retain a previously enabled value.
+  [scanner setLaminatedPaperMode:0];[scanner setCroppingSize:0.20f];[scanner setOverScanEnabled:NO];
+  return [scanner laminatedPaperMode]==0&&fabs([scanner croppingSize]-0.20f)<0.00001&&![scanner overScanEnabled];
  }
  if(!width&&!height)return YES;
  if(![width isKindOfClass:NSNumber.class]||![height isKindOfClass:NSNumber.class]||[settings[@"crop"] boolValue])return NO;

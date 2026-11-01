@@ -104,7 +104,11 @@ ersetzt. Nicht mehrere Scan-Apps gleichzeitig verwenden.
 ### Neue Scanprofile in der Entwicklungsfassung 0.4.0-beta.1-dev
 
 Diese Erweiterung ist noch nicht veröffentlicht. Normale Karten wurden lokal am
-Gerät geprüft; der neue Hüllenmodus in Build 22 befindet sich in der Geräteprüfung.
+Gerät geprüft. In Build 24 wurden auch vollständige Hüllenränder und die gemeinsame
+Duplex-Ausrichtung an einer entbehrlichen Testkarte im Toploader geprüft, einschließlich
+gewendeter und um 180° gedrehter Einlage. Automatisches Nachlegen und die Stopptaste
+ergaben ein gemeinsames, geprüftes PDF mit vier Seiten. Das ist keine Freigabe aller
+Hüllen und Dicken.
 Die folgenden Punkte gehören zur lokalen Entwicklungsfassung; der bisherige
 Beta2-Download enthält sie noch nicht.
 
@@ -125,9 +129,11 @@ aktiviert; Schema 1/2 wird mit einer unveränderten privaten Sicherung übernomm
   wählen. Eine feste Größe richtet eine schief eingelegte Vorlage nicht gerade.
 - **Transparente Hülle vollständig erfassen:** Für Toploader einschalten und die
   vollständigen Außenmaße mit etwas Randreserve angeben. Dieser Modus erfasst die
-  Vorlage zunächst über Epsons automatische Flächenerkennung für laminierte Karten
-  mit Randreserve. Erst danach setzt die App das Bild mittig in die gewünschte
-  Ausgabegröße, ohne es zu strecken. Das innere Kartenmotiv wird nicht ausgeschnitten.
+  Vorlage zunächst über Epsons automatische Flächenerkennung mit Randreserve.
+  Der zusätzliche Treiberschalter für laminierte Vorlagen bleibt dabei ausdrücklich
+  aus: Mit eingeschaltetem Schalter blieb der getestete Treiber nach dem Einzug
+  wiederholt ohne Bildausgabe hängen. Nach der Aufnahme setzt die App das Bild mittig
+  in die gewünschte Ausgabegröße, ohne es zu strecken. Das innere Kartenmotiv wird nicht ausgeschnitten.
   Eine zu kleine Ausgabegröße wird abgewiesen; die Originale bleiben zur Wiederherstellung
   erhalten. Der Hüllenmodus funktioniert beim Einzelscan und im kontinuierlichen Einzug.
   Er verwendet feste Drehungen oder die macOS-Automatik.
@@ -150,6 +156,10 @@ aktiviert; Schema 1/2 wird mit einer unveränderten privaten Sicherung übernomm
   Der Treffer darf auch auf der anderen Scannerseite liegen. Eine sichere
   Texterkennung und eine widersprechende Referenz werden als Konflikt gemeldet.
   Mit **Referenz entfernen** geht das Profil zur reinen Texterkennung zurück.
+  Bleibt eine bekannte Rückseite unsicher, wähle einen neuen, aufrecht gedrehten
+  Rückseitenscan aus genau diesem Profil als Referenz. Die Konfidenzgrenzen bleiben
+  unverändert; eine unpassende Referenz wird nicht erzwungen. Eine Referenz für
+  Karten in Hüllen ist nicht automatisch für ein Profil ohne Hülle geeignet.
 - **Die Rückseitenlage wurde für ES-C320W und Treiber6.7.84 auf beiden Scanwegen
   separat am Gerät gemessen.** Neue Profile enthalten diese Zuordnung.
   Ältere oder ausdrücklich unkalibrierte Profile ohne Zuordnung verwenden die
@@ -162,8 +172,11 @@ aktiviert; Schema 1/2 wird mit einer unveränderten privaten Sicherung übernomm
 
 Feste Breite mit automatisch erkannter Höhe ist noch nicht freigegeben. Insbesondere
 die transparente Endkante einer Hülle ist nicht durch den inneren Kartenrand ersetzbar.
-Die vollständigen Hüllenränder und Zentrierung werden mit dem neuen Hüllenmodus
-noch physisch geprüft; Softwaretests allein belegen keinen vollständigen Gerätescan.
+Beim lokalen Test mit einer 77 × 102 mm großen Hülle wurde quer, mit einer geschlossenen
+langen Kante zuerst, und mit 108 × 83 mm Ausgabegröße einschließlich Randreserve
+gescannt. Beide Seiten zeigten die tatsächlichen vier Hüllenecken und lesbare Details.
+Eine innerhalb der Hülle schief sitzende Karte wird dadurch nicht geradegerichtet.
+Diese Einzelprüfung ersetzt weder eine Dickenfreigabe noch einen Serientest.
 Zurückgehaltene Aufträge aus älteren Versionen ohne geprüfte Rahmung bleiben
 lesbar und erhalten, werden aber nicht als maßgerecht exportiert oder entfernt.
 Eine Größenvorgabe ändert nicht die mechanischen
@@ -268,11 +281,13 @@ für erste Tests immer genau eine entbehrliche Karte verwenden.
 Der Epson-eigene Tastenempfänger läuft als kleiner isolierter Hilfsprozess.
 Nach einer physischen Taste 1 schließt er seine Verbindung und endet. Erst wenn
 beides bestätigt ist, startet der jeweilige Scanprozess. Normale JPG/PDF-Scans
-verwenden ImageCaptureCore. Der kontinuierliche Einzug verwendet den nativen
-Epson-Autoeinzug; Zuschnitt und Schräglagenkorrektur stammen aus Scanner.framework.
-Die Orientierung ermittelt Epsons ImageProcessor/Esaod an den vollständigen
-Einzelbildern. Die App wendet diese Drehentscheidung an und baut das PDF aus
-geprüften Seiten. Die störungsanfällige vollständige ScanEngine-Pipeline aus
+verwenden ImageCaptureCore. Der kontinuierliche Einzug und transparente Hüllen
+verwenden den nativen Epson-Autoeinzug; ein Hüllen-Einzelscan endet nach der ersten
+Charge. Zuschnitt und Schräglagenkorrektur stammen aus Scanner.framework, soweit
+das Profil sie zulässt. Im bisherigen Automatikmodus ermittelt Epsons
+ImageProcessor/Esaod die Orientierung an den vollständigen Einzelbildern;
+die neuen Profile verwenden stattdessen ihre feste Drehung oder lokale macOS-Analyse.
+Die App baut das PDF aus geprüften Seiten. Die störungsanfällige vollständige ScanEngine-Pipeline aus
 dem privaten Vorversuch wird nicht verwendet.
 
 Erst nach bestätigtem Abschluss, Schließen und Prozessende startet der nächste
