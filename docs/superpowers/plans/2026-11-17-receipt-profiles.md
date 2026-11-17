@@ -42,9 +42,9 @@
 - `ScanSettings.rememberActiveProfileSettings()` synchronisiert den aktiven Speicher.
 - `ScanProfile.receipts(destination: String?) -> ScanProfile` liefert das automatische PDF-Belegprofil.
 
-- [ ] Tests zuerst schreiben: Karten/Belege-Rundreise mit Neustart und Menüänderungen, Legacy-Rückkehr, alte Profile, ungültige Ziele ohne Mutation und echter PDF-Export mit gewähltem Profil.
-- [ ] Tests ausführen und das Fehlen der neuen Profilvorgaben bestätigen.
-- [ ] Minimale optionale Speicherwerte und Umschaltfunktionen implementieren; Editor und Menüpfade anbinden, aktives Profil vor dem Löschen verlassen.
-- [ ] Vollständige native Suite und Release-Build ausführen. Expected: alle Tests bestanden, signierte App gebaut.
-- [ ] Änderung gesondert prüfen, PR mit relevanter CI vorbereiten/integrieren; Nutzerfreigabe für diesen lokalen Profilauftrag liegt vor.
-- [ ] Bisherige App/Einstellungen sichern, aktualisierte App installieren, Belegprofil mit bestätigtem Ordner hinzufügen und Profilwechsel ohne Hardware-Scan prüfen.
+- [x] Tests zuerst schreiben: Karten/Belege-Rundreise mit Neustart und Menüänderungen, Legacy-Rückkehr, alte Profile, ungültige Ziele ohne Mutation und echter PDF-Export mit gewähltem Profil.
+- [x] Tests ausführen und das Fehlen der neuen Profilvorgaben bestätigen.
+- [x] Minimale optionale Speicherwerte und Umschaltfunktionen implementieren; Editor und Menüpfade anbinden, aktives Profil vor dem Löschen verlassen.
+- [x] Vollständige native Suite und Release-Build ausführen. Expected: alle Tests bestanden, signierte App gebaut.
+- [x] Änderung unabhängig geprüft, Befunde behoben und PR-Text vorbereitet. Externes Hochladen wurde von der automatischen Freigabe mangels ausdrücklicher Nutzerfreigabe abgelehnt; keine Veröffentlichung und kein Merge erfolgt.
+- [x] Bisherige App/Einstellungen sichern, aktualisierte App installieren, Belegprofil mit bestätigtem Ordner hinzufügen und Profilwechsel ohne Hardware-Scan prüfen.
