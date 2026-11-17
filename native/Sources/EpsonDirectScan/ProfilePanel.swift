@@ -10,24 +10,35 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
     private let profiles = NSPopUpButton(), area = NSPopUpButton(), orientation = NSPopUpButton()
     private let front = NSPopUpButton(), back = NSPopUpButton(), offset = NSPopUpButton()
     private let name = NSTextField(), width = NSTextField(), height = NSTextField()
+    private let destination = NSTextField(labelWithString: "")
+    private let output = NSPopUpButton()
+    private var profileSettings: ProfileScanSettings
     private let hint = NSTextField(wrappingLabelWithString:"")
     private let removeButton = NSButton()
     private let transparent = NSButton(checkboxWithTitle:"Transparente Hülle vollständig erfassen",target:nil,action:nil)
     private let referenceButton=NSButton(),clearReferenceButton=NSButton()
     private let referenceStatus=NSTextField(labelWithString:"")
     init(settings: ScanSettings, completion: @escaping (ScanSettings?) -> Bool) {
-        snapshot = settings;self.completion = completion
-        if let selected = settings.activeProfile ?? settings.profiles.first { current = selected }
+        var saved = settings; saved.rememberActiveProfileSettings()
+        snapshot = saved;self.completion = completion
+        profileSettings = ProfileScanSettings(settings: saved)
+        if let selected = saved.activeProfile ?? saved.profiles.first { current = selected }
         else { var p = ScanProfile(name:"Karte");p.area = ScanArea(widthMM:63,heightMM:88);p.orientation = .vision;current = p }
-        let panel = NSPanel(contentRect:NSRect(x:0,y:0,width:560,height:720),styleMask:[.titled,.closable],backing:.buffered,defer:false)
+        let panelHeight = min(834, (NSScreen.main?.visibleFrame.height ?? 914) - 80)
+        let panel = NSPanel(contentRect:NSRect(x:0,y:0,width:560,height:panelHeight),styleMask:[.titled,.closable],backing:.buffered,defer:false)
         super.init(window:panel);panel.title = "Scanprofile";panel.isReleasedWhenClosed = false;panel.hidesOnDeactivate = false;panel.delegate = self
-        let content = NSView(frame:panel.frame);panel.contentView = content
-        func label(_ text:String,_ y:CGFloat) { let v = NSTextField(labelWithString:text);v.frame=NSRect(x:20,y:y+140,width:200,height:24);content.addSubview(v) }
-        func field(_ v:NSView,_ y:CGFloat) {v.frame=NSRect(x:220,y:y+140,width:315,height:26);content.addSubview(v)}
+        let root = NSView(frame: NSRect(x:0,y:0,width:560,height:panelHeight)); panel.contentView = root
+        let scroll = NSScrollView(frame: NSRect(x:0,y:64,width:560,height:panelHeight-64))
+        scroll.hasVerticalScroller = true; scroll.drawsBackground = false
+        let content = NSView(frame: NSRect(x:0,y:0,width:560,height:770))
+        scroll.documentView = content; root.addSubview(scroll)
+        func label(_ text:String,_ y:CGFloat) { let v = NSTextField(labelWithString:text);v.frame=NSRect(x:20,y:y+200,width:200,height:24);content.addSubview(v) }
+        func field(_ v:NSView,_ y:CGFloat) {v.frame=NSRect(x:220,y:y+200,width:315,height:26);content.addSubview(v)}
         label("Profil bearbeiten",530)
         for p in settings.profiles {profiles.addItem(withTitle:p.name);profiles.lastItem?.representedObject=p.id}
         profiles.addItem(withTitle:"Neues Kartenprofil");profiles.lastItem?.representedObject="card"
         profiles.addItem(withTitle:"Neuer Toploader");profiles.lastItem?.representedObject="holder"
+        profiles.addItem(withTitle:"Neues Belegprofil");profiles.lastItem?.representedObject="receipts"
         profiles.target=self;profiles.action=#selector(selectProfile);field(profiles,530)
         if let index=settings.profiles.firstIndex(where:{$0.id==current.id}) {profiles.selectItem(at:index)} else {profiles.selectItem(at:settings.profiles.count)}
         label("Name",489);field(name,489)
@@ -42,25 +53,37 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
         label("Vorne / feste Ersatzdrehung",284);field(front,284)
         label("Hinten / feste Ersatzdrehung",243);field(back,243)
         label("Druckversatz der Rückseite",202);field(offset,202)
-        transparent.frame=NSRect(x:20,y:301,width:520,height:26);transparent.target=self;transparent.action=#selector(updateControls);content.addSubview(transparent)
+        transparent.frame=NSRect(x:20,y:361,width:520,height:26);transparent.target=self;transparent.action=#selector(updateControls);content.addSubview(transparent)
         referenceButton.title="Aufrechte Referenz wählen …";referenceButton.target=self;referenceButton.action=#selector(chooseReference)
-        referenceButton.bezelStyle = .rounded;referenceButton.frame=NSRect(x:16,y:257,width:300,height:32);content.addSubview(referenceButton)
+        referenceButton.bezelStyle = .rounded;referenceButton.frame=NSRect(x:16,y:317,width:300,height:32);content.addSubview(referenceButton)
         clearReferenceButton.title="Referenz entfernen";clearReferenceButton.target=self;clearReferenceButton.action=#selector(clearReference)
-        clearReferenceButton.bezelStyle = .rounded;clearReferenceButton.frame=NSRect(x:324,y:257,width:216,height:32);content.addSubview(clearReferenceButton)
-        referenceStatus.frame=NSRect(x:20,y:221,width:520,height:25);referenceStatus.font = .systemFont(ofSize:12);content.addSubview(referenceStatus)
-        hint.frame=NSRect(x:20,y:70,width:520,height:118);hint.font = .systemFont(ofSize:12);hint.textColor = .secondaryLabelColor;content.addSubview(hint)
+        clearReferenceButton.bezelStyle = .rounded;clearReferenceButton.frame=NSRect(x:324,y:317,width:216,height:32);content.addSubview(clearReferenceButton)
+        referenceStatus.frame=NSRect(x:20,y:281,width:520,height:25);referenceStatus.font = .systemFont(ofSize:12);content.addSubview(referenceStatus)
+        hint.frame=NSRect(x:20,y:130,width:520,height:118);hint.font = .systemFont(ofSize:12);hint.textColor = .secondaryLabelColor;content.addSubview(hint)
+        destination.frame = NSRect(x:20,y:86,width:355,height:24)
+        destination.lineBreakMode = .byTruncatingMiddle; content.addSubview(destination)
+        let folder = NSButton(title:"Ordner wählen …",target:self,action:#selector(chooseDestination))
+        folder.bezelStyle = .rounded; folder.frame = NSRect(x:384,y:80,width:155,height:32); content.addSubview(folder)
+        label("Ausgabe im Profil", -160)
+        output.addItems(withTitles:["JPG – jede Seite einzeln", "PDF – eine Datei pro Blatt", "Sammlungs-PDF – kontinuierlicher Scan"])
+        output.item(at: 2)?.isEnabled = false
+        field(output, -160)
         func button(_ title:String,_ x:CGFloat,_ w:CGFloat,_ action:Selector)->NSButton {
-            let b=NSButton(title:title,target:self,action:action);b.bezelStyle = .rounded;b.frame=NSRect(x:x,y:20,width:w,height:32);content.addSubview(b);return b
+            let b=NSButton(title:title,target:self,action:action);b.bezelStyle = .rounded;b.frame=NSRect(x:x,y:20,width:w,height:32);root.addSubview(b);return b
         }
         removeButton.title="Profil löschen";removeButton.target=self;removeButton.action=#selector(removeProfile);removeButton.bezelStyle = .rounded
-        removeButton.frame=NSRect(x:16,y:20,width:130,height:32);content.addSubview(removeButton)
+        removeButton.frame=NSRect(x:16,y:20,width:130,height:32);root.addSubview(removeButton)
         _ = button("Abbrechen",240,110,#selector(cancel))
         let save=button("Speichern und verwenden",350,195,#selector(save));save.keyEquivalent="\r"
-        load(current);panel.center()
+        load(current); content.scroll(NSPoint(x:0,y:max(0,770-scroll.contentView.bounds.height))); panel.center()
     }
     required init?(coder:NSCoder) { fatalError("Not supported") }
     private func load(_ profile:ScanProfile) {
         current=profile;name.stringValue=profile.name
+        profileSettings = profile.scanSettings ?? ProfileScanSettings(settings: snapshot)
+        showDestination()
+        output.selectItem(at: profileSettings.automaticFeeding ? 2 : profileSettings.outputFormat == .jpg ? 0 : 1)
+        output.isEnabled = !profileSettings.automaticFeeding
         area.selectItem(at:profile.area.isAutomatic ? 0 : 1)
         width.stringValue=profile.area.widthMM.map{String(format:"%g",$0)} ?? ""
         height.stringValue=profile.area.heightMM.map{String(format:"%g",$0)} ?? ""
@@ -71,6 +94,9 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
     }
     @objc private func selectProfile() {
         if let id=profiles.selectedItem?.representedObject as? UUID,let p=snapshot.profiles.first(where:{$0.id==id}) {load(p);return}
+        if profiles.selectedItem?.representedObject as? String == "receipts" {
+            load(ScanProfile.receipts(destination: nil)); return
+        }
         let holder=profiles.selectedItem?.representedObject as? String == "holder"
         var p=ScanProfile(name:holder ? "Toploader" : "Karte");p.orientation = .vision
         if holder {p.transparentOriginal=true}
@@ -89,7 +115,7 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
         if transparent.state == .on {
             text="Die Hülle wird mit transparenten Rändern erfasst. Feste Maße bestimmen die Ausgabegröße vor der Drehung, ohne Strecken. Bei zu kleiner Fläche bleiben die Originale erhalten. Bitte Automatisch – macOS oder feste Drehung wählen."
         }
-        if mode == .vision && snapshot.duplex && (snapshot.automaticFeeding || transparent.state == .on ? current.feedingMapping : current.icaMapping) == nil {
+        if mode == .vision && profileSettings.duplex && (profileSettings.automaticFeeding || transparent.state == .on ? current.feedingMapping : current.icaMapping) == nil {
             text += "\nDie Duplex-Zuordnung dieses Scanwegs ist noch nicht kalibriert. Bis zur Geräteprüfung gelten die festen Ersatzdrehungen."
         } else if mode == .vision {text += "\nBei unsicherer Erkennung gelten die festen Ersatzdrehungen. Vorne/hinten bezeichnet die Scannerseite."}
         hint.stringValue=text
@@ -102,6 +128,20 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
         catch {showError("Die Referenz konnte nicht gelesen werden. Bitte ein einzelnes JPG- oder PNG-Bild mit höchstens 16 Megapixeln und 32 MB wählen.")}
     }
     @objc private func clearReference() {current.referencePrint=nil;updateControls()}
+    private func showDestination() {
+        destination.stringValue = profileSettings.destination ?? "Noch kein Ablageordner gewählt"
+        destination.toolTip = profileSettings.destination
+    }
+    @objc private func chooseDestination() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true; panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false; panel.canCreateDirectories = true
+        panel.title = "Ablageordner für dieses Profil wählen"; panel.prompt = "Ordner verwenden"
+        if let path = profileSettings.destination { panel.directoryURL = URL(fileURLWithPath:path) }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard FileManager.default.isWritableFile(atPath:url.path) else { showError("Der gewählte Ordner ist nicht beschreibbar."); return }
+        profileSettings.destination = url.path; showDestination()
+    }
     @objc private func save() {
         var p=current;p.name=name.stringValue.trimmingCharacters(in:.whitespacesAndNewlines)
         p.transparentOriginal=transparent.state == .on
@@ -111,15 +151,14 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
         } else {p.area=ScanArea()}
         p.orientation=OrientationMode.allCases[orientation.indexOfSelectedItem]
         p.frontRotation=front.indexOfSelectedItem*90;p.backRotation=back.indexOfSelectedItem*90;p.printedBackOffset=offset.indexOfSelectedItem*90
+        if !profileSettings.automaticFeeding { profileSettings.outputFormat = output.indexOfSelectedItem == 0 ? .jpg : .pdf }
+        p.scanSettings = profileSettings
         var next=snapshot
-        if let index=next.profiles.firstIndex(where:{$0.id==p.id}) {next.profiles[index]=p} else {next.profiles.append(p)}
-        next.activeProfileID=p.id
-        do {try p.validateForCapture();try next.validate();finish(next)} catch {showError("Bitte Profilnamen, Drehungen und Maße prüfen. Breite:50,8–215,9mm, Höhe:50,8–297mm. Bei fester Fläche bitte feste Drehung oder Automatisch – macOS wählen.")}
+        do {try next.saveProfile(p);finish(next)} catch {showError("Bitte Profilnamen, Ablageordner, Drehungen und Maße prüfen. Breite:50,8–215,9mm, Höhe:50,8–297mm. Bei fester Fläche bitte feste Drehung oder Automatisch – macOS wählen.")}
     }
     @objc private func removeProfile() {
-        var next=snapshot;next.profiles.removeAll{$0.id==current.id}
-        if next.activeProfileID==current.id {next.activeProfileID=nil}
-        finish(next)
+        var next=snapshot
+        do {try next.removeProfile(current.id);finish(next)} catch {showError(error.localizedDescription)}
     }
     @objc private func cancel() {finish(nil)}
     private func finish(_ next:ScanSettings?) {

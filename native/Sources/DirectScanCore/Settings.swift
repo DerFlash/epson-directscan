@@ -15,6 +15,7 @@ public struct ScanSettings: Codable, Equatable {
     public var feedingTimeoutSeconds = 120
     public var profiles: [ScanProfile] = []
     public var activeProfileID: UUID?
+    public var legacyScanSettings: ProfileScanSettings?
     public var activeProfile: ScanProfile? { profiles.first { $0.id == activeProfileID } }
     public var transparentOriginal: Bool { activeProfile?.isTransparentOriginal == true }
     public var usesDirectCapture: Bool { automaticFeeding || transparentOriginal }
@@ -24,7 +25,7 @@ public struct ScanSettings: Codable, Equatable {
     public var requiresImageProcessing: Bool { activeProfile.map { $0.orientation != .epson || !$0.area.isAutomatic } ?? false }
     public init(destination: String? = nil) { self.destination = destination }
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, destination, paused, crop, deskew, rotate, duplex, outputFormat, automaticFeeding, feedingTimeoutSeconds, profiles, activeProfileID
+        case schemaVersion, destination, paused, crop, deskew, rotate, duplex, outputFormat, automaticFeeding, feedingTimeoutSeconds, profiles, activeProfileID, legacyScanSettings
     }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -44,6 +45,7 @@ public struct ScanSettings: Codable, Equatable {
         if version == 3 {
             profiles = try c.decode([ScanProfile].self, forKey:.profiles)
             activeProfileID = try c.decodeIfPresent(UUID.self, forKey:.activeProfileID)
+            legacyScanSettings = try c.decodeIfPresent(ProfileScanSettings.self, forKey: .legacyScanSettings)
         }
         try validate()
     }
@@ -55,6 +57,7 @@ public struct ScanSettings: Codable, Equatable {
             throw ScanFailure.invalidSettings
         }
         try profiles.forEach { try $0.validate() }
+        try legacyScanSettings?.validate()
     }
 }
 
