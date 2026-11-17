@@ -82,6 +82,8 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
 
         section("Ausgabe und Einzug")
         row("Ablageordner", destination, "destination")
+        destination.cell?.usesSingleLineMode = true
+        destination.lineBreakMode = .byTruncatingMiddle
         destination.placeholderString = "Noch kein Ablageordner gewählt"; destination.frame.size.width = 242
         let folder = NSButton(title: "Ordner wählen …", target: self, action: #selector(chooseDestination))
         folder.identifier = NSUserInterfaceItemIdentifier("profile.chooseDestination"); folder.bezelStyle = .rounded
