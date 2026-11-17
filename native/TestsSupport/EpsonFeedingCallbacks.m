@@ -42,6 +42,9 @@
 @property int signalDuringControl;
 @end
 @implementation ControlFixture
+- (BOOL)documentLoaded{return NO;}
+- (unsigned char)jobMode{return 0;}
+- (BOOL)isScanning{return NO;}
 - (unsigned char)mode{return self.controlMode;}
 - (int)setMode:(unsigned char)value{if(!self.controlError&&!self.rejectControl)self.controlMode=value;if(self.signalDuringControl)signalHandler(self.signalDuringControl);return self.controlError;}
 - (int)startScanningInAFM{self.afCalled=YES;if(self.controlMode==1)self.captureRequested=YES;return self.captureError;}
@@ -60,6 +63,8 @@ static NSInteger callbackError(FeedingReceiver *receiver,NSString *selector,NSEr
 }
 
 int main(void) { @autoreleasepool {
+    ControlFixture *stale=[ControlFixture new];FeedingReceiver *single=[FeedingReceiver new];single.singleShot=YES;
+    if(captureArmedFeeding((id<FeedingScanner>)stale,single,getppid())!=0||!stale.captureRequested){fprintf(stderr,"An armed single-shot must submit capture despite an advisory empty paper status\n");return 18;}
     BOOL started=NO;
     ControlFixture *control=[ControlFixture new];
     if(startFeeding((id<FeedingScanner>)control,getppid(),&started)!=0||!started||!control.captureRequested){fprintf(stderr,"AF success must actually request capture after acquiring scanner control\n");return 12;}

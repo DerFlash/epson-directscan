@@ -107,6 +107,24 @@ private final class AreaFeeder: ICScannerFunctionalUnitDocumentFeeder {
     deinit { try? FileManager.default.removeItem(at: root) }
 }
 @Suite @MainActor struct AdapterTests {
+    @Test func authorizedScanAcceptsPagesDespiteStaleEmptyPaperStatus() throws {
+        let f = try AdapterFixture(loaded: false), image = try StorageTests()
+        var completed: Int?
+        f.controller.onScanFinished = { completed = $0 }
+        f.controller.scannerDevice(f.browser.device, didSelect: f.browser.device.feeder, error: nil)
+        f.controller.scanAuthorized()
+        #expect(f.browser.device.scanRequested)
+        #expect(completed == nil)
+        let job = try #require(f.storage.pendingJobs().first)
+        let source = job.directory.appendingPathComponent("page.jpg")
+        try image.jpeg(source, width: 100, height: 200)
+        f.controller.scannerDevice(f.browser.device, didScanTo: source)
+        f.controller.scannerDevice(f.browser.device, didCompleteScanWithError: nil)
+        #expect(completed == 1 && f.controller.imagesSaved == 1)
+        #expect(try !f.storage.hasUnfinishedJobs())
+        f.controller.pause(); f.browser.device.openSession = false
+        f.controller.device(f.browser.device, didCloseSessionWithError: nil)
+    }
     @Test func missingOrMistypedRotationFeatureStopsProfileScanBeforeTransport() throws {
         var profile=ScanProfile(name:"Karte");profile.orientation = .vision
         let variants: [[ICScannerFeature]?] = [nil,[WrongRotationFeature()]]
@@ -271,7 +289,7 @@ private final class AreaFeeder: ICScannerFunctionalUnitDocumentFeeder {
         feeder.supported = true; feeder.reject = true
         #expect(throws: (any Error).self) { try ScannerController.configureDuplex(feeder, enabled: true) }
     }
-    @Test func authorizedWorkerCannotScanBeforeReadyOrWithoutPaper() throws {
+    @Test func authorizedWorkerCannotScanBeforeConfirmedReadiness() throws {
         let f = try AdapterFixture()
         var completed: Int?
         f.controller.onScanFinished = { completed = $0 }
@@ -280,9 +298,7 @@ private final class AreaFeeder: ICScannerFunctionalUnitDocumentFeeder {
         #expect(completed == nil)
         f.controller.scannerDevice(f.browser.device, didSelect: f.browser.device.feeder, error: nil)
         #expect(!f.browser.device.scanRequested)
-        f.controller.scanAuthorized()
-        #expect(completed == 0)
-        #expect(!f.browser.device.scanRequested)
+        #expect(completed == nil)
         f.controller.pause()
         f.controller.device(f.browser.device, didCloseSessionWithError: nil)
     }

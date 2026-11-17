@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0-beta.2-dev — 2026-11-18 (Build 27)
+
+- Expose output, duplex, continuous collection mode, timeout and corrections in
+  the profile editor, alongside geometry, orientation and references. Label menu
+  shortcuts with their active profile, and allow editing the legacy settings.
+- Treat cached negative paper detection as advisory after an authorized button
+  press. A controlled comparison on ES-C320W/driver 6.7.84 reported no paper while
+  Image Capture successfully delivered a full A4 image. Actual driver results,
+  existing progress timeouts and confirmed cancellation govern completion.
+
 ## 0.4.0-beta.2-dev — 2026-11-17 (Build 26)
 
 - Remember destination, JPG/PDF output, duplex, feeding mode, timeout and correction

@@ -93,14 +93,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         connectButton?.isEnabled = (controller.collecting || !controller.busy) && !editorOpen
         folderButton?.isEnabled = !controller.busy && !editorOpen
     }
-    private func add(_ title: String, _ action: Selector? = nil, enabled: Bool = true, checked: Bool? = nil, value: String? = nil) {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
-        item.target = self; item.isEnabled = enabled
-        if let checked { item.state = checked ? .on : .off }
-        item.representedObject = value; menu.addItem(item)
-    }
     func menuNeedsUpdate(_ menu: NSMenu) {
+        @discardableResult
+        func add(_ title: String, _ action: Selector? = nil, enabled: Bool = true, checked: Bool? = nil, value: String? = nil) -> NSMenuItem {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            item.target = self; item.isEnabled = enabled
+            if let checked { item.state = checked ? .on : .off }
+            item.representedObject = value; menu.addItem(item); return item
+        }
+        @discardableResult
+        func addChoices(_ title: String, options: [(String, String)], selected: String, action: Selector, enabled: Bool) -> NSMenuItem {
+            let parent = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            let choices = NSMenu()
+            for (label, value) in options {
+                let item = NSMenuItem(title: label, action: action, keyEquivalent: "")
+                item.target = self; item.representedObject = value; item.state = value == selected ? .on : .off; item.isEnabled = enabled
+                choices.addItem(item)
+            }
+            choices.autoenablesItems = false; parent.submenu = choices; parent.isEnabled = enabled; menu.addItem(parent); return parent
+        }
         menu.removeAllItems()
+        menu.autoenablesItems = false
         add("Epson DirectScan Beta", enabled: false)
         add(recoveryProcessing ? "Zurückgehaltene Seiten werden gesichert …" : controller.message, enabled: false)
         add("Status anzeigen …", #selector(showStatus))
@@ -108,16 +121,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         add(controller.ownsEpsonButtons ? "Pausieren und Scanner freigeben" : "Mit Epson verbinden", #selector(toggleListening), enabled: !controller.busy && !editorOpen)
         if controller.collecting { add("Sammlung beenden und speichern", #selector(finishCollection)) }
-        add("Ablageordner wählen …", #selector(chooseFolder), enabled: !controller.busy && !editorOpen)
-        add("Ablageordner öffnen", #selector(openFolder), enabled: settings.destination != nil)
-        if let path = settings.destination { add("Ordner: " + URL(fileURLWithPath: path).lastPathComponent, enabled: false) }
         menu.addItem(.separator())
         let editable = !controller.busy && !editorOpen
-        addChoices("Scanprofil: " + (settings.activeProfile?.name ?? "Bisherige Einstellungen"),
+        let profileName = settings.activeProfile?.name ?? "Bisherige Einstellungen"
+        addChoices("Scanprofil: " + profileName,
             options: [("Bisherige Einstellungen", "legacy")] + settings.profiles.map { ($0.name,$0.id.uuidString) },
             selected: settings.activeProfileID?.uuidString ?? "legacy", action: #selector(changeProfile(_:)), enabled:editable)
         add("Scanprofile bearbeiten …", #selector(editProfiles), enabled:editable)
         add("300 dpi · Farbe", enabled: false)
+        menu.addItem(.separator())
+        add("Schnellschalter für „\(profileName)“", enabled: false).identifier = NSUserInterfaceItemIdentifier("profile.quick.heading")
+        add("Ablageordner wählen …", #selector(chooseFolder), enabled: editable).identifier = NSUserInterfaceItemIdentifier("profile.quick.destination")
+        add("Ablageordner öffnen", #selector(openFolder), enabled: settings.destination != nil)
+        if let path = settings.destination { add("Ordner: " + URL(fileURLWithPath: path).lastPathComponent, enabled: false) }
         add("Doppelseitig scannen", #selector(toggleCorrection(_:)), enabled: editable, checked: settings.duplex, value: "duplex")
         addChoices("Ausgabe: " + (settings.automaticFeeding ? "Sammlungs-PDF" : settings.outputFormat == .jpg ? "JPG" : "PDF pro Blatt"),
             options: [("JPG – jede Seite einzeln", "jpg"),("PDF – eine Datei pro Blatt", "pdf")],
@@ -126,9 +142,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         addChoices("Wartezeit: " + (settings.feedingTimeoutSeconds == 0 ? "unbegrenzt" : "\(settings.feedingTimeoutSeconds) Sekunden"),
             options: [("30 Sekunden", "30"),("60 Sekunden", "60"),("120 Sekunden", "120"),("300 Sekunden", "300"),("Unbegrenzt – mit Stop beenden", "0")],
             selected: String(settings.feedingTimeoutSeconds), action: #selector(changeTimeout(_:)), enabled: editable && settings.automaticFeeding)
-        add("Automatischer Zuschnitt", #selector(toggleCorrection(_:)), enabled: editable && (settings.activeProfile?.area.isAutomatic ?? true), checked: settings.driverCrop, value: "crop")
-        add(settings.activeProfile?.area.isAutomatic == false ? "Schräglagenkorrektur – bei festen Maßen aus" : "Schräglagenkorrektur", #selector(toggleCorrection(_:)), enabled: editable && (settings.activeProfile?.area.isAutomatic ?? true), checked: settings.driverDeskew, value: "deskew")
-        add("Automatische Drehung (bisher)", #selector(toggleCorrection(_:)), enabled: editable && settings.activeProfile == nil, checked: settings.driverRotate, value: "rotate")
+        let fixed = settings.activeProfile?.area.isAutomatic == false
+        let holder = settings.transparentOriginal
+        let correctionsEditable = editable && !fixed && !holder
+        add(holder ? "Zuschnitt – für transparente Hülle erforderlich" : fixed ? "Automatischer Zuschnitt – bei festen Maßen aus" : "Automatischer Zuschnitt",
+            #selector(toggleCorrection(_:)), enabled: correctionsEditable, checked: settings.driverCrop, value: "crop").identifier = NSUserInterfaceItemIdentifier("profile.quick.crop")
+        add(holder ? "Schräglagenkorrektur – bei Hüllen aus" : fixed ? "Schräglagenkorrektur – bei festen Maßen aus" : "Schräglagenkorrektur",
+            #selector(toggleCorrection(_:)), enabled: correctionsEditable, checked: settings.driverDeskew, value: "deskew").identifier = NSUserInterfaceItemIdentifier("profile.quick.deskew")
+        if let profile = settings.activeProfile {
+            let modes = [("Feste Drehung / Ersatzwerte", "fixed"), ("Automatisch – macOS", "vision"), ("Automatisch – Epson (bisher)", "epson")]
+            let title = modes.first { $0.1 == profile.orientation.rawValue }?.0 ?? "Feste Drehung"
+            addChoices("Ausrichtung: " + title,
+                options: modes.filter { $0.1 != "epson" || (!fixed && !holder) },
+                selected: profile.orientation.rawValue, action: #selector(changeOrientation(_:)), enabled: editable).identifier = NSUserInterfaceItemIdentifier("profile.quick.orientation")
+        } else {
+            add("Automatische Drehung (bisher)", #selector(toggleCorrection(_:)), enabled: editable, checked: settings.driverRotate, value: "rotate").identifier = NSUserInterfaceItemIdentifier("profile.quick.orientation")
+        }
         menu.addItem(.separator())
         add("Letzte Datei anzeigen", #selector(showLastFile), enabled: controller.lastFile != nil)
         add("Zurückgehaltene Scans und Protokoll öffnen", #selector(openRecovery))
@@ -137,16 +166,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add("Über diese App …", #selector(about))
         menu.addItem(.separator())
         add("Beenden", #selector(quit))
-    }
-    private func addChoices(_ title: String, options: [(String,String)], selected: String, action: Selector, enabled: Bool) {
-        let parent = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-        let choices = NSMenu()
-        for (label,value) in options {
-            let item = NSMenuItem(title: label, action: action, keyEquivalent: "")
-            item.target = self; item.representedObject = value; item.state = value == selected ? .on : .off; item.isEnabled = enabled
-            choices.addItem(item)
-        }
-        choices.autoenablesItems = false; parent.submenu = choices; parent.isEnabled = enabled; menu.addItem(parent)
     }
     private func persist(_ next: ScanSettings, validatingDestination: Bool = false) -> Bool {
         var saved = next
@@ -165,7 +184,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let panel = NSOpenPanel(); folderPanel = panel
         panel.canChooseDirectories = true; panel.canChooseFiles = false
         panel.allowsMultipleSelection = false; panel.canCreateDirectories = true
-        panel.title = "Ablageordner für Scans wählen"; panel.prompt = "Ordner verwenden"
+        panel.title = "Ablageordner für „\(settings.activeProfile?.name ?? "Bisherige Einstellungen")“ wählen"; panel.prompt = "Ordner verwenden"
         if let path = settings.destination { panel.directoryURL = URL(fileURLWithPath: path) }
         refreshIcon()
         panel.begin { [weak self] response in
@@ -210,7 +229,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard !controller.busy, !editorOpen, let key = sender.representedObject as? String else { return }
         var next = settings
         switch key {
-        case "crop": next.crop.toggle(); case "deskew": next.deskew.toggle(); case "rotate": next.rotate.toggle()
+        case "crop", "deskew":
+            guard !settings.transparentOriginal, settings.activeProfile?.area.isAutomatic != false else { return }
+            if key == "crop" { next.crop.toggle() } else { next.deskew.toggle() }
+        case "rotate":
+            guard settings.activeProfile == nil else { return }; next.rotate.toggle()
         case "duplex": next.duplex.toggle(); case "automaticFeeding": next.automaticFeeding.toggle()
         default: return
         }
@@ -221,6 +244,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard raw == "legacy" || UUID(uuidString:raw) != nil else { return }
         var next=settings
         do { try next.selectProfile(raw == "legacy" ? nil : UUID(uuidString:raw)); _=persist(next, validatingDestination: true) }
+        catch { showError(error.localizedDescription) }
+        refreshIcon()
+    }
+    @objc private func changeOrientation(_ sender: NSMenuItem) {
+        guard !controller.busy, !editorOpen, let raw = sender.representedObject as? String,
+              let mode = OrientationMode(rawValue: raw), var profile = settings.activeProfile else { return }
+        guard mode != .epson || (profile.area.isAutomatic && !profile.isTransparentOriginal) else { return }
+        profile.orientation = mode
+        var next = settings
+        do { try next.saveProfile(profile); _ = persist(next) }
         catch { showError(error.localizedDescription) }
         refreshIcon()
     }

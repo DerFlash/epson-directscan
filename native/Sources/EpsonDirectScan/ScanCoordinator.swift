@@ -276,7 +276,12 @@ final class ScanCoordinator {
                 else { try launch(.button) }
             case .feeding(let job)?:
                 guard feedingReady, feedingEnded, let finishReason else { throw ScanFailure.unfinishedPages }
-                if collectionPages == 0 { try storage.discardEmpty(job: job) }
+                if collectionPages == 0 {
+                    try storage.discardEmpty(job: job)
+                    if !job.settings.automaticFeeding && finishReason == .completed && lastScanNotice == nil {
+                        lastScanNotice = .noImages
+                    }
+                }
                 else {
                     try storage.complete(job: job, reason: finishReason)
                     lastCollectionIncomplete = try storage.manifest(job: job).hasIncompleteSheet

@@ -74,6 +74,25 @@ private final class HandoffClock { var time: TimeInterval = 0 }
     deinit { try? FileManager.default.removeItem(at: root) }
 }
 @Suite @MainActor struct HandoffTests {
+    @Test func zeroPageNativeSingleShotShowsNoticeOnlyAfterConfirmedRelease() throws {
+        let f = try HandoffFixture()
+        var profile = ScanProfile(name: "Hülle")
+        profile.area = ScanArea(widthMM: 108, heightMM: 83)
+        profile.transparentOriginal = true
+        f.settings.value.profiles = [profile]; f.settings.value.activeProfileID = profile.id
+        f.trigger()
+        let worker = f.factory.helpers[1]
+        worker.emit("ready", 1); worker.emit("end", 0)
+        #expect(f.factory.roles.count == 2 && f.controller.imagesSaved == 0)
+        worker.emit("closed", 0)
+        #expect(f.factory.roles.count == 2)
+        worker.exit()
+        #expect(f.factory.roles.last == .button)
+        f.factory.helpers.last?.emit("ready", 1)
+        #expect(f.controller.message.contains(EmptyScanReason.noImages.message))
+        #expect(f.controller.imagesSaved == 0)
+        #expect(try f.storage.pendingJobs().isEmpty)
+    }
     @Test func errorAndRecoveryKeepEpsonButtonsUntilExplicitPause() throws {
         let f=try HandoffFixture(),p=try transparentProfile()
         f.settings.value.profiles=[p];f.settings.value.activeProfileID=p.id;f.trigger()
