@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0-beta.2-dev — 2026-11-17 (Build 26)
+
+- Remember destination, JPG/PDF output, duplex, feeding mode, timeout and correction
+  choices separately for each scan profile and for the legacy settings.
+- Add a receipt profile template with automatic page area and PDF output per sheet.
+  The profile editor can choose its output folder and JPG/PDF format. Switching back
+  restores the previous card choices, including after restarting the app.
+- Keep existing profiles, local references and pending jobs readable. No scanner
+  driver or capture-path changes; this development build has no new hardware acceptance.
+
 ## 0.4.0-beta.1 — 2026-11-01
 
 - License the project under PolyForm Strict 1.0.0; modifications and redistribution

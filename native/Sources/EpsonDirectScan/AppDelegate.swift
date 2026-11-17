@@ -119,8 +119,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add("Scanprofile bearbeiten …", #selector(editProfiles), enabled:editable)
         add("300 dpi · Farbe", enabled: false)
         add("Doppelseitig scannen", #selector(toggleCorrection(_:)), enabled: editable, checked: settings.duplex, value: "duplex")
-        addChoices("Ausgabe: " + (settings.automaticFeeding ? "Sammlungs-PDF" : settings.outputFormat == .jpg ? "JPG" : "PDF pro Karte"),
-            options: [("JPG – jede Seite einzeln", "jpg"),("PDF – eine Datei pro Karte", "pdf")],
+        addChoices("Ausgabe: " + (settings.automaticFeeding ? "Sammlungs-PDF" : settings.outputFormat == .jpg ? "JPG" : "PDF pro Blatt"),
+            options: [("JPG – jede Seite einzeln", "jpg"),("PDF – eine Datei pro Blatt", "pdf")],
             selected: settings.outputFormat.rawValue, action: #selector(changeFormat(_:)), enabled: editable && !settings.automaticFeeding)
         add("Kontinuierlicher Scan (Sammlungs-PDF)", #selector(toggleCorrection(_:)), enabled: editable, checked: settings.automaticFeeding, value: "automaticFeeding")
         addChoices("Wartezeit: " + (settings.feedingTimeoutSeconds == 0 ? "unbegrenzt" : "\(settings.feedingTimeoutSeconds) Sekunden"),
@@ -148,8 +148,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         choices.autoenablesItems = false; parent.submenu = choices; parent.isEnabled = enabled; menu.addItem(parent)
     }
-    private func persist(_ next: ScanSettings) -> Bool {
-        do { try storage.saveSettings(next); settings = next; return true }
+    private func persist(_ next: ScanSettings, validatingDestination: Bool = false) -> Bool {
+        var saved = next
+        saved.rememberActiveProfileSettings()
+        do { try storage.saveSettings(saved, validatingDestination: validatingDestination); settings = saved; return true }
         catch { showError(error.localizedDescription); return false }
     }
     private var needsRecovery: Bool {
@@ -216,8 +218,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     @objc private func changeProfile(_ sender:NSMenuItem) {
         guard !controller.busy,!editorOpen,let raw=sender.representedObject as? String else{return}
-        var next=settings;next.activeProfileID=raw == "legacy" ? nil : UUID(uuidString:raw)
-        _=persist(next);refreshIcon()
+        guard raw == "legacy" || UUID(uuidString:raw) != nil else { return }
+        var next=settings
+        do { try next.selectProfile(raw == "legacy" ? nil : UUID(uuidString:raw)); _=persist(next, validatingDestination: true) }
+        catch { showError(error.localizedDescription) }
+        refreshIcon()
     }
     @objc private func editProfiles() {
         guard !controller.busy,!editorOpen else{return}
@@ -225,7 +230,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if wasListening {controller.pause(releaseEpsonServices:false)}
         profilePanel=ProfilePanel(settings:settings) { [weak self] next in
             guard let self else{return true}
-            if let next,!self.persist(next) {return false}
+            if let next,!self.persist(next, validatingDestination: true) {return false}
             self.profilePanel=nil
             if wasListening && !self.quitting {self.controller.start()}
             self.refreshIcon();return true

@@ -70,8 +70,9 @@ public final class ScanStorage {
             return settings
         } catch { throw ScanFailure.invalidSettings }
     }
-    public func saveSettings(_ settings: ScanSettings) throws {
+    public func saveSettings(_ settings: ScanSettings, validatingDestination: Bool = false) throws {
         try settings.validate()
+        if validatingDestination { _ = try validateDestination(settings.destination) }
         try write(settings, to: root.appendingPathComponent("settings.json"))
     }
     public func validateDestination(_ path: String?) throws -> URL {
