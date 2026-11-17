@@ -59,6 +59,11 @@ extension ScanSettings {
         // Schema-3 upgrades may already have a named profile active. Preserve
         // their original live choices for the legacy entry before first switching.
         if legacyScanSettings == nil { legacyScanSettings = saved }
+        // Inactive pre-upgrade profiles shared those same global choices too.
+        // Do not let their first selection inherit a newly added receipt folder.
+        for index in profiles.indices where profiles[index].scanSettings == nil {
+            profiles[index].scanSettings = legacyScanSettings
+        }
         if let index = profiles.firstIndex(where: { $0.id == activeProfileID }) {
             profiles[index].scanSettings = saved
         } else if activeProfileID == nil {
@@ -75,8 +80,9 @@ extension ScanSettings {
         if activeProfileID == id { rememberActiveProfileSettings(); return }
         rememberActiveProfileSettings()
         activeProfileID = id
-        (target?.scanSettings ?? (id == nil ? legacyScanSettings : nil))?.apply(to: &self)
-        // Historical profiles without saved choices inherit the current values once.
+        let restored = id.flatMap { selected in profiles.first { $0.id == selected }?.scanSettings }
+        (restored ?? (id == nil ? legacyScanSettings : nil))?.apply(to: &self)
+        // Keep the restored profile's snapshot synchronized with its live values.
         rememberActiveProfileSettings()
     }
 }

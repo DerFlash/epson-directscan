@@ -10,8 +10,8 @@ zum bisherigen Ordner und JPG nicht erfüllen.
 
 Beim Profilwechsel werden die aktuellen Vorgaben des verlassenen Profils
 gesichert und die des gewählten Profils geladen. Auch „Bisherige Einstellungen“
-behält seine Vorgaben. Bestehende Profile ohne Vorgaben übernehmen beim ersten
-Wechsel die bisherigen Werte. Scanfläche, Drehungen und Referenzen bleiben erhalten.
+behält seine Vorgaben. Alle bestehenden Profile ohne Vorgaben übernehmen vor dem
+ersten Wechsel die bisher gemeinsam genutzten Werte. Scanfläche, Drehungen und Referenzen bleiben erhalten.
 
 Vorgaben umfassen Ordner, JPG/PDF, Duplex, kontinuierlichen Einzug, Wartezeit
 und die drei Korrekturschalter. Der Profil-Editor zeigt Ordner und Ausgabe;

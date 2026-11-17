@@ -135,7 +135,7 @@ aktiviert; Schema 1/2 wird mit einer unveränderten privaten Sicherung übernomm
 JPG/PDF-Ausgabe, ein-/doppelseitigen Scan, kontinuierlichen Einzug, Wartezeit und
 die Korrekturschalter. Änderungen im Menü werden für das aktive Profil gespeichert;
 der Wechsel zu einem anderen Profil stellt dessen Vorgaben wieder her. Bestehende
-Profile ohne gespeicherte Vorgaben übernehmen beim ersten Wechsel die aktuellen Werte.
+Profile ohne gespeicherte Vorgaben übernehmen die vor dem Update gemeinsam genutzten Werte.
 „Bisherige Einstellungen“ behält ebenfalls seine eigenen Vorgaben.
 
 Für Dokumente unter **Scanprofile bearbeiten … → Neues Belegprofil** den

@@ -94,6 +94,17 @@ import Testing
         #expect(settings.destination == "/tmp/Karten" && settings.outputFormat == .jpg && settings.duplex)
     }
 
+    @Test func inactiveHistoricalCardProfileNeverInheritsReceiptDestination() throws {
+        let card = ScanProfile(name: "Karte"), holder = ScanProfile(name: "Toploader")
+        var settings = ScanSettings(destination: "/tmp/Karten")
+        settings.profiles = [card, holder]; settings.activeProfileID = holder.id
+        settings.duplex = true
+        try settings.saveProfile(ScanProfile.receipts(destination: "/tmp/Belege"))
+        settings = try JSONDecoder().decode(ScanSettings.self, from: JSONEncoder().encode(settings))
+        try settings.selectProfile(card.id)
+        #expect(settings.destination == "/tmp/Karten" && settings.outputFormat == .jpg && settings.duplex)
+    }
+
     @Test func unavailableReceiptFolderCannotReplacePersistedActiveProfile() throws {
         let fixture = try StorageTests(), store = try fixture.store(), folder = try fixture.destination()
         var previous = ScanSettings(destination: folder.path)
