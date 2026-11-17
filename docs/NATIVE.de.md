@@ -131,18 +131,22 @@ im Menü **Scanprofil** wählen. „Bisherige Einstellungen“ verwendet weiterh
 vorherigen Korrekturschalter. Bei der Übernahme wird kein neues Profil automatisch
 aktiviert; Schema 1/2 wird mit einer unveränderten privaten Sicherung übernommen.
 
-**Entwicklungsstand Build 26:** Profile merken sich zusätzlich Ablageordner,
+**Entwicklungsstand Build 27:** Profile merken sich zusätzlich Ablageordner,
 JPG/PDF-Ausgabe, ein-/doppelseitigen Scan, kontinuierlichen Einzug, Wartezeit und
 die Korrekturschalter. Änderungen im Menü werden für das aktive Profil gespeichert;
 der Wechsel zu einem anderen Profil stellt dessen Vorgaben wieder her. Bestehende
 Profile ohne gespeicherte Vorgaben übernehmen die vor dem Update gemeinsam genutzten Werte.
-„Bisherige Einstellungen“ behält ebenfalls seine eigenen Vorgaben.
+„Bisherige Einstellungen“ behält ebenfalls seine eigenen Vorgaben. Alle Vorgaben
+lassen sich gemeinsam unter **Scanprofile bearbeiten …** einstellen. Die Schalter
+im Hauptmenü stehen unter **Schnellschalter für …** und ändern nur das dort
+benannte aktive Profil. Bei festen Außenmaßen oder Hüllen sind unpassende
+Korrekturen deaktiviert; die bisherigen Korrekturwünsche bleiben gespeichert.
 
 Für Dokumente unter **Scanprofile bearbeiten … → Neues Belegprofil** den
 Eingangsordner wählen und **Speichern und verwenden** anklicken. Die Vorlage
 „Belege“ verwendet automatische Scanfläche und PDF-Ausgabe pro Blatt. Duplex und
 kontinuierlicher Einzug sind zunächst aus und lassen sich danach im Menü für
-dieses Profil einstellen. Ein mehrseitiges Dokument kann über den kontinuierlichen
+dieses Profil im Editor oder über die Schnellschalter einstellen. Ein mehrseitiges Dokument kann über den kontinuierlichen
 Einzug als gemeinsames PDF gespeichert werden. Mit **Scanprofil** zwischen Karten
 und Belegen wechseln. Bei einem nicht erreichbaren Ordner wird kein anderer
 Ablageordner als Ersatz verwendet. PDF-Dateien enthalten weiterhin Bilder ohne

@@ -15,4 +15,8 @@ for TASK_MACRO in "$TASK_TOOLCHAIN/lib/swift/host/plugins/testing/libTestingMacr
     break
   fi
 done
-swift test --package-path "$ROOT/native" --disable-xctest "${EXTRA[@]}"
+# AppKit window initialization can block the main actor on a fresh CI host.
+# Run real child-process deadline tests separately so their event callbacks are
+# serviced promptly, with their existing time limits and assertions unchanged.
+swift test --package-path "$ROOT/native" --disable-xctest "${EXTRA[@]}" --skip HelperProcessTests
+swift test --package-path "$ROOT/native" --disable-xctest "${EXTRA[@]}" --skip-build --filter HelperProcessTests

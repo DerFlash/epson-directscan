@@ -226,9 +226,11 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
         guard desiredActive, selectedReady, !closing, let s = scanner, s.hasOpenSession,
               let feeder = s.selectedFunctionalUnit as? ICScannerFunctionalUnitDocumentFeeder,
               policy.phase == .ready else { return }
-        guard feeder.documentLoaded else { emptyResult = .noPaper; onScanFinished?(0); return }
         guard policy.buttonPressed() else { return }
         do {
+            // Epson6.7.84 can report false for a loaded sheet. Only the actual
+            // authorized scan's pages/errors determine whether capture succeeds.
+            diagnostics.record("paper_status_snapshot", values: ["loaded": feeder.documentLoaded ? 1 : 0])
             let snapshot = settings()
             try configure(feeder, settings: snapshot)
             let next = try storage.beginJob(settings: snapshot); job = next; pages = 0
@@ -236,7 +238,7 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
             s.transferMode = .fileBased; s.downloadsDirectory = next.directory
             s.documentName = "scan"; s.documentUTI = "public.jpeg"
             deadline = now() + 120
-            diagnostics.record("scan_started"); update("Karte wird gescannt …"); s.requestScan()
+            diagnostics.record("scan_started"); update("Vorlage wird gescannt …"); s.requestScan()
         } catch { fail(error.localizedDescription, code: "scan_setup_failed", error: error) }
     }
     private func configure(_ feeder: ICScannerFunctionalUnitDocumentFeeder, settings: ScanSettings) throws {

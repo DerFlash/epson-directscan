@@ -199,6 +199,25 @@ static BOOL compatible(void){
  }}
 }
 @end
+static int captureArmedFeeding(id<FeedingScanner> scanner,FeedingReceiver *receiver,pid_t parent){
+ // The cached documentLoaded flag can remain false with a loaded sheet on
+ // Epson6.7.84. An armed physical-button job asks the driver to scan once;
+ // actual pages/errors and the existing supervised Stop determine the result.
+ BOOL started=NO;int status=startFeeding(scanner,parent,&started);if(status){emit(@"error",status);return 1;}
+ if(!started){
+  if(finishing&&!aborted&&getppid()==parent){emit(@"end",0);return 0;}
+  return 1;
+ }
+ BOOL stopSent=NO;NSTimeInterval stopDeadline=0;
+ while([scanner jobMode]!=0||[scanner isScanning]){@autoreleasepool{
+  [NSRunLoop.mainRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.05]];
+  if(getppid()!=parent)aborted=1;
+  if((aborted||finishing||receiver.failed||receiver.stopRequested)&&!stopSent){stopSent=YES;stopDeadline=NSProcessInfo.processInfo.systemUptime+12;int code=[scanner stopScanningInAutoFeedingMode];if(code){receiver.failed=YES;emit(@"error",code);}}
+  if(stopSent&&NSProcessInfo.processInfo.systemUptime>=stopDeadline){receiver.failed=YES;emit(@"error",-308);break;}
+ }}
+ int result=receiver.failed||aborted?1:0;if(result==0)emit(@"end",0);
+ return result;
+}
 int main(int argc,char **argv){@autoreleasepool{
  BOOL check=argc==2&&strcmp(argv[1],"--check")==0;
  if(!compatible()){emit(@"error",-301);emit(@"closed",0);return 1;}
@@ -244,24 +263,7 @@ int main(int argc,char **argv){@autoreleasepool{
   }
   if(aborted||getppid()!=parent)return 1;
   if(finishing){result=0;emit(@"end",0);}
-  else {
-  if(receiver.singleShot&&![scanner documentLoaded]){emit(@"empty",0);emit(@"end",0);result=0;}
-  else {
-  BOOL started=NO;status=startFeeding(scanner,parent,&started);if(status){emit(@"error",status);return 1;}
-  if(!started){
-   if(finishing&&!aborted&&getppid()==parent){result=0;emit(@"end",0);}
-   return result;
-  }
-  BOOL stopSent=NO;NSTimeInterval stopDeadline=0;
-  while([scanner jobMode]!=0||[scanner isScanning]){@autoreleasepool{
-   [NSRunLoop.mainRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.05]];
-   if(getppid()!=parent)aborted=1;
-   if((aborted||finishing||receiver.failed||receiver.stopRequested)&&!stopSent){stopSent=YES;stopDeadline=NSProcessInfo.processInfo.systemUptime+12;int code=[scanner stopScanningInAutoFeedingMode];if(code){receiver.failed=YES;emit(@"error",code);}}
-   if(stopSent&&NSProcessInfo.processInfo.systemUptime>=stopDeadline){receiver.failed=YES;emit(@"error",-308);break;}
-  }}
-  result=receiver.failed||aborted?1:0;if(result==0)emit(@"end",0);
-  }
-  }
+  else {result=captureArmedFeeding(scanner,receiver,parent);}
  }@catch(NSException *exception){emit(@"error",-309);result=1;}
  @finally{
   if([scanner jobMode]!=0)[scanner stopScanningInAutoFeedingMode];int code=opened?[scanner close]:0;
