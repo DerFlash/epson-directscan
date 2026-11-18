@@ -4,6 +4,22 @@ import Testing
 @testable import DirectScanCore
 
 @Suite struct ProfileTests {
+    @Test func documentSeparationIsOptInPerProfileAndPreservesCompleteCapture() throws {
+        var receipts=ScanProfile(name:"Belege");receipts.orientation = .vision
+        let old=try JSONDecoder().decode(ScanProfile.self,from:JSONEncoder().encode(receipts))
+        #expect(old.separateDocuments == nil)
+        receipts.separateDocuments=true
+        let cards=ScanProfile(name:"Karten")
+        var settings=ScanSettings(destination:"/tmp")
+        settings.profiles=[receipts,cards];settings.activeProfileID=receipts.id
+        #expect(settings.separatesDocuments && !settings.driverCrop && !settings.driverDeskew && !settings.driverRotate)
+        #expect(settings.crop && settings.deskew && settings.rotate)
+        settings=try JSONDecoder().decode(ScanSettings.self,from:JSONEncoder().encode(settings))
+        try settings.selectProfile(cards.id);#expect(!settings.separatesDocuments)
+        try settings.selectProfile(receipts.id);#expect(settings.separatesDocuments)
+        settings.profiles[0].area=ScanArea(widthMM:69,heightMM:94)
+        #expect(!settings.separatesDocuments && settings.profiles[0].separateDocuments == true)
+    }
     @Test func optionalLocalReferenceSurvivesSettingsAndRejectsUnboundedData() throws {
         let p=ScanProfile(name:"Referenz")
         var json=try #require(JSONSerialization.jsonObject(with:JSONEncoder().encode(p)) as? [String:Any])

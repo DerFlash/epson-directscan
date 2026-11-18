@@ -8,6 +8,24 @@ import Testing
         try #require(menu.items.first { $0.identifier?.rawValue == id }, "Missing menu item: \(id)")
     }
 
+    @Test func documentShortcutChangesOnlyActiveProfileAndKeepsRawCorrections() throws {
+        _ = NSApplication.shared
+        let fixture=try StorageTests(),storage=try fixture.store()
+        var receipts=ScanProfile(name:"Belege");receipts.orientation = .vision
+        let other=ScanProfile(name:"Andere Belege")
+        let app=AppDelegate(storage:storage);app.settings=ScanSettings(destination:try fixture.destination().path)
+        app.settings.profiles=[receipts,other];app.settings.activeProfileID=receipts.id
+        let menu=NSMenu();app.menuNeedsUpdate(menu)
+        let documents=try item("profile.quick.documents",in:menu)
+        #expect(documents.isEnabled && documents.state == .off)
+        menu.performActionForItem(at:menu.index(of:documents))
+        #expect(app.settings.separatesDocuments && app.settings.profiles[1].separateDocuments == nil)
+        #expect(app.settings.crop && app.settings.deskew)
+        #expect(try storage.loadSettings().separatesDocuments)
+        app.settings.activeProfileID=nil;app.menuNeedsUpdate(menu)
+        #expect(try !item("profile.quick.documents",in:menu).isEnabled)
+    }
+
     @Test func namedQuickSwitchesGroupFolderAndSaveOrientationOnExistingProfile() throws {
         _ = NSApplication.shared
         let fixture = try StorageTests(), storage = try fixture.store()

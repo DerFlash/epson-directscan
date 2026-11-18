@@ -103,6 +103,21 @@ static int startFeeding(id<FeedingScanner> scanner,pid_t parent,BOOL *started){
 }
 static BOOL configureFixedArea(id<FeedingScanner> scanner,NSDictionary *settings){
  NSNumber *width=settings[@"profileWidthMM"],*height=settings[@"profileHeightMM"];
+ if([settings[@"separateDocuments"] boolValue]){
+  if(width||height||[settings[@"transparentOriginal"] boolValue]||[settings[@"crop"] boolValue]||[settings[@"deskew"] boolValue]||[settings[@"rotate"] boolValue])return NO;
+  Class c=[scanner class];
+  NSDictionary *types=@{@"maxScanSize":@"{CGSize=dd}16@0:8",@"setScanArea:":@"v48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16",@"scanAreaInPixel":@"{CGRect={CGPoint=dd}{CGSize=dd}}16@0:8",@"xResolution":@"Q16@0:8",@"yResolution":@"Q16@0:8"};
+  // Keep ABI checks exact; these dimensions are native inches only after the
+  // pixel readback confirms the known 300dpi conversion.
+  for(NSString *name in types)if(!exact(c,name,[types[name] UTF8String]))return NO;
+  if([scanner xResolution]!=300||[scanner yResolution]!=300)return NO;
+  CGSize maximum=[scanner maxScanSize];
+  if(!isfinite(maximum.width)||!isfinite(maximum.height)||maximum.width<210.0/25.4||maximum.height<297.0/25.4)return NO;
+  // A4 documents plus carrier margin, bounded below the image-size guard.
+  double w=MIN(maximum.width,215.9/25.4),h=MIN(maximum.height,330.0/25.4);
+  [scanner setScanArea:CGRectMake(0,0,w,h)];CGRect actual=[scanner scanAreaInPixel];
+  return fabs(actual.origin.x)<=1&&fabs(actual.origin.y)<=1&&fabs(actual.size.width-w*300)<=1&&fabs(actual.size.height-h*300)<=1;
+ }
  if([settings[@"transparentOriginal"] boolValue]){
   Class c=[scanner class];
   NSDictionary *types=@{@"supportedLaminatedPaperModes":@"@16@0:8",@"supportedCroppingSizes":@"@16@0:8",@"setLaminatedPaperMode:":@"v20@0:8C16",@"laminatedPaperMode":@"C16@0:8",@"setCroppingSize:":@"v20@0:8f16",@"croppingSize":@"f16@0:8",@"setOverScanEnabled:":@"v20@0:8B16",@"overScanEnabled":@"B16@0:8",@"maxScanSize":@"{CGSize=dd}16@0:8",@"setScanArea:":@"v48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16",@"xResolution":@"Q16@0:8",@"yResolution":@"Q16@0:8",@"scanAreaInPixel":@"{CGRect={CGPoint=dd}{CGSize=dd}}16@0:8"};

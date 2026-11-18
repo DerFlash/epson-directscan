@@ -41,7 +41,10 @@ public struct ScanProfile: Codable, Equatable, Identifiable {
     public var printedBackOffset = 0
     // Optional for compatibility with profiles and pending jobs from build19.
     public var transparentOriginal: Bool?
+    public var separateDocuments: Bool?
     public var isTransparentOriginal: Bool { transparentOriginal == true }
+    public var canSeparateDocuments: Bool {area.isAutomatic && !isTransparentOriginal}
+    public var separatesDocuments: Bool {separateDocuments == true && canSeparateDocuments}
     public var referencePrint: Data?
     public var scanSettings: ProfileScanSettings?
     // Missing legacy/explicitly uncalibrated values retain conservative fallback.
@@ -76,5 +79,6 @@ public struct ScanProfile: Codable, Equatable, Identifiable {
         try validate()
         guard area.isAutomatic || orientation != .epson else {throw ScanFailure.unsupportedProfile}
         guard !isTransparentOriginal || orientation != .epson else {throw ScanFailure.unsupportedProfile}
+        guard !separatesDocuments || orientation != .epson else {throw ScanFailure.unsupportedProfile}
     }
 }

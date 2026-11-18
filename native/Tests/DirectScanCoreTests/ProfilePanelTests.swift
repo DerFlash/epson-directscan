@@ -26,6 +26,35 @@ import Testing
         return result
     }
 
+    @Test func separateDocumentsEditorSavesOnlySelectedProfileAndCancelDiscardsIt() throws {
+        _ = NSApplication.shared
+        var receipt=ScanProfile(name:"Belege");receipt.orientation = .vision
+        var saved:ScanSettings?
+        let panel=ProfilePanel(settings:settings(profile:receipt)) {saved=$0;return true}
+        defer {panel.close()}
+        let separate:NSButton=try control("profile.documents",in:panel)
+        #expect(separate.isEnabled && separate.state == .off)
+        separate.performClick(nil)
+        #expect(try !control("profile.crop",in:panel,as:NSButton.self).isEnabled)
+        try control("profile.save",in:panel,as:NSButton.self).performClick(nil)
+        #expect(saved?.activeProfile?.separateDocuments == true && saved?.activeProfileID == receipt.id)
+        #expect(saved?.crop == true && saved?.deskew == true)
+        var cancelled:ScanSettings?
+        let draft=ProfilePanel(settings:try #require(saved)) {cancelled=$0;return true}
+        defer {draft.close()}
+        try control("profile.documents",in:draft,as:NSButton.self).performClick(nil)
+        try control("profile.cancel",in:draft,as:NSButton.self).performClick(nil)
+        #expect(cancelled == nil && saved?.separatesDocuments == true)
+    }
+    @Test func documentModeKeepsIndividualFormatAvailableDuringContinuousFeeding() throws {
+        _ = NSApplication.shared
+        var profile=ScanProfile(name:"Belege");profile.orientation = .vision;profile.separateDocuments=true
+        var initial=settings(profile:profile);initial.automaticFeeding=true
+        let panel=ProfilePanel(settings:initial) {_ in true};defer {panel.close()}
+        let output:NSPopUpButton=try control("profile.output",in:panel)
+        #expect(output.isEnabled && output.selectedItem?.representedObject as? String=="jpg")
+    }
+
     @Test func saveEditsAllOutputChoicesAndGeometryWithoutReplacingIdentityOrReferences() throws {
         _ = NSApplication.shared
         var originalProfile = ScanProfile(name: "Karten")

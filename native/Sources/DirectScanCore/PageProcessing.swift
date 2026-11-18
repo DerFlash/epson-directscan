@@ -19,9 +19,17 @@ struct ProcessingRecord: Codable {
 }
 
 extension ScanStorage {
-    public func processingNotice(job: ScanJob) throws -> [OrientationNotice] { try record(job).processing?.notices ?? [] }
+    public func processingNotice(job: ScanJob) throws -> [OrientationNotice] {
+        let record=try record(job)
+        return record.originalCollection == true ? [] : record.documentProcessing?.notices ?? record.processing?.notices ?? []
+    }
 
     func checkedProcessing(_ record: JobRecord, job: ScanJob, isCancelled: () -> Bool = {false}, onCheckpoint: () throws -> Void = {}) throws -> PageManifest? {
+        if job.settings.separatesDocuments {
+            if record.originalCollection == true {return nil}
+            return try checkedDocuments(record,job:job,isCancelled:isCancelled,onCheckpoint:onCheckpoint)
+        }
+        guard record.documentProcessing==nil,record.originalCollection != true else {throw ScanFailure.invalidSource}
         if job.settings.activeProfile?.area.isAutomatic == false || job.settings.transparentOriginal {
             // Legacy capture could have used destructive driver deskew, and its
             // old processed copies may still describe the larger paper preset.
@@ -50,8 +58,14 @@ extension ScanStorage {
 
     public func prepareImages(job: ScanJob, analyze: (URL) throws -> [OrientationEvidence] = VisionOrientation.analyze,
                               referenceAnalyze: (URL,Data) throws -> [ReferenceEvidence] = {try ReferenceMatcher.analyze($0,reference:$1)},
+                              detectDocuments: ((URL)throws->[DocumentRegion])? = nil,
                               onProgress: (Int) throws -> Void = { _ in }, isCancelled: () -> Bool = { false }, onCheckpoint: () throws -> Void = {}) throws {
         try processingCheckpoint(isCancelled,onCheckpoint)
+        if job.settings.separatesDocuments {
+            if try record(job).originalCollection == true {return}
+            try prepareDocuments(job:job,analyze:analyze,referenceAnalyze:referenceAnalyze,detect:detectDocuments,onProgress:onProgress,isCancelled:isCancelled,onCheckpoint:onCheckpoint)
+            return
+        }
         guard job.settings.requiresImageProcessing, let profile = job.settings.activeProfile else { return }
         try profile.validateForCapture()
         var record = try record(job)

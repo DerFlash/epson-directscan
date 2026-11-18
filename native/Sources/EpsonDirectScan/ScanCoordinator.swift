@@ -136,12 +136,13 @@ final class ScanCoordinator {
             }
             checkpointStage=stage;deadline=now()+140
             if stage >= 2 {update("Scans werden geprüft und gespeichert …")}
-        case (.export?, "processing"):
-            guard let value = event.value, value > exportProgress, value <= exportPages, complete == nil, checkpointStage <= 1 else {
+        case (.export(let job)?, "processing"):
+            let limit=exportPages*(job.settings.separatesDocuments ? DocumentDetection.maximumDocumentsPerPage:1)
+            guard let value = event.value, value > exportProgress, value <= limit, complete == nil, checkpointStage <= 1 else {
                 fail("Ungültiger Verarbeitungsfortschritt. Die Originalseiten bleiben erhalten.",code:"processing_progress_invalid");return
             }
             exportProgress = value;deadline = now()+140
-            update("Ausrichtung wird geprüft · \(value)/\(exportPages) Seiten")
+            update(job.settings.separatesDocuments ? "Einzelbelege werden verarbeitet · \(value) Seiten":"Ausrichtung wird geprüft · \(value)/\(exportPages) Seiten")
         case (.scan?, "notice"), (.export?, "notice"):
             guard event.value == 1, complete == nil, !lastOrientationFallback else { fail("Ungültiger Ausrichtungshinweis.",code:"processing_notice_invalid");return }
             lastOrientationFallback = true;diagnostics.record("orientation_fixed_fallback")
@@ -204,7 +205,7 @@ final class ScanCoordinator {
             guard let snapshot = outputSettings else { fail("Ausgabeeinstellungen fehlen.",code:"worker_settings_missing");return }
             guard policy.phase == .scanning, !empty, complete == nil, let name = event.file,
                   !name.isEmpty, name == URL(fileURLWithPath: name).lastPathComponent,
-                  name.lowercased().hasSuffix(snapshot.automaticFeeding || snapshot.outputFormat == .pdf ? ".pdf" : ".jpg"), event.value == files + 1,
+                  name.lowercased().hasSuffix((snapshot.automaticFeeding && !snapshot.separatesDocuments) || snapshot.outputFormat == .pdf ? ".pdf" : ".jpg"), event.value == files + 1,
                   let destination = snapshot.destination else {
                 fail("Unerwartete Scandatei. Zurückgehaltene Dateien bitte prüfen.", code: "worker_file_invalid"); return
             }
@@ -228,6 +229,9 @@ final class ScanCoordinator {
         case (.scan?, "error") where event.value == -206:
             diagnostics.record("helper_error", values: ["code": -206])
             fail("Der Scanner meldet einen Einzugs- oder Gerätefehler. Vorlage und Papierweg prüfen, dann „Fehler zurücksetzen und neu verbinden“ wählen. Vorhandene Dateien bleiben erhalten.", code: "scanner_reported_fault")
+        case (.scan?, "error") where event.value == -207, (.export?, "error") where event.value == -207:
+            diagnostics.record("document_detection_failed")
+            fail("Dokumentgrenzen oder passende Rückseiten sind nicht eindeutig. Die vollständigen Vorlagen bleiben erhalten. Mit „Zurückgehaltene Seiten als PDF sichern“ lässt sich die Gesamtvorlage sichern.",code:"document_detection_failed")
         case (_, "error"):
             diagnostics.record("helper_error", values: ["code": event.value ?? 0])
             fail("Der Epson-Empfang oder Scan ist fehlgeschlagen. Bitte Treiber und zurückgehaltene Dateien prüfen.", code: "helper_failed")
@@ -267,9 +271,9 @@ final class ScanCoordinator {
                 diagnostics.record("scan_completed", values: ["pages": files])
                 policy.completed(); policy.disconnected(); frozenSettings = nil
                 try launch(.button)
-            case .export?:
+            case .export(let job)?:
                 guard complete == files, files > 0, try !storage.hasUnfinishedJobs() else { throw ScanFailure.unfinishedPages }
-                imagesSaved += exportPages;exportPages = 0
+                imagesSaved += job.settings.separatesDocuments ? files:exportPages;exportPages = 0
                 diagnostics.record("collection_completed")
                 policy.completed();policy.disconnected();frozenSettings = nil
                 if pauseAfterExport { pauseAfterExport = false;desiredActive = false;policy.pause();restoreServices() }

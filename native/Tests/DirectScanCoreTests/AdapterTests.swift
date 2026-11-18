@@ -107,6 +107,17 @@ private final class AreaFeeder: ICScannerFunctionalUnitDocumentFeeder {
     deinit { try? FileManager.default.removeItem(at: root) }
 }
 @Suite @MainActor struct AdapterTests {
+    @Test func documentSeparationSelectsAtLeastA4RatherThanRetainedSmallPaperPreset() throws {
+        let feeder=AreaFeeder();feeder.paper=ICScannerDocumentType(rawValue:5)!
+        var profile=ScanProfile(name:"Belege");profile.separateDocuments=true
+        var settings=ScanSettings();settings.profiles=[profile];settings.activeProfileID=profile.id
+        try ScannerController.configureArea(feeder,settings:settings)
+        #expect(feeder.documentType.rawValue==1 && feeder.measurementUnit == .centimeters)
+        #expect(feeder.scanArea==CGRect(x:0,y:0,width:21,height:29.7))
+        let payload=try #require(JSONSerialization.jsonObject(with:NativeProcess.feedingPayload(settings)) as? [String:Any])
+        #expect((payload["separateDocuments"] as? Bool)==true)
+        #expect((payload["crop"] as? Bool)==false && (payload["deskew"] as? Bool)==false && (payload["rotate"] as? Bool)==false)
+    }
     @Test func authorizedScanAcceptsPagesDespiteStaleEmptyPaperStatus() throws {
         let f = try AdapterFixture(loaded: false), image = try StorageTests()
         var completed: Int?

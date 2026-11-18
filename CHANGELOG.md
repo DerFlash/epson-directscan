@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0-beta.2-dev — 2026-11-18 (Build 29)
+
+- Add opt-in “Separate Dokumente erkennen” to named profiles and their menu
+  shortcuts. Use local Vision rectangle detection and Core Image crops, orient
+  documents independently, and export one PDF per document (or individual JPGs).
+- Pair duplex document crops only when their geometry gives an unambiguous
+  association. Keep ambiguous scans for explicit full-page PDF recovery.
+- Preserve full raw source jobs privately under Originals after successful
+  separate-document export; expose them through the menu. Existing jobs/profiles
+  keep the previous behavior with this option off.
+- Request at least a complete A4 page on the ICA path and a bounded full A4/carrier
+  area on the native feeding path. Keep per-document outputs during continuous
+  feeding and report their actual file count.
+- Validated with synthetic Vision images, rendered paired PDFs and recovery
+  checks. Hardware acceptance with the ordered carrier sheet is still pending.
+
 ## 0.4.0-beta.2-dev — 2026-11-18 (Build 28)
 
 - Name new scans after the active profile, for example
