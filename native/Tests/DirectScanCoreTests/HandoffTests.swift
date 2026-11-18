@@ -86,7 +86,7 @@ private final class HandoffClock { var time: TimeInterval = 0 }
         feed.emit("end",0);feed.emit("closed",0);feed.exit()
         guard case .export=f.factory.roles.last,let worker=f.factory.helpers.last else {throw ScanFailure.invalidSettings}
         let regions=DocumentProcessingTests().regions
-        try f.storage.prepareImages(job:job,detectDocuments:{_ in regions})
+        try f.storage.prepareImages(job:job,detectDocuments:{_ in regions},onProgress:{worker.emit("processing",$0)})
         let outputs=try f.storage.export(job:job);try f.storage.finish(job:job)
         for (i,file) in outputs.enumerated() {worker.emit("file",i+1,file:file.lastPathComponent)}
         worker.emit("complete",outputs.count);worker.emit("closed",0);worker.exit()

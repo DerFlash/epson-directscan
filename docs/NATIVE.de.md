@@ -181,7 +181,9 @@ nicht vom Treiber zugeschnitten oder gedreht. Nach erfolgreicher Ablage bleiben
 die vollständigen Originalbilder privat erhalten. **Vollständige Vorlagen öffnen**
 im Menü öffnet diesen Ordner zur Kontrolle und eigenen Verwaltung. Gedruckte
 Rahmen, fehlender Kontrast und abgeschnittene Belege können die Erkennung
-beeinträchtigen; die Originalbilder werden deshalb weiterhin aufbewahrt.
+beeinträchtigen. Sehr kleine Flächen unter etwa 13 × 20 mm auf einer A4-Vorlage
+werden nicht als eigene Belege behandelt; so werden kleine Textfelder nicht zu
+zusätzlichen Dokumenten. Die Originalbilder werden weiterhin aufbewahrt.
 
 - **Feste Außenmaße:** Breite quer zum Einzug und Höhe in Einzugsrichtung in
   Millimetern, also vor einer Drehung. Dezimalkomma und Dezimalpunkt sind möglich.

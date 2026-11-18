@@ -48,5 +48,5 @@
 - [x] Record the existing duplex-switch behavior and conservative association rule in the spec and ledger.
 - [x] Add failing real export, source-retention, retry/cancellation/collision and old-job regressions.
 - [x] Implement one-to-many journals, independent orientation, grouping and conservative fallback/recovery; keep source validation intact.
-- [ ] Run focused and full checks; release build; independent final branch review and fixes.
+- [x] Run focused and full checks; release build; independent final branch review and fixes.
 - [ ] Document behavior/limits; PR, checks, merge, post-merge checks/branch cleanup and install the updated app; verify saved profiles and UI.

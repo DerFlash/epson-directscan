@@ -36,6 +36,7 @@ public enum DocumentDetectionFailure: Error, LocalizedError {
 }
 
 public enum DocumentDetection {
+    public static let maximumDocumentsPerPage=20
     private static let context=CIContext(options:[.cacheIntermediates:false])
     private static func image(_ input: URL, maximumSize: Int? = nil) throws -> CGImage {
         let decoded=try JPEGInput.decode(input)
@@ -60,11 +61,30 @@ public enum DocumentDetection {
         return try select((request.results ?? []).map {DocumentRegion(topLeft:$0.topLeft,topRight:$0.topRight,bottomRight:$0.bottomRight,bottomLeft:$0.bottomLeft,confidence:Double($0.confidence))})
     }
     public static func select(_ candidates: [DocumentRegion]) throws -> [DocumentRegion] {
-        guard candidates.count<=64 else {throw DocumentDetectionFailure.ambiguous}
+        // 64 is the request's observation limit; reaching it cannot prove the
+        // candidate set is complete, even if nested frames collapse afterward.
+        guard candidates.count<64 else {throw DocumentDetectionFailure.ambiguous}
         try candidates.forEach {try $0.validate()}
-        var useful=candidates.filter {$0.confidence>=0.7 && $0.bounds.width*$0.bounds.height>=0.002}
+        // Tiny groups of printed text lines also form strong rectangles. They
+        // must not turn one receipt into several apparently independent items.
+        var useful=candidates.filter {$0.confidence>=0.7 && $0.bounds.width>=0.06 && $0.bounds.height>=0.06}
         if useful.count>1 {
             useful.removeAll {let r=$0.bounds;return r.minX<=0.015 && r.minY<=0.015 && r.maxX>=0.985 && r.maxY>=0.985}
+        }
+        for container in useful {
+            let nested=useful.filter {region in
+                guard region != container else {return false}
+                let b=region.bounds,intersection=container.bounds.intersection(b)
+                return !intersection.isNull && intersection.width*intersection.height/(b.width*b.height)>=0.95
+            }
+            for (index,a) in nested.enumerated() {
+                for b in nested.dropFirst(index+1) {
+                    let aa=a.bounds,bb=b.bounds,overlap=aa.intersection(bb)
+                    if overlap.isNull || overlap.width*overlap.height/min(aa.width*aa.height,bb.width*bb.height)<0.12 {
+                        throw DocumentDetectionFailure.ambiguous
+                    }
+                }
+            }
         }
         useful.sort {a,b in
             let aa=a.bounds.width*a.bounds.height,bb=b.bounds.width*b.bounds.height
@@ -80,7 +100,7 @@ public enum DocumentDetection {
             }
             accepted.append(candidate)
         }
-        guard accepted.count<=20 else {throw DocumentDetectionFailure.ambiguous}
+        guard accepted.count<=maximumDocumentsPerPage else {throw DocumentDetectionFailure.ambiguous}
         // Form explicit rows so the ordering comparator remains transitive.
         var ordered:[DocumentRegion]=[]
         while let top=accepted.map({$0.bounds.maxY}).max() {
@@ -92,7 +112,7 @@ public enum DocumentDetection {
     /// Return the matching back index for each front. Multiple plausible flip
     /// transforms are allowed only when they agree on the document association.
     public static func pair(front:[DocumentRegion],back:[DocumentRegion]) throws -> [Int] {
-        guard !front.isEmpty,front.count==back.count,front.count<=20,
+        guard !front.isEmpty,front.count==back.count,front.count<=maximumDocumentsPerPage,
               try select(front).count==front.count,try select(back).count==back.count else {throw DocumentDetectionFailure.ambiguous}
         var hypotheses:[(score:Double,indices:[Int])]=[]
         for flipX in [false,true] {for flipY in [false,true] {
@@ -111,7 +131,7 @@ public enum DocumentDetection {
             if valid {hypotheses.append((total/Double(front.count),indices))}
         }}
         guard let best=hypotheses.min(by:{$0.score<$1.score}),
-              !hypotheses.contains(where:{$0.indices != best.indices && $0.score-best.score<0.02}) else {throw DocumentDetectionFailure.ambiguous}
+              hypotheses.allSatisfy({$0.indices == best.indices}) else {throw DocumentDetectionFailure.ambiguous}
         return best.indices
     }
     public static func write(input: URL, region: DocumentRegion, output: URL,

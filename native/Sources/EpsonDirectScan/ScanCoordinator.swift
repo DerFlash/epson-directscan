@@ -136,12 +136,13 @@ final class ScanCoordinator {
             }
             checkpointStage=stage;deadline=now()+140
             if stage >= 2 {update("Scans werden geprüft und gespeichert …")}
-        case (.export?, "processing"):
-            guard let value = event.value, value > exportProgress, value <= exportPages, complete == nil, checkpointStage <= 1 else {
+        case (.export(let job)?, "processing"):
+            let limit=exportPages*(job.settings.separatesDocuments ? DocumentDetection.maximumDocumentsPerPage:1)
+            guard let value = event.value, value > exportProgress, value <= limit, complete == nil, checkpointStage <= 1 else {
                 fail("Ungültiger Verarbeitungsfortschritt. Die Originalseiten bleiben erhalten.",code:"processing_progress_invalid");return
             }
             exportProgress = value;deadline = now()+140
-            update("Ausrichtung wird geprüft · \(value)/\(exportPages) Seiten")
+            update(job.settings.separatesDocuments ? "Einzelbelege werden verarbeitet · \(value) Seiten":"Ausrichtung wird geprüft · \(value)/\(exportPages) Seiten")
         case (.scan?, "notice"), (.export?, "notice"):
             guard event.value == 1, complete == nil, !lastOrientationFallback else { fail("Ungültiger Ausrichtungshinweis.",code:"processing_notice_invalid");return }
             lastOrientationFallback = true;diagnostics.record("orientation_fixed_fallback")

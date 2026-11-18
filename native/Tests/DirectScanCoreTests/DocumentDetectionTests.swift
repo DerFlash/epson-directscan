@@ -22,7 +22,17 @@ import Testing
         #expect(throws:(any Error).self) {try DocumentDetection.select([region(CGRect(x:-0.2,y:0,width:0.4,height:0.4))])}
         #expect(throws:(any Error).self) {try DocumentDetection.select([region(CGRect(x:0,y:0,width:0,height:0.4))])}
         #expect(throws:(any Error).self) {try DocumentDetection.select(Array(repeating:a,count:65))}
+        #expect(throws:(any Error).self) {try DocumentDetection.select(Array(repeating:a,count:64))}
         #expect(try DocumentDetection.select([region(CGRect(x:0.1,y:0.1,width:0.4,height:0.4),confidence:0.1)]).isEmpty)
+    }
+    @Test func insetContainerAroundIndependentDocumentsCannotHideThem() throws {
+        let sleeve=region(CGRect(x:0.03,y:0.03,width:0.94,height:0.94))
+        let a=region(CGRect(x:0.1,y:0.6,width:0.3,height:0.3)),b=region(CGRect(x:0.6,y:0.6,width:0.3,height:0.25))
+        #expect(throws:(any Error).self) {try DocumentDetection.select([sleeve,a,b])}
+    }
+    @Test func plausibleOffsetMustNotAuthorizeAConflictingBackAssociation() throws {
+        let nearSymmetric=[region(CGRect(x:0.1,y:0.3,width:0.2,height:0.4)),region(CGRect(x:0.66,y:0.3,width:0.2,height:0.4))]
+        #expect(throws:(any Error).self) {try DocumentDetection.pair(front:nearSymmetric,back:nearSymmetric)}
     }
     @Test func duplexRegionsPairByUnambiguousGeometryRatherThanDetectionOrder() throws {
         let a=region(CGRect(x:0.1,y:0.65,width:0.25,height:0.25)),b=region(CGRect(x:0.65,y:0.55,width:0.25,height:0.35))
