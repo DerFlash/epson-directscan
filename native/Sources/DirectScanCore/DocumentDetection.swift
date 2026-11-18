@@ -89,6 +89,31 @@ public enum DocumentDetection {
         }
         return ordered
     }
+    /// Return the matching back index for each front. Multiple plausible flip
+    /// transforms are allowed only when they agree on the document association.
+    public static func pair(front:[DocumentRegion],back:[DocumentRegion]) throws -> [Int] {
+        guard !front.isEmpty,front.count==back.count,front.count<=20,
+              try select(front).count==front.count,try select(back).count==back.count else {throw DocumentDetectionFailure.ambiguous}
+        var hypotheses:[(score:Double,indices:[Int])]=[]
+        for flipX in [false,true] {for flipY in [false,true] {
+            var indices:[Int]=[],total=0.0,valid=true
+            for f in front {
+                let a=f.bounds
+                let choices=back.enumerated().map {index,region -> (Int,Double) in
+                    let b=region.bounds
+                    let centerX=flipX ? 1-b.midX:b.midX,centerY=flipY ? 1-b.midY:b.midY
+                    return (index,Double(hypot(a.midX-centerX,a.midY-centerY)+abs(a.width-b.width)+abs(a.height-b.height)))
+                }.sorted {$0.1<$1.1}
+                guard let best=choices.first,best.1<=0.12,!indices.contains(best.0),
+                      choices.count==1 || choices[1].1-best.1>=0.01 else {valid=false;break}
+                indices.append(best.0);total+=best.1
+            }
+            if valid {hypotheses.append((total/Double(front.count),indices))}
+        }}
+        guard let best=hypotheses.min(by:{$0.score<$1.score}),
+              !hypotheses.contains(where:{$0.indices != best.indices && $0.score-best.score<0.02}) else {throw DocumentDetectionFailure.ambiguous}
+        return best.indices
+    }
     public static func write(input: URL, region: DocumentRegion, output: URL,
                              isCancelled: () -> Bool = {false}, onCheckpoint: () throws -> Void = {}) throws {
         try processingCheckpoint(isCancelled,onCheckpoint);try region.validate()

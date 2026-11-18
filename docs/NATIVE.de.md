@@ -159,6 +159,30 @@ doppelseitige JPGs zusätzlich auf `_vorne` bzw. `_hinten`. Sonderzeichen werden
 für Dateinamen bereinigt. Ohne benanntes Profil beginnt der Name mit `Scan`.
 Zurückgehaltene Aufträge behalten ihren bereits gespeicherten Dateinamen.
 
+**Separate Dokumente erkennen (Entwicklungsstand Build 29):** Im Profil-Editor
+unter **Einzelbelege** einschalten; der gleichnamige Schnellschalter im Menü gilt
+für das aktive Profil. Die Option ist zunächst aus und steht für automatische
+Scanfläche zur Verfügung. Für mehrere Belege auf einer Vorlage bis A4 eine
+passende Scanner-Trägerfolie benutzen und Abstand zwischen den Belegen lassen;
+Belege nicht überlappen. Die Abnahme mit einer echten Trägerfolie steht noch aus.
+
+Die Erkennung läuft lokal mit macOS Vision. Jeder erkannte Beleg wird einzeln
+zugeschnitten und ausgerichtet. Bei PDF-Ausgabe entsteht eine Datei pro Beleg;
+bei eingeschaltetem **Doppelseitig** gehören die passenden Vorder- und Rückseiten
+in dieselbe PDF. Die Zuordnung wird anhand von Lage und Größe geprüft. Bei
+symmetrischen oder sonst mehrdeutigen Anordnungen wird nicht geraten. Dann bleiben
+die Scans zurückgehalten; **Zurückgehaltene Seiten als PDF sichern …** sichert die
+vollständigen Scannerseiten ohne erneute Erkennung. Bei unsicherer Texterkennung
+gelten die festen Ersatzdrehungen mit dem bisherigen Ausrichtungshinweis.
+
+Auch beim kontinuierlichen Einzug bleiben die Belege einzeln; die JPG/PDF-Auswahl
+bleibt in diesem Modus verfügbar. Ganze Scannerseiten werden vor der Erkennung
+nicht vom Treiber zugeschnitten oder gedreht. Nach erfolgreicher Ablage bleiben
+die vollständigen Originalbilder privat erhalten. **Vollständige Vorlagen öffnen**
+im Menü öffnet diesen Ordner zur Kontrolle und eigenen Verwaltung. Gedruckte
+Rahmen, fehlender Kontrast und abgeschnittene Belege können die Erkennung
+beeinträchtigen; die Originalbilder werden deshalb weiterhin aufbewahrt.
+
 - **Feste Außenmaße:** Breite quer zum Einzug und Höhe in Einzugsrichtung in
   Millimetern, also vor einer Drehung. Dezimalkomma und Dezimalpunkt sind möglich.
   Beim normalen Scan erfasst macOS ein ausreichend großes Papierformat; die App

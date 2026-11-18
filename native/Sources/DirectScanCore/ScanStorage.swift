@@ -23,6 +23,8 @@ struct JobRecord: Codable {
     var collectionExport: Bool?
     var processing: ProcessingRecord?
     var processingArtifacts: [String]?
+    var documentProcessing: DocumentProcessingRecord?
+    var originalCollection: Bool?
 }
 
 struct ExportReceipt: Codable {
@@ -39,6 +41,7 @@ public final class ScanStorage {
     public let root: URL
     public var pendingDirectory: URL { root.appendingPathComponent("Pending", isDirectory: true) }
     public var recoveryDirectory: URL { root.appendingPathComponent("Recovery", isDirectory: true) }
+    public var originalsDirectory: URL {root.appendingPathComponent("Originals",isDirectory:true)}
     private let fm = FileManager.default
     public init(root: URL) throws {
         self.root = root.standardizedFileURL
@@ -176,7 +179,7 @@ public final class ScanStorage {
               reason != .interrupted || allowInterrupted else { throw ScanFailure.unfinishedPages }
         let existingCollection = (record.receipts ?? []).contains { $0.targetName == job.fileStem + "_Sammlung.pdf" }
         guard !existingCollection || record.collectionExport != false else { throw ScanFailure.invalidSource }
-        let collection = job.settings.automaticFeeding || asCollection || record.collectionExport == true || existingCollection
+        let collection = (job.settings.automaticFeeding && !job.settings.separatesDocuments) || asCollection || record.collectionExport == true || existingCollection
         // Persist grouping before any publication. A recovery retry must never switch back
         // to the original ordinary JPG/per-card-PDF setting after exporting a collection.
         if record.collectionExport != collection {
@@ -274,6 +277,7 @@ public final class ScanStorage {
         guard var manifest = record.manifest, !manifest.pages.isEmpty,
               (record.receipts ?? []).isEmpty else { throw ScanFailure.unfinishedPages }
         manifest.endReason = .interrupted; record.manifest = manifest
+        if job.settings.separatesDocuments {record.originalCollection=true}
         try write(record, to: job.directory.appendingPathComponent("job.json"))
         return try export(job: job, allowInterrupted: true, asCollection: true)
     }
@@ -325,7 +329,10 @@ public final class ScanStorage {
             try fm.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
             try write(record, to: directory.appendingPathComponent(job.id.uuidString + ".json"))
             try processingCheckpoint(isCancelled,onCheckpoint)
-            if manifest.hasIncompleteSheet {
+            if job.settings.separatesDocuments {
+                try fm.createDirectory(at:originalsDirectory,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
+                try fm.moveItem(at:job.directory,to:originalsDirectory.appendingPathComponent(job.id.uuidString))
+            } else if manifest.hasIncompleteSheet {
                 // Keep the closed job privately for inspection, including its manifest.
                 // Moving on the same private volume is atomic and retains original bytes.
                 try fm.moveItem(at: job.directory, to: recoveryDirectory.appendingPathComponent(job.id.uuidString))

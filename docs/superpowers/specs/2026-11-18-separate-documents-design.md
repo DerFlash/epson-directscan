@@ -18,9 +18,9 @@ Use the already discussed Apple Vision rectangle detector plus Core Image perspe
 
 An external model or cloud service would add dependencies and transmit private receipts; neither is needed. A fixed number of rectangular zones would not recognize arbitrary receipt placement and does not meet the requested detection behavior.
 
-## Open user decision
+## Duplex behavior
 
-An asynchronous question asks whether each receipt is front-only or whether matching front/back crops should be paired in one PDF. Do not guess this correspondence or silently discard a captured back. Detection and geometry work are independent of that answer; export/grouping follows the answer.
+The user confirmed that duplex must associate the correct backs with the correct fronts. The existing per-profile duplex switch controls both paths. Off exports each front separately; on pairs front/back crops only if geometric correspondence is unambiguous across the possible page-flip transforms. If several transforms imply different equally plausible pairings, retain the original job and expose full-page recovery. Never guess a side association. Preserve the installed profile's current setting.
 
 ## Validation
 

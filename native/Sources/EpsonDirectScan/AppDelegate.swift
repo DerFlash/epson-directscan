@@ -124,6 +124,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         let editable = !controller.busy && !editorOpen
         let profileName = settings.activeProfile?.name ?? "Bisherige Einstellungen"
+        let split=settings.separatesDocuments
         addChoices("Scanprofil: " + profileName,
             options: [("Bisherige Einstellungen", "legacy")] + settings.profiles.map { ($0.name,$0.id.uuidString) },
             selected: settings.activeProfileID?.uuidString ?? "legacy", action: #selector(changeProfile(_:)), enabled:editable)
@@ -137,16 +138,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add("Doppelseitig scannen", #selector(toggleCorrection(_:)), enabled: editable, checked: settings.duplex, value: "duplex")
         add("Separate Dokumente erkennen",#selector(toggleDocumentSeparation),enabled:editable && settings.activeProfile?.canSeparateDocuments == true,
             checked:settings.separatesDocuments).identifier=NSUserInterfaceItemIdentifier("profile.quick.documents")
-        addChoices("Ausgabe: " + (settings.automaticFeeding ? "Sammlungs-PDF" : settings.outputFormat == .jpg ? "JPG" : "PDF pro Blatt"),
-            options: [("JPG – jede Seite einzeln", "jpg"),("PDF – eine Datei pro Blatt", "pdf")],
-            selected: settings.outputFormat.rawValue, action: #selector(changeFormat(_:)), enabled: editable && !settings.automaticFeeding)
-        add("Kontinuierlicher Scan (Sammlungs-PDF)", #selector(toggleCorrection(_:)), enabled: editable, checked: settings.automaticFeeding, value: "automaticFeeding")
+        addChoices("Ausgabe: " + (settings.automaticFeeding && !split ? "Sammlungs-PDF" : settings.outputFormat == .jpg ? "JPG" : split ? "PDF pro Dokument":"PDF pro Blatt"),
+            options: [("JPG – jede Seite einzeln", "jpg"),(split ? "PDF – eine Datei pro Dokument":"PDF – eine Datei pro Blatt", "pdf")],
+            selected: settings.outputFormat.rawValue, action: #selector(changeFormat(_:)), enabled: editable && (!settings.automaticFeeding || split))
+        add(split ? "Kontinuierlicher Einzug":"Kontinuierlicher Scan (Sammlungs-PDF)", #selector(toggleCorrection(_:)), enabled: editable, checked: settings.automaticFeeding, value: "automaticFeeding")
         addChoices("Wartezeit: " + (settings.feedingTimeoutSeconds == 0 ? "unbegrenzt" : "\(settings.feedingTimeoutSeconds) Sekunden"),
             options: [("30 Sekunden", "30"),("60 Sekunden", "60"),("120 Sekunden", "120"),("300 Sekunden", "300"),("Unbegrenzt – mit Stop beenden", "0")],
             selected: String(settings.feedingTimeoutSeconds), action: #selector(changeTimeout(_:)), enabled: editable && settings.automaticFeeding)
         let fixed = settings.activeProfile?.area.isAutomatic == false
         let holder = settings.transparentOriginal
-        let split=settings.separatesDocuments
         let correctionsEditable = editable && !fixed && !holder && !split
         add(split ? "Zuschnitt – für jeden Einzelbeleg" : holder ? "Zuschnitt – für transparente Hülle erforderlich" : fixed ? "Automatischer Zuschnitt – bei festen Maßen aus" : "Automatischer Zuschnitt",
             #selector(toggleCorrection(_:)), enabled: correctionsEditable, checked: split || settings.driverCrop, value: "crop").identifier = NSUserInterfaceItemIdentifier("profile.quick.crop")
@@ -163,6 +163,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         menu.addItem(.separator())
         add("Letzte Datei anzeigen", #selector(showLastFile), enabled: controller.lastFile != nil)
+        add("Vollständige Vorlagen öffnen",#selector(openOriginals),enabled:FileManager.default.fileExists(atPath:storage.originalsDirectory.path))
         add("Zurückgehaltene Scans und Protokoll öffnen", #selector(openRecovery))
         add("Zurückgehaltene Seiten als PDF sichern …", #selector(exportRecovery), enabled: editable && needsRecovery)
         add("Fehler zurücksetzen und neu verbinden …", #selector(recover), enabled: !controller.busy && !editorOpen && needsRecovery)
@@ -282,7 +283,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.activate(ignoringOtherApps:true);profilePanel?.showWindow(nil)
     }
     @objc private func changeFormat(_ sender: NSMenuItem) {
-        guard !controller.busy, !settings.automaticFeeding, let raw = sender.representedObject as? String, let value = OutputFormat(rawValue: raw) else { return }
+        guard !controller.busy, !editorOpen, (!settings.automaticFeeding || settings.separatesDocuments), let raw = sender.representedObject as? String, let value = OutputFormat(rawValue: raw) else { return }
         var next = settings; next.outputFormat = value; _ = persist(next); refreshIcon()
     }
     @objc private func changeTimeout(_ sender: NSMenuItem) {
@@ -319,6 +320,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openFolder() { if let path = settings.destination { NSWorkspace.shared.open(URL(fileURLWithPath: path)) } }
     @objc private func showLastFile() { if let url = controller.lastFile { NSWorkspace.shared.activateFileViewerSelecting([url]) } }
     @objc private func openRecovery() { NSWorkspace.shared.open(storage.root) }
+    @objc private func openOriginals() {NSWorkspace.shared.open(storage.originalsDirectory)}
     @objc private func recover() {
         guard !controller.busy, !editorOpen, needsRecovery else { return }
         let alert = NSAlert(); alert.messageText = "Unbestätigte Scans geprüft?"

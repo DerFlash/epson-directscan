@@ -74,6 +74,38 @@ private final class HandoffClock { var time: TimeInterval = 0 }
     deinit { try? FileManager.default.removeItem(at: root) }
 }
 @Suite @MainActor struct HandoffTests {
+    @Test func continuousDocumentJPGPublishesAndCountsEachExtractedDocument() throws {
+        let f=try HandoffFixture(),images=try StorageTests()
+        var profile=ScanProfile(name:"Belege");profile.separateDocuments=true
+        f.settings.value.profiles=[profile];f.settings.value.activeProfileID=profile.id;f.settings.value.automaticFeeding=true
+        f.trigger()
+        guard case .feeding(let job)=f.factory.roles.last else {throw ScanFailure.invalidSettings}
+        let feed=f.factory.helpers[1],source=job.directory.appendingPathComponent("full.jpg")
+        try images.jpeg(source,width:1000,height:1400)
+        feed.emit("ready",1);feed.onEvent?(HelperEvent(event:"page",value:1,file:"full.jpg",sheet:1,side:0))
+        feed.emit("end",0);feed.emit("closed",0);feed.exit()
+        guard case .export=f.factory.roles.last,let worker=f.factory.helpers.last else {throw ScanFailure.invalidSettings}
+        let regions=DocumentProcessingTests().regions
+        try f.storage.prepareImages(job:job,detectDocuments:{_ in regions})
+        let outputs=try f.storage.export(job:job);try f.storage.finish(job:job)
+        for (i,file) in outputs.enumerated() {worker.emit("file",i+1,file:file.lastPathComponent)}
+        worker.emit("complete",outputs.count);worker.emit("closed",0);worker.exit()
+        #expect(outputs.count==3 && f.controller.imagesSaved==3)
+        #expect(f.controller.lastFile?.pathExtension=="jpg" && f.factory.roles.last == .button)
+    }
+    @Test func documentDetectionFailureExplainsRecoveryAndNeverRearmsOrLosesJob() throws {
+        let f=try HandoffFixture()
+        var profile=ScanProfile(name:"Belege");profile.separateDocuments=true
+        f.settings.value.profiles=[profile];f.settings.value.activeProfileID=profile.id;f.trigger()
+        let worker=f.factory.helpers[1]
+        let job=try f.storage.beginJob(settings:f.settings.value),fixture=try StorageTests(),source=job.directory.appendingPathComponent("full.jpg")
+        try fixture.jpeg(source,width:80,height:40);try f.storage.stage(source:source,job:job,sheet:1,side:.front);try f.storage.complete(job:job,reason:.completed)
+        worker.emit("error",-207);worker.emit("closed",0);worker.exit(1)
+        #expect(f.controller.policy.phase == .error && f.factory.roles.count==2)
+        #expect(f.controller.message.contains("Dokument") && f.controller.message.contains("PDF sichern"))
+        #expect(try f.storage.hasUnfinishedJobs())
+        #expect(FileManager.default.fileExists(atPath:source.path))
+    }
     @Test func zeroPageNativeSingleShotShowsNoticeOnlyAfterConfirmedRelease() throws {
         let f = try HandoffFixture()
         var profile = ScanProfile(name: "Hülle")

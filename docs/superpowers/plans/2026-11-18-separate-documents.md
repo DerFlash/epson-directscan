@@ -11,7 +11,7 @@
 
 - Default off; old settings, pending jobs and standard card/holder behavior remain readable and unchanged.
 - Keep private receipts local; preserve cancellation, leases, exclusive publication and full-source recovery.
-- Await the user's front-only versus paired-duplex answer before implementing grouping.
+- Support both existing duplex-switch values; never guess an ambiguous back correspondence.
 - Carrier sheet hardware acceptance remains pending delivery; use synthetic images and the app UI for current acceptance.
 
 ## Review focus
@@ -27,26 +27,26 @@
 **Files:** new native/Sources/DirectScanCore/DocumentDetection.swift; new native/Tests/DirectScanCoreTests/DocumentDetectionTests.swift.
 **Interfaces:** DocumentRegion normalized four corners; DocumentDetection.detect(_:); conservative DocumentDetection.select(_:); DocumentDetection.write(input:region:output:).
 
-- [ ] Write real-image detector and geometric/pixel regression tests; run and observe failure.
-- [ ] Implement bounded Vision detection, geometry validation/deduplication and Core Image perspective crops.
-- [ ] Run the focused tests and complete native suite; inspect results; commit.
+- [x] Write real-image detector and geometric/pixel regression tests; run and observe failure.
+- [x] Implement bounded Vision detection, geometry validation/deduplication and Core Image perspective crops.
+- [x] Run the focused tests and complete native suite; inspect results; commit.
 
 ### Task 2: Per-profile setting and editor/menu
 
 **Files:** ScanProfile.swift, Settings.swift, ProfilePanel.swift, AppDelegate.swift; profile and real AppKit tests.
 **Interfaces:** optional ScanProfile.separateDocuments with an effective false default, ScanSettings.separatesDocuments; raw capture correction choices preserve the full page.
 
-- [ ] Add failing persistence/default/profile-switch and editor/menu tests.
-- [ ] Implement the option and appropriate control dependencies from the confirmed grouping behavior.
-- [ ] Verify legacy/default settings and raw capture choices; run the full suite; commit.
+- [x] Add failing persistence/default/profile-switch and editor/menu tests.
+- [x] Implement the option and appropriate control dependencies from the confirmed grouping behavior.
+- [x] Verify legacy/default settings and raw capture choices; run the full suite; commit.
 
 ### Task 3: Verified separate-document processing and publication
 
 **Files:** new DocumentProcessing.swift; ScanStorage.swift, PageProcessing.swift, relevant worker/coordinator notices; output/processing/integration tests.
 **Interfaces:** verified derived manifest and processing notices; full-source archive on successful split completion.
 
-- [ ] Record the user's grouping answer in the spec and ledger before implementing grouping.
-- [ ] Add failing real export, source-retention, retry/cancellation/collision and old-job regressions.
-- [ ] Implement one-to-many journals, independent orientation, grouping and conservative fallback/recovery; keep source validation intact.
+- [x] Record the existing duplex-switch behavior and conservative association rule in the spec and ledger.
+- [x] Add failing real export, source-retention, retry/cancellation/collision and old-job regressions.
+- [x] Implement one-to-many journals, independent orientation, grouping and conservative fallback/recovery; keep source validation intact.
 - [ ] Run focused and full checks; release build; independent final branch review and fixes.
 - [ ] Document behavior/limits; PR, checks, merge, post-merge checks/branch cleanup and install the updated app; verify saved profiles and UI.

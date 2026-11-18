@@ -37,7 +37,7 @@ enum ExportWorkerMain {
                 for (i,file) in outputs.enumerated() { emit(HelperEvent(event:"file",value:i+1,file:file.lastPathComponent)) }
                 emit(HelperEvent(event:"complete",value:outputs.count));emit(HelperEvent(event:"closed",value:0));return 0
             } catch {
-                emit(HelperEvent(event:"error",value:-401));emit(HelperEvent(event:"closed",value:0));return 1
+                emit(HelperEvent(event:"error",value:error is DocumentDetectionFailure ? -207:-401));emit(HelperEvent(event:"closed",value:0));return 1
             }
         } catch { emit(HelperEvent(event:"error",value:-402));return 1 }
     }

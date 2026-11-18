@@ -225,8 +225,11 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
             : current.referencePrint == nil ? "Optional: aufrechtes Kartenbild, z. B. eine gemeinsame Rückseite."
             : "Lokale Bildreferenz gespeichert – ohne Bilddatei oder Dateipfad."
         removeButton.isEnabled = !editingLegacy && snapshot.profiles.contains { $0.id == current.id }
-        output.selectItem(at: profileSettings.automaticFeeding ? 2 : profileSettings.outputFormat == .jpg ? 0 : 1)
-        output.isEnabled = !profileSettings.automaticFeeding
+        let collection=profileSettings.automaticFeeding && !split
+        output.item(at:1)?.title=split ? "PDF – eine Datei pro Dokument":"PDF – eine Datei pro Blatt"
+        output.selectItem(at: collection ? 2 : profileSettings.outputFormat == .jpg ? 0 : 1)
+        output.isEnabled = !collection
+        feeding.title=split ? "Kontinuierlicher Einzug":"Kontinuierlicher Scan (Sammlungs-PDF)"
         duplex.state = profileSettings.duplex ? .on : .off; feeding.state = profileSettings.automaticFeeding ? .on : .off
         timeout.selectItem(at: timeout.itemArray.firstIndex { ($0.representedObject as? String) == String(profileSettings.feedingTimeoutSeconds) } ?? 2)
         timeout.isEnabled = profileSettings.automaticFeeding

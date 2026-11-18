@@ -46,6 +46,14 @@ import Testing
         try control("profile.cancel",in:draft,as:NSButton.self).performClick(nil)
         #expect(cancelled == nil && saved?.separatesDocuments == true)
     }
+    @Test func documentModeKeepsIndividualFormatAvailableDuringContinuousFeeding() throws {
+        _ = NSApplication.shared
+        var profile=ScanProfile(name:"Belege");profile.orientation = .vision;profile.separateDocuments=true
+        var initial=settings(profile:profile);initial.automaticFeeding=true
+        let panel=ProfilePanel(settings:initial) {_ in true};defer {panel.close()}
+        let output:NSPopUpButton=try control("profile.output",in:panel)
+        #expect(output.isEnabled && output.selectedItem?.representedObject as? String=="jpg")
+    }
 
     @Test func saveEditsAllOutputChoicesAndGeometryWithoutReplacingIdentityOrReferences() throws {
         _ = NSApplication.shared

@@ -84,6 +84,8 @@ int main(void) { @autoreleasepool {
     if(startFeeding((id<FeedingScanner>)control,getppid()+1,&started)!=0||started||control.afCalled){fprintf(stderr,"A lost parent must prevent capture after control acquisition\n");return 17;}
     AreaFixture *area=[AreaFixture new];
     area.dpi=300;
+    AreaFixture *documents=[AreaFixture new];documents.dpi=300;documents.area=CGRectMake(0,0,1748,2480);
+    if(!configureFixedArea((id<FeedingScanner>)documents,@{@"separateDocuments":@YES,@"crop":@NO,@"deskew":@NO,@"rotate":@NO})||!CGRectEqualToRect(documents.area,CGRectMake(0,0,2550,3510))){fprintf(stderr,"Separate documents need the full A4 capture area, not the retained A5 preset\n");return 20;}
     NSDictionary *settings=@{@"profileWidthMM":@76,@"profileHeightMM":@102,@"crop":@NO};
     if(!configureFixedArea((id<FeedingScanner>)area,settings)||!CGRectEqualToRect(area.area,CGRectMake(826,0,898,1205))){fprintf(stderr,"Fixed area must be centered in actual pixel bounds\n");return 2;}
     area.reject=YES;

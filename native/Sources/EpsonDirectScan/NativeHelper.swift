@@ -61,6 +61,7 @@ final class NativeProcess: NativeHelper {
         payload["crop"] = settings.driverCrop;payload["rotate"] = settings.driverRotate
         payload["deskew"] = settings.driverDeskew
         payload["transparentOriginal"] = settings.transparentOriginal
+        payload["separateDocuments"] = settings.separatesDocuments
         payload["singleShot"] = !settings.automaticFeeding
         if let area = settings.activeProfile?.area, !area.isAutomatic {
             // Width-only needs a separate hardware acceptance and must not silently

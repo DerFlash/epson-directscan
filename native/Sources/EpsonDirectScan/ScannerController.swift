@@ -4,6 +4,7 @@ import DirectScanCore
 
 final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDeviceDelegate {
     private(set) var orientationFallback = false
+    private(set) var documentDetectionFailed = false
     var processingCancelled: () -> Bool = { false }
     var onProcessingCheckpoint: () throws -> Void = {}
     let storage: ScanStorage
@@ -265,7 +266,8 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
     }
     static func configureArea(_ feeder: ICScannerFunctionalUnitDocumentFeeder, settings: ScanSettings) throws {
         try settings.activeProfile?.validateForCapture()
-        if let area = settings.activeProfile?.area, !area.isAutomatic {
+        let captureArea=settings.separatesDocuments ? ScanArea(widthMM:210,heightMM:297):settings.activeProfile?.area
+        if let area = captureArea, !area.isAutomatic {
             guard feeder.supportedMeasurementUnits.contains(Int(ICScannerMeasurementUnit.centimeters.rawValue)) else { throw ScanFailure.unsupportedProfile }
             feeder.measurementUnit = .centimeters
             guard feeder.measurementUnit == .centimeters else { throw DriverConfigurationFailure.rejected }
@@ -338,7 +340,10 @@ final class ScannerController: NSObject, ICDeviceBrowserDelegate, ICScannerDevic
             try storage.finish(job: job,isCancelled:processingCancelled,onCheckpoint:onProcessingCheckpoint); self.job = nil; deadline = nil; policy.completed()
             diagnostics.record("scan_completed", values: ["pages": pages]); update("Bereit – \(outputs.count) Datei(en) gespeichert")
             onScanFinished?(outputs.count)
-        } catch { fail(error.localizedDescription, code: "completion_unconfirmed", error: error) }
+        } catch {
+            documentDetectionFailed = error is DocumentDetectionFailure
+            fail(error.localizedDescription,code:documentDetectionFailed ? "document_detection_failed":"completion_unconfirmed",error:error)
+        }
     }
     func device(_ device: ICDevice, didEncounterError error: Error?) {
         guard device === scanner, let error, !closing else { return }

@@ -24,6 +24,15 @@ import Testing
         #expect(throws:(any Error).self) {try DocumentDetection.select(Array(repeating:a,count:65))}
         #expect(try DocumentDetection.select([region(CGRect(x:0.1,y:0.1,width:0.4,height:0.4),confidence:0.1)]).isEmpty)
     }
+    @Test func duplexRegionsPairByUnambiguousGeometryRatherThanDetectionOrder() throws {
+        let a=region(CGRect(x:0.1,y:0.65,width:0.25,height:0.25)),b=region(CGRect(x:0.65,y:0.55,width:0.25,height:0.35))
+        let c=region(CGRect(x:0.2,y:0.1,width:0.5,height:0.25))
+        let back=[region(CGRect(x:0.3,y:0.1,width:0.5,height:0.25)),region(CGRect(x:0.65,y:0.65,width:0.25,height:0.25)),region(CGRect(x:0.1,y:0.55,width:0.25,height:0.35))]
+        #expect(try DocumentDetection.pair(front:[a,b,c],back:back) == [1,2,0])
+        let symmetric=[region(CGRect(x:0.1,y:0.3,width:0.2,height:0.4)),region(CGRect(x:0.7,y:0.3,width:0.2,height:0.4))]
+        #expect(throws:(any Error).self) {try DocumentDetection.pair(front:symmetric,back:symmetric)}
+        #expect(throws:(any Error).self) {try DocumentDetection.pair(front:[a,b],back:[a])}
+    }
     @Test func actualVisionFindsThreeSeparatePaperRegions() throws {
         let fixture=try StorageTests(),input=fixture.root.appendingPathComponent("sheet.jpg")
         let context=try #require(CGContext(data:nil,width:1500,height:1800,bitsPerComponent:8,bytesPerRow:0,
