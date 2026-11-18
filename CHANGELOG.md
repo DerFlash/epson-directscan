@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0-beta.2-dev — 2026-11-18 (Build 28)
+
+- Name new scans after the active profile, for example
+  `Shop-Belege_2026-11-18_004708_546_0001.pdf`, with a readable date and time.
+  Use `Scan` for legacy settings and remove the full job UUID from output names.
+  Normalize path separators and bound Unicode prefixes; existing files remain
+  protected against replacement, and pending jobs retain their saved names.
+
 ## 0.4.0-beta.2-dev — 2026-11-18 (Build 27)
 
 - Expose output, duplex, continuous collection mode, timeout and corrections in

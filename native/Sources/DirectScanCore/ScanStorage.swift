@@ -96,8 +96,19 @@ public final class ScanStorage {
         try fm.createDirectory(at: directory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyyMMdd_HHmmss_SSS"
-        let stem = "Karte_" + formatter.string(from: Date()) + "_" + id.uuidString
+        formatter.dateFormat = "yyyy-MM-dd_HHmmss_SSS"
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "_-"))
+        let name = (settings.activeProfile?.name ?? "Scan").components(separatedBy: allowed.inverted)
+            .filter { !$0.isEmpty }.joined(separator: "_").trimmingCharacters(in: CharacterSet(charactersIn: "_-"))
+        // Leave room for the timestamp, sheet/side suffix and extension even
+        // when a profile uses multi-byte Unicode characters.
+        var prefix = ""
+        for scalar in name.unicodeScalars {
+            guard prefix.utf8.count + scalar.utf8.count <= 120 else { break }
+            prefix.unicodeScalars.append(scalar)
+        }
+        if prefix.isEmpty { prefix = "Scan" }
+        let stem = prefix + "_" + formatter.string(from: Date())
         let fixedFrame = settings.activeProfile.map {!$0.area.isAutomatic} ?? false
         let job = ScanJob(id: id, directory: directory, destination: destination, fileStem: stem, settings: settings,
                           fixedFrameCaptureRevision:settings.transparentOriginal ? 2 : fixedFrame ? 1 : nil)

@@ -7,6 +7,40 @@ import Foundation
     let fixture: StorageTests
     init() throws { fixture = try StorageTests() }
 
+    @Test func exportedPDFUsesActiveProfileNameAndReadableTimestamp() throws {
+        for name in ["Belege", "Shop-Belege"] {
+            let fixture = try StorageTests(), store = try fixture.store(), output = try fixture.destination()
+            var settings = ScanSettings(destination: output.path)
+            let profile = ScanProfile(name: name)
+            settings.profiles = [profile]; settings.activeProfileID = profile.id; settings.outputFormat = .pdf
+            let job = try store.beginJob(settings: settings)
+            let source = job.directory.appendingPathComponent("page.jpg"); try fixture.jpeg(source)
+            try store.stage(source: source, job: job, sheet: 1, side: .front)
+            try store.complete(job: job, reason: .completed)
+            let file = try #require(store.export(job: job).first)
+            #expect(file.lastPathComponent.range(of: "^" + name + "_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}_[0-9]{3}_0001\\.pdf$", options: .regularExpression) != nil)
+            #expect(!file.lastPathComponent.contains(job.id.uuidString))
+            #expect(try #require(CGPDFDocument(file as CFURL)).numberOfPages == 1)
+        }
+    }
+
+    @Test func outputNamesHandleLegacyUnsafeAndLongUnicodeProfileNames() throws {
+        let cases: [(String?, String)] = [(nil, "Scan"), (" /../Shop:Belege\\Käufe\n2026? ", "Shop_Belege_Käufe_2026"),
+                                        (String(repeating: "𠀋", count: 60), String(repeating: "𠀋", count: 30)), ("/..", "Scan")]
+        for (name, prefix) in cases {
+            let fixture = try StorageTests(), store = try fixture.store(), output = try fixture.destination()
+            var settings = ScanSettings(destination: output.path)
+            if let name { let profile = ScanProfile(name: name); settings.profiles = [profile]; settings.activeProfileID = profile.id }
+            let job = try store.beginJob(settings: settings)
+            let source = job.directory.appendingPathComponent("page.jpg"); try fixture.jpeg(source)
+            let file = try store.publish(source: source, job: job, page: 1)
+            #expect(file.lastPathComponent.hasPrefix(prefix + "_"))
+            #expect(file.lastPathComponent.utf8.count <= 255)
+            #expect(file.deletingLastPathComponent().path == output.path)
+            #expect(try Data(contentsOf: file) == Data(contentsOf: source))
+        }
+    }
+
     @Test func legacySettingsMigrateWithExactBackupAndSafeDefaults() throws {
         let store = try fixture.store()
         let original = Data(#"{"schemaVersion":1,"destination":"/tmp","paused":true,"crop":false,"deskew":true,"rotate":false}"#.utf8)
