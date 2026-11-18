@@ -135,6 +135,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add("Ablageordner öffnen", #selector(openFolder), enabled: settings.destination != nil)
         if let path = settings.destination { add("Ordner: " + URL(fileURLWithPath: path).lastPathComponent, enabled: false) }
         add("Doppelseitig scannen", #selector(toggleCorrection(_:)), enabled: editable, checked: settings.duplex, value: "duplex")
+        add("Separate Dokumente erkennen",#selector(toggleDocumentSeparation),enabled:editable && settings.activeProfile?.canSeparateDocuments == true,
+            checked:settings.separatesDocuments).identifier=NSUserInterfaceItemIdentifier("profile.quick.documents")
         addChoices("Ausgabe: " + (settings.automaticFeeding ? "Sammlungs-PDF" : settings.outputFormat == .jpg ? "JPG" : "PDF pro Blatt"),
             options: [("JPG – jede Seite einzeln", "jpg"),("PDF – eine Datei pro Blatt", "pdf")],
             selected: settings.outputFormat.rawValue, action: #selector(changeFormat(_:)), enabled: editable && !settings.automaticFeeding)
@@ -144,16 +146,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             selected: String(settings.feedingTimeoutSeconds), action: #selector(changeTimeout(_:)), enabled: editable && settings.automaticFeeding)
         let fixed = settings.activeProfile?.area.isAutomatic == false
         let holder = settings.transparentOriginal
-        let correctionsEditable = editable && !fixed && !holder
-        add(holder ? "Zuschnitt – für transparente Hülle erforderlich" : fixed ? "Automatischer Zuschnitt – bei festen Maßen aus" : "Automatischer Zuschnitt",
-            #selector(toggleCorrection(_:)), enabled: correctionsEditable, checked: settings.driverCrop, value: "crop").identifier = NSUserInterfaceItemIdentifier("profile.quick.crop")
-        add(holder ? "Schräglagenkorrektur – bei Hüllen aus" : fixed ? "Schräglagenkorrektur – bei festen Maßen aus" : "Schräglagenkorrektur",
-            #selector(toggleCorrection(_:)), enabled: correctionsEditable, checked: settings.driverDeskew, value: "deskew").identifier = NSUserInterfaceItemIdentifier("profile.quick.deskew")
+        let split=settings.separatesDocuments
+        let correctionsEditable = editable && !fixed && !holder && !split
+        add(split ? "Zuschnitt – für jeden Einzelbeleg" : holder ? "Zuschnitt – für transparente Hülle erforderlich" : fixed ? "Automatischer Zuschnitt – bei festen Maßen aus" : "Automatischer Zuschnitt",
+            #selector(toggleCorrection(_:)), enabled: correctionsEditable, checked: split || settings.driverCrop, value: "crop").identifier = NSUserInterfaceItemIdentifier("profile.quick.crop")
+        add(split ? "Schräglagenkorrektur – für jeden Einzelbeleg" : holder ? "Schräglagenkorrektur – bei Hüllen aus" : fixed ? "Schräglagenkorrektur – bei festen Maßen aus" : "Schräglagenkorrektur",
+            #selector(toggleCorrection(_:)), enabled: correctionsEditable, checked: split || settings.driverDeskew, value: "deskew").identifier = NSUserInterfaceItemIdentifier("profile.quick.deskew")
         if let profile = settings.activeProfile {
             let modes = [("Feste Drehung / Ersatzwerte", "fixed"), ("Automatisch – macOS", "vision"), ("Automatisch – Epson (bisher)", "epson")]
             let title = modes.first { $0.1 == profile.orientation.rawValue }?.0 ?? "Feste Drehung"
             addChoices("Ausrichtung: " + title,
-                options: modes.filter { $0.1 != "epson" || (!fixed && !holder) },
+                options: modes.filter { $0.1 != "epson" || (!fixed && !holder && !split) },
                 selected: profile.orientation.rawValue, action: #selector(changeOrientation(_:)), enabled: editable).identifier = NSUserInterfaceItemIdentifier("profile.quick.orientation")
         } else {
             add("Automatische Drehung (bisher)", #selector(toggleCorrection(_:)), enabled: editable, checked: settings.driverRotate, value: "rotate").identifier = NSUserInterfaceItemIdentifier("profile.quick.orientation")
@@ -230,7 +233,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var next = settings
         switch key {
         case "crop", "deskew":
-            guard !settings.transparentOriginal, settings.activeProfile?.area.isAutomatic != false else { return }
+            guard !settings.transparentOriginal, !settings.separatesDocuments, settings.activeProfile?.area.isAutomatic != false else { return }
             if key == "crop" { next.crop.toggle() } else { next.deskew.toggle() }
         case "rotate":
             guard settings.activeProfile == nil else { return }; next.rotate.toggle()
@@ -238,6 +241,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         default: return
         }
         _ = persist(next); refreshIcon()
+    }
+    @objc private func toggleDocumentSeparation() {
+        guard !controller.busy,!editorOpen,var profile=settings.activeProfile,profile.canSeparateDocuments else {return}
+        profile.separateDocuments = !profile.separatesDocuments
+        if profile.separateDocuments == true && profile.orientation == .epson {profile.orientation = .vision}
+        var next=settings
+        do {try next.saveProfile(profile);_ = persist(next)} catch {showError(error.localizedDescription)}
+        refreshIcon()
     }
     @objc private func changeProfile(_ sender:NSMenuItem) {
         guard !controller.busy,!editorOpen,let raw=sender.representedObject as? String else{return}
@@ -250,7 +261,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func changeOrientation(_ sender: NSMenuItem) {
         guard !controller.busy, !editorOpen, let raw = sender.representedObject as? String,
               let mode = OrientationMode(rawValue: raw), var profile = settings.activeProfile else { return }
-        guard mode != .epson || (profile.area.isAutomatic && !profile.isTransparentOriginal) else { return }
+        guard mode != .epson || (profile.area.isAutomatic && !profile.isTransparentOriginal && !profile.separatesDocuments) else { return }
         profile.orientation = mode
         var next = settings
         do { try next.saveProfile(profile); _ = persist(next) }

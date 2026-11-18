@@ -18,10 +18,11 @@ public struct ScanSettings: Codable, Equatable {
     public var legacyScanSettings: ProfileScanSettings?
     public var activeProfile: ScanProfile? { profiles.first { $0.id == activeProfileID } }
     public var transparentOriginal: Bool { activeProfile?.isTransparentOriginal == true }
+    public var separatesDocuments: Bool {activeProfile?.separatesDocuments == true}
     public var usesDirectCapture: Bool { automaticFeeding || transparentOriginal }
-    public var driverCrop: Bool { transparentOriginal || (activeProfile.map { $0.area.isAutomatic && crop } ?? crop) }
-    public var driverDeskew: Bool { !transparentOriginal && (activeProfile.map { $0.area.isAutomatic && deskew } ?? deskew) }
-    public var driverRotate: Bool { activeProfile.map { $0.orientation == .epson } ?? rotate }
+    public var driverCrop: Bool { !separatesDocuments && (transparentOriginal || (activeProfile.map { $0.area.isAutomatic && crop } ?? crop)) }
+    public var driverDeskew: Bool { !separatesDocuments && !transparentOriginal && (activeProfile.map { $0.area.isAutomatic && deskew } ?? deskew) }
+    public var driverRotate: Bool { !separatesDocuments && (activeProfile.map { $0.orientation == .epson } ?? rotate) }
     public var requiresImageProcessing: Bool { activeProfile.map { $0.orientation != .epson || !$0.area.isAutomatic } ?? false }
     public init(destination: String? = nil) { self.destination = destination }
     private enum CodingKeys: String, CodingKey {

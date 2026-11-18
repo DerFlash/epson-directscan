@@ -20,6 +20,7 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
     private let feeding = NSButton(checkboxWithTitle: "Kontinuierlicher Scan (Sammlungs-PDF)", target: nil, action: nil)
     private let crop = NSButton(checkboxWithTitle: "Automatischer Zuschnitt", target: nil, action: nil)
     private let deskew = NSButton(checkboxWithTitle: "Schräglagenkorrektur", target: nil, action: nil)
+    private let documents = NSButton(checkboxWithTitle: "Separate Dokumente erkennen", target: nil, action: nil)
     private var profileSettings: ProfileScanSettings
     private let hint = NSTextField(wrappingLabelWithString: "")
     private let removeButton = NSButton()
@@ -93,6 +94,8 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
         }
         output.autoenablesItems = false; output.menu?.autoenablesItems = false; output.lastItem?.isEnabled = false
         row("Dateiformat", output, "output")
+        row("Einzelbelege",documents,"documents")
+        documents.target=self;documents.action=#selector(updateDocumentSeparation)
         row("Seiten", duplex, "duplex"); row("Einzug", feeding, "feeding")
         for (title, value) in [("30 Sekunden", "30"), ("60 Sekunden", "60"), ("120 Sekunden", "120"), ("300 Sekunden", "300"), ("Unbegrenzt – mit Stop beenden", "0")] {
             timeout.addItem(withTitle: title); timeout.lastItem?.representedObject = value
@@ -197,15 +200,25 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
         if sender === deskew, deskew.isEnabled { profileSettings.deskew = deskew.state == .on }
         updateControls()
     }
+    @objc private func updateDocumentSeparation() {
+        current.separateDocuments=documents.state == .on
+        if documents.state == .on && orientationMode == .epson {
+            orientation.select(orientation.itemArray.first {($0.representedObject as? String)=="vision"})
+        }
+        updateControls()
+    }
     @objc private func updateControls() {
         let fixed = !editingLegacy && area.indexOfSelectedItem == 1
         let holder = !editingLegacy && transparent.state == .on
+        let split = !editingLegacy && !fixed && !holder && current.separateDocuments == true
+        documents.isEnabled = !editingLegacy && !fixed && !holder
+        documents.state = split ? .on : .off
         name.isEnabled = !editingLegacy; area.isEnabled = !editingLegacy; transparent.isEnabled = !editingLegacy
         width.isEnabled = fixed; height.isEnabled = fixed
         let mode = orientationMode
         front.isEnabled = !editingLegacy && mode != .epson; back.isEnabled = front.isEnabled
         offset.isEnabled = !editingLegacy && mode == .vision
-        for item in orientation.itemArray where (item.representedObject as? String) == "epson" { item.isEnabled = !fixed && !holder }
+        for item in orientation.itemArray where (item.representedObject as? String) == "epson" { item.isEnabled = !fixed && !holder && !split }
         referenceButton.isEnabled = !editingLegacy && mode == .vision
         clearReferenceButton.isEnabled = referenceButton.isEnabled && current.referencePrint != nil
         referenceStatus.stringValue = editingLegacy ? "Automatische Scanfläche; unverändert oder bisherige Epson-Drehung nach Auswahl oben."
@@ -217,11 +230,11 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
         duplex.state = profileSettings.duplex ? .on : .off; feeding.state = profileSettings.automaticFeeding ? .on : .off
         timeout.selectItem(at: timeout.itemArray.firstIndex { ($0.representedObject as? String) == String(profileSettings.feedingTimeoutSeconds) } ?? 2)
         timeout.isEnabled = profileSettings.automaticFeeding
-        crop.isEnabled = !fixed && !holder; deskew.isEnabled = crop.isEnabled
-        crop.state = (holder || (!fixed && profileSettings.crop)) ? .on : .off
-        deskew.state = (!holder && !fixed && profileSettings.deskew) ? .on : .off
-        crop.title = holder ? "Zuschnitt – für transparente Hülle erforderlich" : fixed ? "Automatischer Zuschnitt – bei festen Maßen aus" : "Automatischer Zuschnitt"
-        deskew.title = holder ? "Schräglagenkorrektur – bei Hüllen aus" : fixed ? "Schräglagenkorrektur – bei festen Maßen aus" : "Schräglagenkorrektur"
+        crop.isEnabled = !fixed && !holder && !split; deskew.isEnabled = crop.isEnabled
+        crop.state = (split || holder || (!fixed && profileSettings.crop)) ? .on : .off
+        deskew.state = (split || (!holder && !fixed && profileSettings.deskew)) ? .on : .off
+        crop.title = split ? "Zuschnitt – für jeden Einzelbeleg" : holder ? "Zuschnitt – für transparente Hülle erforderlich" : fixed ? "Automatischer Zuschnitt – bei festen Maßen aus" : "Automatischer Zuschnitt"
+        deskew.title = split ? "Schräglagenkorrektur – für jeden Einzelbeleg" : holder ? "Schräglagenkorrektur – bei Hüllen aus" : fixed ? "Schräglagenkorrektur – bei festen Maßen aus" : "Schräglagenkorrektur"
         var text = editingLegacy ? "Die bisherigen Einstellungen bleiben ein eigener Eintrag. Sie verwenden automatische Scanfläche; feste Maße, macOS-Ausrichtung und Referenzen stehen in benannten Profilen zur Verfügung."
             : fixed ? "Außenmaße vor der Drehung. Beim Einzelscan schneidet die App die feste Fläche mittig aus dem Papierformat aus; automatischer Randzuschnitt und Schräglagenkorrektur sind aus. Bei festen Maßen bitte feste Drehung oder Automatisch – macOS wählen."
             : "Die automatische Scanfläche übernimmt das erkannte Papierformat. Automatischer Zuschnitt und Schräglagenkorrektur lassen sich oben einstellen. Feste Außenmaße und Referenzen sind für Karten und Hüllen verfügbar. Automatische Höhe ist noch nicht freigegeben."
@@ -230,6 +243,7 @@ final class ProfilePanel: NSWindowController, NSWindowDelegate {
             text += "\nDie Duplex-Zuordnung dieses Scanwegs ist noch nicht kalibriert. Bis zur Geräteprüfung gelten die festen Ersatzdrehungen."
         } else if !editingLegacy && mode == .vision { text += "\nBei unsicherer Erkennung gelten die festen Ersatzdrehungen. Vorne/hinten bezeichnet die Scannerseite." }
         if profileSettings.automaticFeeding { text += "\nKontinuierliche Scans sammeln die Seiten im Sammlungs-PDF. Die JPG/PDF-Auswahl pro Blatt bleibt für Einzelscans gespeichert." }
+        if split {text = "Erkannte Dokumente werden einzeln zugeschnitten und ausgerichtet. Die vollständige Vorlage bleibt privat zur Kontrolle erhalten. Bitte getrennte, nicht überlappende Belege und eine passende Scanner-Trägerfolie verwenden."}
         hint.stringValue = text
     }
     @objc private func chooseReference() {
