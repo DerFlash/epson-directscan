@@ -152,6 +152,13 @@ und Belegen wechseln. Bei einem nicht erreichbaren Ordner wird kein anderer
 Ablageordner als Ersatz verwendet. PDF-Dateien enthalten weiterhin Bilder ohne
 durchsuchbare Textebene. Diese Ergänzung ist noch nicht im Download Build 25 enthalten.
 
+**Dateinamen ab Build 28:** Neue Scans beginnen mit dem aktiven Profilnamen,
+zum Beispiel `Shop-Belege_2026-11-18_004708_546_0001.pdf`. Danach folgen Datum,
+Uhrzeit mit Millisekunden und Blattnummer; Sammlungen enden auf `_Sammlung.pdf`,
+doppelseitige JPGs zusätzlich auf `_vorne` bzw. `_hinten`. Sonderzeichen werden
+für Dateinamen bereinigt. Ohne benanntes Profil beginnt der Name mit `Scan`.
+Zurückgehaltene Aufträge behalten ihren bereits gespeicherten Dateinamen.
+
 - **Feste Außenmaße:** Breite quer zum Einzug und Höhe in Einzugsrichtung in
   Millimetern, also vor einer Drehung. Dezimalkomma und Dezimalpunkt sind möglich.
   Beim normalen Scan erfasst macOS ein ausreichend großes Papierformat; die App
@@ -240,7 +247,7 @@ anfangs aus; JPG und alle drei bisherigen Korrekturen bleiben erhalten. Die
 Auflösung bleibt bei 300 dpi/Farbe. JPG-Seiten einer doppelseitigen Karte haben
 dieselbe Kartennummer und die Endungen `_vorne.jpg` und `_hinten.jpg`. PDFs pro
 Karte enthalten zuerst die Vorder-, dann die Rückseite. Ein Stapel erzeugt je
-Karte ein PDF. Zeitstempel und UUID verhindern Namenskollisionen; eine vorhandene
+Karte ein PDF. Zeitstempel und Blattnummer unterscheiden die Ausgaben; eine vorhandene
 Datei wird niemals ersetzt.
 
 Die bisherige automatische Drehung verwendet Epsons Texterkennung zur Orientierung.
